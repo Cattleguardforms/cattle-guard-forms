@@ -19,7 +19,8 @@ if (existsSync(envPath)) {
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishableKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseKey = publishableKey || anonKey;
+const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const schemaKey = serviceRoleKey || publishableKey || anonKey;
 
 const result = {
   ok: false,
@@ -28,6 +29,8 @@ const result = {
     hasUrl: Boolean(supabaseUrl),
     hasPublishableKey: Boolean(publishableKey),
     hasAnonKey: Boolean(anonKey),
+    hasServiceRoleKey: Boolean(serviceRoleKey),
+    usingServiceRoleForSchema: Boolean(serviceRoleKey),
   },
   customers: null,
   orders: null,
@@ -60,8 +63,8 @@ function extractTable(openapi, tableName) {
   };
 }
 
-if (!supabaseUrl || !supabaseKey) {
-  result.errors.push("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+if (!supabaseUrl || !schemaKey) {
+  result.errors.push("Missing NEXT_PUBLIC_SUPABASE_URL and a usable Supabase key. SUPABASE_SERVICE_ROLE_KEY is preferred for schema inspection.");
   console.log(JSON.stringify(result, null, 2));
   process.exit(1);
 }
@@ -69,8 +72,8 @@ if (!supabaseUrl || !supabaseKey) {
 try {
   const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/`, {
     headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
+      apikey: schemaKey,
+      Authorization: `Bearer ${schemaKey}`,
       Accept: "application/openapi+json",
     },
   });
