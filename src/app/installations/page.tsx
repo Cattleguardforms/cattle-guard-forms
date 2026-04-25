@@ -142,15 +142,27 @@ export default function InstallationsPage() {
 
         <section className="mt-20">
           <h2 className="text-3xl font-bold text-green-800">Installation Video</h2>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-700">
+            Watch the installation walkthrough below. If the embedded video does not load in your browser, use the button underneath to open it directly on YouTube.
+          </p>
           <div className="mt-6 aspect-video overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
             <iframe
               className="h-full w-full"
-              src="https://www.youtube.com/embed/ineaalZN26o"
+              src="https://www.youtube-nocookie.com/embed/ineaalZN26o"
               title="CowStop installation video"
+              referrerPolicy="strict-origin-when-cross-origin"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
           </div>
+          <a
+            href="https://www.youtube.com/watch?v=ineaalZN26o"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-5 inline-flex rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900"
+          >
+            Watch installation video on YouTube
+          </a>
         </section>
       </section>
     </main>
