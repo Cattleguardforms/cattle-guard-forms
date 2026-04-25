@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 
 type QuoteFormData = {
   email: string;
@@ -8,18 +8,7 @@ type QuoteFormData = {
   last_name: string;
   phone: string;
   company: string;
-  address_line1: string;
-  address_line2: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  product_name: string;
-  product_type: string;
-  quantity: string;
-  dimensions: string;
-  specifications: string;
-  installation_needed: boolean;
-  delivery_needed: boolean;
+  quantity: number;
   project_address_line1: string;
   project_address_line2: string;
   project_city: string;
@@ -35,24 +24,17 @@ type QuoteResponse = {
   errors?: string[];
 };
 
+const PRODUCT_NAME = "CowStop Reusable Form";
+const PRODUCT_TYPE = "Cowstop";
+const UNIT_PRICE = 1299;
+
 const initialFormData: QuoteFormData = {
   email: "",
   first_name: "",
   last_name: "",
   phone: "",
   company: "",
-  address_line1: "",
-  address_line2: "",
-  city: "",
-  state: "",
-  postal_code: "",
-  product_name: "",
-  product_type: "Cowstop",
-  quantity: "",
-  dimensions: "",
-  specifications: "",
-  installation_needed: false,
-  delivery_needed: false,
+  quantity: 1,
   project_address_line1: "",
   project_address_line2: "",
   project_city: "",
@@ -62,6 +44,16 @@ const initialFormData: QuoteFormData = {
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+function getDiscountRate(quantity: number) {
+  if (quantity === 20) return 0.25;
+  if (quantity >= 5) return 0.1;
+  return 0;
+}
 
 export default function QuotePage() {
   const [formData, setFormData] = useState<QuoteFormData>(initialFormData);
@@ -69,20 +61,28 @@ export default function QuotePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<QuoteResponse | null>(null);
 
-  const handleChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => {
+  const pricing = useMemo(() => {
+    const subtotal = formData.quantity * UNIT_PRICE;
+    const discountRate = getDiscountRate(formData.quantity);
+    const discountAmount = subtotal * discountRate;
+    const total = subtotal - discountAmount;
+
+    return {
+      subtotal,
+      discountRate,
+      discountAmount,
+      total,
+    };
+  }, [formData.quantity]);
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-      ...(name === "product_name" && value === "Cowstop" ? { product_type: "Cowstop" } : {}),
-    }));
+    setFormData((previous) => ({ ...previous, [name]: value }));
   };
 
-  const handleCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = event.target;
-    setFormData((previous) => ({ ...previous, [name]: checked }));
+  const handleQuantityChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const quantity = Number.parseInt(event.target.value, 10);
+    setFormData((previous) => ({ ...previous, quantity }));
   };
 
   const validate = () => {
@@ -90,15 +90,8 @@ export default function QuotePage() {
       return "Please enter a valid email address.";
     }
 
-    if (!formData.product_name) {
-      return "Please select a product.";
-    }
-
-    if (formData.quantity.trim().length > 0) {
-      const quantity = Number(formData.quantity);
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        return "Quantity must be a positive integer.";
-      }
+    if (!Number.isInteger(formData.quantity) || formData.quantity < 1 || formData.quantity > 20) {
+      return "Quantity must be between 1 and 20.";
     }
 
     return null;
@@ -115,6 +108,18 @@ export default function QuotePage() {
       return;
     }
 
+    const pricingSummary = [
+      `Pricing Summary:`,
+      `Unit Price: ${currencyFormatter.format(UNIT_PRICE)}`,
+      `Quantity: ${formData.quantity}`,
+      `Subtotal: ${currencyFormatter.format(pricing.subtotal)}`,
+      `Discount: ${(pricing.discountRate * 100).toFixed(0)}%`,
+      `Discount Amount: ${currencyFormatter.format(pricing.discountAmount)}`,
+      `Total: ${currencyFormatter.format(pricing.total)}`,
+    ].join("\n");
+
+    const noteParts = [formData.notes.trim(), pricingSummary].filter((value) => value.length > 0);
+
     try {
       setLoading(true);
       const response = await fetch("/api/quote-intake", {
@@ -123,23 +128,27 @@ export default function QuotePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...formData,
-          product_type: formData.product_type || formData.product_name,
-          quantity:
-            formData.quantity.trim().length > 0
-              ? Number.parseInt(formData.quantity, 10)
-              : null,
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          phone: formData.phone,
+          company: formData.company,
+          project_address_line1: formData.project_address_line1,
+          project_address_line2: formData.project_address_line2,
+          project_city: formData.project_city,
+          project_state: formData.project_state,
+          project_postal_code: formData.project_postal_code,
+          product_name: PRODUCT_NAME,
+          product_type: PRODUCT_TYPE,
+          quantity: formData.quantity,
+          notes: noteParts.join("\n\n"),
         }),
       });
 
       const data = (await response.json()) as QuoteResponse;
 
       if (!response.ok) {
-        setError(
-          data.errors?.join(" ") ??
-            data.error ??
-            "Unable to submit quote request right now.",
-        );
+        setError(data.errors?.join(" ") ?? data.error ?? "Unable to submit request right now.");
         return;
       }
 
@@ -156,10 +165,11 @@ export default function QuotePage() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-      <h1 className="mb-2 text-3xl font-semibold">Request a Cowstop Quote</h1>
+    <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10">
+      <h1 className="mb-2 text-3xl font-semibold">CowStop Order / Request</h1>
       <p className="mb-8 text-slate-300">
-        Send us your customer details and shipping/project location so our team can prepare your Cowstop quote.
+        You are purchasing the reusable CowStop plastic form. The finished concrete section is what
+        the form helps you make.
       </p>
 
       {error ? (
@@ -170,7 +180,7 @@ export default function QuotePage() {
 
       {success?.order_id || success?.status ? (
         <div className="mb-6 rounded border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-emerald-200">
-          <p className="font-medium">Quote request submitted successfully.</p>
+          <p className="font-medium">Request submitted successfully.</p>
           <p>
             Order ID: <span className="font-mono">{success.order_id ?? "n/a"}</span>
           </p>
@@ -178,7 +188,87 @@ export default function QuotePage() {
         </div>
       ) : null}
 
+      <section className="mb-8 grid gap-4 md:grid-cols-2">
+        <div className="rounded border border-slate-800 p-4">
+          <h2 className="mb-3 text-lg font-medium">What You Receive: CowStop Reusable Plastic Form</h2>
+          <div className="flex h-48 items-center justify-center rounded border border-dashed border-emerald-500/50 bg-emerald-500/5 text-center text-sm text-slate-300">
+            Green CowStop plastic form image area
+          </div>
+        </div>
+        <div className="rounded border border-slate-800 p-4">
+          <h2 className="mb-3 text-lg font-medium">What It Makes: Finished Concrete Cattle Guard Section</h2>
+          <div className="flex h-48 items-center justify-center rounded border border-dashed border-sky-500/50 bg-sky-500/5 text-center text-sm text-slate-300">
+            Finished concrete cattle guard section result area
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-8 rounded border border-slate-800 p-4">
+        <h2 className="mb-3 text-xl font-medium">Benefits</h2>
+        <ul className="list-inside list-disc space-y-1 text-slate-200">
+          <li>Reusable form system</li>
+          <li>Helps reduce steel cattle guard cost</li>
+          <li>Creates concrete cattle guard sections on-site</li>
+          <li>Built-in hoof-stop design</li>
+          <li>Flexible sizing by pouring multiple sections</li>
+          <li>No rust or painting</li>
+        </ul>
+      </section>
+
       <form className="space-y-8" onSubmit={handleSubmit}>
+        <section className="space-y-4 rounded border border-slate-800 p-4">
+          <h2 className="text-xl font-medium">Product & Pricing</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Product</p>
+              <p className="font-medium">{PRODUCT_NAME}</p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Unit Price</p>
+              <p className="font-medium">{currencyFormatter.format(UNIT_PRICE)}</p>
+            </div>
+
+            <label className="space-y-1 sm:col-span-2">
+              <span className="text-sm text-slate-300">Quantity (1–20)</span>
+              <select
+                name="quantity"
+                value={formData.quantity}
+                onChange={handleQuantityChange}
+                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2"
+              >
+                {Array.from({ length: 20 }, (_, index) => index + 1).map((quantity) => (
+                  <option key={quantity} value={quantity}>
+                    {quantity}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Selected Quantity</p>
+              <p className="font-medium">{formData.quantity}</p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Discount Percentage</p>
+              <p className="font-medium">
+                {pricing.discountRate > 0 ? `${(pricing.discountRate * 100).toFixed(0)}%` : "No discount"}
+              </p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Subtotal (Before Discount)</p>
+              <p className="font-medium">{currencyFormatter.format(pricing.subtotal)}</p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2">
+              <p className="text-xs uppercase text-slate-400">Discount Amount</p>
+              <p className="font-medium">{currencyFormatter.format(pricing.discountAmount)}</p>
+            </div>
+            <div className="rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 sm:col-span-2">
+              <p className="text-xs uppercase text-emerald-200">Total (After Discount)</p>
+              <p className="text-lg font-semibold text-emerald-100">{currencyFormatter.format(pricing.total)}</p>
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-4 rounded border border-slate-800 p-4">
           <h2 className="text-xl font-medium">Customer Details</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -189,14 +279,7 @@ export default function QuotePage() {
               value={formData.email}
               onChange={handleChange}
               placeholder="Email *"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Phone"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <input
               name="first_name"
@@ -213,46 +296,18 @@ export default function QuotePage() {
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Phone"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+            />
+            <input
               name="company"
               value={formData.company}
               onChange={handleChange}
               placeholder="Company"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <input
-              name="address_line1"
-              value={formData.address_line1}
-              onChange={handleChange}
-              placeholder="Billing address line 1"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <input
-              name="address_line2"
-              value={formData.address_line2}
-              onChange={handleChange}
-              placeholder="Billing address line 2"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <input
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              placeholder="Billing city"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="state"
-              value={formData.state}
-              onChange={handleChange}
-              placeholder="Billing state"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="postal_code"
-              value={formData.postal_code}
-              onChange={handleChange}
-              placeholder="Billing postal code"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
           </div>
         </section>
@@ -264,99 +319,42 @@ export default function QuotePage() {
               name="project_address_line1"
               value={formData.project_address_line1}
               onChange={handleChange}
-              placeholder="Shipping/project address line 1"
+              placeholder="Project address line 1"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <input
               name="project_address_line2"
               value={formData.project_address_line2}
               onChange={handleChange}
-              placeholder="Shipping/project address line 2"
+              placeholder="Project address line 2"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <input
               name="project_city"
               value={formData.project_city}
               onChange={handleChange}
-              placeholder="Shipping/project city"
+              placeholder="Project city"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
               name="project_state"
               value={formData.project_state}
               onChange={handleChange}
-              placeholder="Shipping/project state"
+              placeholder="Project state"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
               name="project_postal_code"
               value={formData.project_postal_code}
               onChange={handleChange}
-              placeholder="Shipping/project postal code"
+              placeholder="Project postal code"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded border border-slate-800 p-4">
-          <h2 className="text-xl font-medium">Product Request</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <select
-              required
-              name="product_name"
-              value={formData.product_name}
-              onChange={handleChange}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            >
-              <option value="">Select product</option>
-              <option value="Cowstop">Cowstop</option>
-            </select>
-            <input
-              name="quantity"
-              value={formData.quantity}
-              onChange={handleChange}
-              placeholder="Quantity"
-              inputMode="numeric"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="dimensions"
-              value={formData.dimensions}
-              onChange={handleChange}
-              placeholder="Dimensions or opening size"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <textarea
-              name="specifications"
-              value={formData.specifications}
-              onChange={handleChange}
-              placeholder="Specifications"
-              rows={3}
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input
-                type="checkbox"
-                name="installation_needed"
-                checked={formData.installation_needed}
-                onChange={handleCheckboxChange}
-              />
-              Installation needed
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input
-                type="checkbox"
-                name="delivery_needed"
-                checked={formData.delivery_needed}
-                onChange={handleCheckboxChange}
-              />
-              Delivery needed
-            </label>
             <textarea
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Additional notes"
+              placeholder="Notes"
               rows={4}
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
@@ -368,7 +366,7 @@ export default function QuotePage() {
           disabled={loading}
           className="rounded bg-slate-100 px-4 py-2 font-medium text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Submitting..." : "Submit Quote Request"}
+          {loading ? "Submitting..." : "Submit CowStop Request"}
         </button>
       </form>
     </main>
