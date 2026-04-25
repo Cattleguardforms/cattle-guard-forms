@@ -32,6 +32,7 @@ type QuoteResponse = {
   order_id?: string;
   status?: string;
   error?: string;
+  errors?: string[];
 };
 
 const initialFormData: QuoteFormData = {
@@ -46,7 +47,7 @@ const initialFormData: QuoteFormData = {
   state: "",
   postal_code: "",
   product_name: "",
-  product_type: "",
+  product_type: "Cowstop",
   quantity: "",
   dimensions: "",
   specifications: "",
@@ -69,10 +70,14 @@ export default function QuotePage() {
   const [success, setSuccess] = useState<QuoteResponse | null>(null);
 
   const handleChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = event.target;
-    setFormData((previous) => ({ ...previous, [name]: value }));
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+      ...(name === "product_name" && value === "Cowstop" ? { product_type: "Cowstop" } : {}),
+    }));
   };
 
   const handleCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -83,6 +88,10 @@ export default function QuotePage() {
   const validate = () => {
     if (!emailPattern.test(formData.email)) {
       return "Please enter a valid email address.";
+    }
+
+    if (!formData.product_name) {
+      return "Please select a product.";
     }
 
     if (formData.quantity.trim().length > 0) {
@@ -115,6 +124,7 @@ export default function QuotePage() {
         },
         body: JSON.stringify({
           ...formData,
+          product_type: formData.product_type || formData.product_name,
           quantity:
             formData.quantity.trim().length > 0
               ? Number.parseInt(formData.quantity, 10)
@@ -125,7 +135,11 @@ export default function QuotePage() {
       const data = (await response.json()) as QuoteResponse;
 
       if (!response.ok) {
-        setError(data.error ?? "Unable to submit quote request right now.");
+        setError(
+          data.errors?.join(" ") ??
+            data.error ??
+            "Unable to submit quote request right now.",
+        );
         return;
       }
 
@@ -143,9 +157,9 @@ export default function QuotePage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-      <h1 className="mb-2 text-3xl font-semibold">Request a Quote</h1>
+      <h1 className="mb-2 text-3xl font-semibold">Request a Cowstop Quote</h1>
       <p className="mb-8 text-slate-300">
-        Fill out this form and our team will review your request.
+        Send us your customer details and shipping/project location so our team can prepare your Cowstop quote.
       </p>
 
       {error ? (
@@ -165,7 +179,7 @@ export default function QuotePage() {
       ) : null}
 
       <form className="space-y-8" onSubmit={handleSubmit}>
-        <section className="space-y-4">
+        <section className="space-y-4 rounded border border-slate-800 p-4">
           <h2 className="text-xl font-medium">Customer Details</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <input
@@ -175,6 +189,13 @@ export default function QuotePage() {
               value={formData.email}
               onChange={handleChange}
               placeholder="Email *"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+            />
+            <input
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Phone"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
@@ -192,13 +213,6 @@ export default function QuotePage() {
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Phone"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
               name="company"
               value={formData.company}
               onChange={handleChange}
@@ -209,57 +223,94 @@ export default function QuotePage() {
               name="address_line1"
               value={formData.address_line1}
               onChange={handleChange}
-              placeholder="Address line 1"
+              placeholder="Billing address line 1"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <input
               name="address_line2"
               value={formData.address_line2}
               onChange={handleChange}
-              placeholder="Address line 2"
+              placeholder="Billing address line 2"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <input
               name="city"
               value={formData.city}
               onChange={handleChange}
-              placeholder="City"
+              placeholder="Billing city"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
               name="state"
               value={formData.state}
               onChange={handleChange}
-              placeholder="State"
+              placeholder="Billing state"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
             />
             <input
               name="postal_code"
               value={formData.postal_code}
               onChange={handleChange}
-              placeholder="Postal code"
+              placeholder="Billing postal code"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-medium">Order / Request Details</h2>
+        <section className="space-y-4 rounded border border-slate-800 p-4">
+          <h2 className="text-xl font-medium">Shipping / Project Location</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <input
+              name="project_address_line1"
+              value={formData.project_address_line1}
+              onChange={handleChange}
+              placeholder="Shipping/project address line 1"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
+            />
+            <input
+              name="project_address_line2"
+              value={formData.project_address_line2}
+              onChange={handleChange}
+              placeholder="Shipping/project address line 2"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
+            />
+            <input
+              name="project_city"
+              value={formData.project_city}
+              onChange={handleChange}
+              placeholder="Shipping/project city"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+            />
+            <input
+              name="project_state"
+              value={formData.project_state}
+              onChange={handleChange}
+              placeholder="Shipping/project state"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+            />
+            <input
+              name="project_postal_code"
+              value={formData.project_postal_code}
+              onChange={handleChange}
+              placeholder="Shipping/project postal code"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
+            />
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded border border-slate-800 p-4">
+          <h2 className="text-xl font-medium">Product Request</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <select
+              required
               name="product_name"
               value={formData.product_name}
               onChange={handleChange}
-              placeholder="Product name"
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="product_type"
-              value={formData.product_type}
-              onChange={handleChange}
-              placeholder="Product type"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
+            >
+              <option value="">Select product</option>
+              <option value="Cowstop">Cowstop</option>
+            </select>
             <input
               name="quantity"
               value={formData.quantity}
@@ -272,8 +323,8 @@ export default function QuotePage() {
               name="dimensions"
               value={formData.dimensions}
               onChange={handleChange}
-              placeholder="Dimensions"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
+              placeholder="Dimensions or opening size"
+              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
             />
             <textarea
               name="specifications"
@@ -301,41 +352,6 @@ export default function QuotePage() {
               />
               Delivery needed
             </label>
-            <input
-              name="project_address_line1"
-              value={formData.project_address_line1}
-              onChange={handleChange}
-              placeholder="Project address line 1"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <input
-              name="project_address_line2"
-              value={formData.project_address_line2}
-              onChange={handleChange}
-              placeholder="Project address line 2"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
-            <input
-              name="project_city"
-              value={formData.project_city}
-              onChange={handleChange}
-              placeholder="Project city"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="project_state"
-              value={formData.project_state}
-              onChange={handleChange}
-              placeholder="Project state"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2"
-            />
-            <input
-              name="project_postal_code"
-              value={formData.project_postal_code}
-              onChange={handleChange}
-              placeholder="Project postal code"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 sm:col-span-2"
-            />
             <textarea
               name="notes"
               value={formData.notes}
