@@ -3,56 +3,56 @@ const steps = [
     title: "Step 1: Prep the Form",
     body:
       "Spray the inside of the form with silicone spray or another approved concrete form release agent. Lay the rebar grid according to the reinforcement plan, keeping at least 2 inches of clearance from all edges. Install lift hooks or eyebolts securely before the pour.",
-    imageSrc: "/installations/step-1.jpg",
+    imageSrc: "/installations/step%20-%201.jpg",
     imageAlt: "CowStop form prepared with rebar and lift points",
   },
   {
     title: "Step 2: Begin Pour — Use 4000 PSI Concrete, Fill Halfway",
     body:
       "Mix and pour 4000 PSI concrete into the form until it is about half full. Spread the mix evenly across the form to prevent shifting, imbalance, or voids around the reinforcement.",
-    imageSrc: "/installations/step-2.jpg",
+    imageSrc: "/installations/step%20-%202.jpg",
     imageAlt: "Concrete being poured into the CowStop form",
   },
   {
     title: "Step 3: Settle and Level",
     body:
       "Use a rod, shovel, or concrete vibrator to work the mix around the rebar and into the corners. Make sure there are no air pockets or voids under the reinforcement. Tap the ends and sides of the form with a hammer or rubber mallet to release trapped air, then continue pouring until the form is full. Strike off and smooth the top surface.",
-    imageSrc: "/installations/step-3.jpg",
+    imageSrc: "/installations/step%20-%203.jpg",
     imageAlt: "Concrete settled and leveled inside the CowStop form",
   },
   {
     title: "Step 4: Install J-Bolts and Cure",
     body:
       "While the concrete is still plastic, insert the J-bolts at the designated anchor points. Check alignment and depth before the concrete sets. Allow the concrete to cure undisturbed for 48–72 hours, keeping it covered or damp as needed.",
-    imageSrc: "/installations/step-4.jpg",
+    imageSrc: "/installations/step%20-%204.jpg",
     imageAlt: "CowStop cured section with J-bolt chain connection markings",
   },
   {
     title: "Step 5: Attach Chain to J-Hooks",
     body:
       "Once the concrete is fully cured, attach lifting chains or slings securely to the J-hooks. Confirm that the load is balanced evenly before lifting.",
-    imageSrc: "/installations/step-5.jpg",
+    imageSrc: "/installations/step%20-%205.jpg",
     imageAlt: "Chain attached to CowStop lifting hardware",
   },
   {
     title: "Step 6: Lift Cattle Guard From the Form",
     body:
       "Using a loader, forklift, or crane, carefully lift the cured cattle guard out of the form. Avoid sudden jerks, twisting, or uneven lifting that could crack the concrete or damage the embedded hardware.",
-    imageSrc: "/installations/step-6.jpg",
+    imageSrc: "/installations/step%20-%206.jpg",
     imageAlt: "Cured concrete cattle guard being lifted from the reusable form",
   },
   {
     title: "Step 7: Transport and Position",
     body:
       "Move the cattle guard to its designated location. Set it square and level on the prepared gravel pad, keeping the top elevated above grade as intended.",
-    imageSrc: "/installations/step-7.jpg",
+    imageSrc: "/installations/step%20-%207.jpg",
     imageAlt: "Finished CowStop concrete section ready for positioning",
   },
   {
     title: "Step 8: Final Alignment and Backfill",
     body:
       "Confirm final alignment, elevation, and stability. Backfill around the edges with compacted gravel or soil to lock the cattle guard in place and maintain proper drainage.",
-    imageSrc: "/installations/step-8.jpg",
+    imageSrc: "/installations/step%20-%208.jpg",
     imageAlt: "Tractor moving CowStop section for final alignment",
   },
 ];
