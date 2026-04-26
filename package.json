@@ -9,11 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.8",
     "@stripe/stripe-js": "^4.9.0",
+    "@supabase/supabase-js": "^2.49.8",
     "next": "^15.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "resend": "^6.12.2",
     "stripe": "^17.7.0"
   },
   "devDependencies": {
