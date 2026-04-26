@@ -47,6 +47,13 @@ export default function HomePage() {
           <img src="/products/cattle-guard-hero.png" alt="Concrete cattle guard installed at a ranch entrance" className="h-full w-full object-cover opacity-85" />
           <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/25 to-transparent" />
         </div>
+        <div className="absolute bottom-20 right-[6%] z-10 hidden h-44 w-44 rotate-[-7deg] rounded-full border-[6px] border-amber-200/45 bg-amber-950/70 text-center font-black uppercase tracking-wide text-amber-100 shadow-2xl backdrop-blur-sm lg:flex lg:flex-col lg:items-center lg:justify-center">
+          <span className="text-xs tracking-[0.22em]">Built to Last</span>
+          <span className="my-2 h-px w-24 bg-amber-200/50" />
+          <span className="text-2xl leading-6">Cattle Guard<br />Forms</span>
+          <span className="my-2 h-px w-24 bg-amber-200/50" />
+          <span className="text-xs tracking-[0.18em]">Rancher Tested</span>
+        </div>
         <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:min-h-[560px] lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Cattle Guard Forms</p>
@@ -63,16 +70,7 @@ export default function HomePage() {
               <span>◉ HS-20 Rated</span>
             </div>
           </div>
-          <div className="relative lg:min-h-[430px]">
-            <div className="ml-auto hidden h-[420px] max-w-xl overflow-hidden rounded-[2rem] border border-white/20 bg-white/10 p-3 shadow-2xl backdrop-blur lg:block">
-              <img src="/installations/step%20-%207.png" alt="Concrete cattle guard section ready for installation" className="h-full w-full rounded-[1.35rem] object-cover" />
-            </div>
-            <div className="absolute bottom-8 right-8 hidden rounded-full border border-amber-200/40 bg-amber-950/75 px-8 py-6 text-center font-black uppercase tracking-wide text-amber-100 shadow-xl backdrop-blur lg:block">
-              <span className="block text-xs">Built to Last</span>
-              <span className="block text-2xl">Cattle Guard<br />Forms</span>
-              <span className="block text-xs">Rancher Tested</span>
-            </div>
-          </div>
+          <div className="hidden lg:block" aria-hidden="true" />
         </div>
       </section>
 
