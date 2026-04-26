@@ -1,5 +1,14 @@
 import Link from "next/link";
 
+const navItems = [
+  ["Home", "/"],
+  ["Shop", "/quote"],
+  ["Installations", "/installations"],
+  ["FAQ", "/faq"],
+  ["Blog", "/blog"],
+  ["Contact", "/contact"],
+];
+
 const steps = [
   {
     title: "Prep the Form",
@@ -23,11 +32,32 @@ const steps = [
     imageAlt: "Concrete settled and leveled inside the form",
   },
   {
-    title: "Lift and Place",
+    title: "Install J-Bolts and Cure",
     body:
-      "Use the embedded lifting hardware with a loader, forklift, tractor, or crane. Set the cured cattle guard section square and level on a compacted, well-drained base.",
+      "While the concrete is still plastic, insert the J-bolts at the designated anchor points. Check alignment and depth before the concrete sets. Allow the concrete to cure undisturbed before removal.",
+    imageSrc: "/installations/step%20-%204.jpg",
+    imageAlt: "Cattle guard form with J-bolt hardware placed before cure",
+  },
+  {
+    title: "Attach Chain to J-Hooks",
+    body:
+      "Once the concrete is cured, attach lifting chains or slings securely to the J-hooks. Confirm that the load is balanced evenly before lifting.",
+    imageSrc: "/installations/step%20-%205.png",
+    imageAlt: "Chain attached to cattle guard lifting hardware",
+  },
+  {
+    title: "Lift From the Form",
+    body:
+      "Using a loader, forklift, tractor, or crane, carefully lift the cured cattle guard out of the form. Avoid twisting, sudden jerks, or uneven lifting.",
+    imageSrc: "/installations/step%20-%206.jpg",
+    imageAlt: "Cured concrete cattle guard being lifted from the reusable form",
+  },
+  {
+    title: "Prepare Site and Place",
+    body:
+      "Choose a level, well-drained location aligned with the roadway or gate. Compact the base, use gravel as needed, then set the cattle guard square and level.",
     imageSrc: "/installations/step%20-%207.png",
-    imageAlt: "Finished concrete cattle guard section ready for positioning",
+    imageAlt: "Finished concrete cattle guard section ready for placement",
   },
 ];
 
@@ -58,12 +88,9 @@ export default function InstallationsPage() {
             <span className="hidden text-xl font-black uppercase leading-5 tracking-wide text-green-900 sm:block">Cattle Guard<br />Forms</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-neutral-700 md:flex">
-            <Link href="/" className="hover:text-green-800">Home</Link>
-            <Link href="/quote" className="hover:text-green-800">Shop</Link>
-            <Link href="/installations" className="text-green-900 underline decoration-green-800 decoration-2 underline-offset-8">Installations</Link>
-            <Link href="/faq" className="hover:text-green-800">FAQ</Link>
-            <Link href="/blog" className="hover:text-green-800">Blog</Link>
-            <Link href="/contact" className="hover:text-green-800">Contact</Link>
+            {navItems.map(([label, href]) => (
+              <Link key={href} href={href} className={href === "/installations" ? "text-green-900 underline decoration-green-800 decoration-2 underline-offset-8" : "hover:text-green-800"}>{label}</Link>
+            ))}
           </nav>
           <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Request a Quote</Link>
         </div>
@@ -77,10 +104,10 @@ export default function InstallationsPage() {
         </div>
         <div className="relative mx-auto max-w-7xl px-6 py-16 lg:py-24">
           <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Installation guide</p>
-          <h1 className="mt-5 max-w-3xl text-5xl font-black leading-tight tracking-tight md:text-7xl">Simple steps. Strong results.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Prepare the form, pour the section, cure the concrete, and set the finished cattle guard into a compacted, well-drained gate opening.</p>
+          <h1 className="mt-5 max-w-3xl text-5xl font-black leading-tight tracking-tight md:text-7xl">Step-by-step cattle guard install.</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">All seven steps are listed below. Click any step to open the full image and instruction details.</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="#steps" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">View Steps</a>
+            <a href="#steps" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">View All 7 Steps</a>
             <a href="#video" className="rounded-lg border border-white/40 px-6 py-4 text-center font-bold text-white hover:bg-white/10">Watch Video</a>
           </div>
         </div>
@@ -89,15 +116,15 @@ export default function InstallationsPage() {
       <section className="mx-auto -mt-10 max-w-7xl px-6 relative z-10">
         <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl md:grid-cols-4">
           {highlights.map(([value, label]) => (
-            <div key={label} className="rounded-xl bg-green-50 p-5 text-center">
+            <Link key={label} href={value === "HS-20" ? "/engineering/hs20" : "#steps"} className="rounded-xl bg-green-50 p-5 text-center transition hover:-translate-y-1 hover:shadow-md">
               <p className="text-3xl font-black text-green-900">{value}</p>
               <p className="mt-2 text-sm font-semibold text-neutral-600">{label}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <section id="materials" className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl border border-green-100 bg-green-50 p-8 shadow-sm">
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Material list</p>
@@ -113,19 +140,30 @@ export default function InstallationsPage() {
       </section>
 
       <section id="steps" className="bg-neutral-50 py-16">
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-6xl px-6">
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Process</p>
-          <h2 className="mt-2 text-4xl font-black tracking-tight">From prep to placement.</h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <h2 className="mt-2 text-4xl font-black tracking-tight">All 7 installation steps.</h2>
+          <div className="mt-10 space-y-5">
             {steps.map((step, index) => (
-              <article key={step.title} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                <img src={step.imageSrc} alt={step.imageAlt} className="h-52 w-full object-cover transition duration-500 group-hover:scale-105" />
-                <div className="p-6">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-green-800 text-sm font-black text-white">{index + 1}</span>
-                  <h3 className="mt-4 text-xl font-black text-green-900">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-neutral-600">{step.body}</p>
+              <details key={step.title} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm open:shadow-xl">
+                <summary className="grid cursor-pointer list-none gap-5 p-5 marker:hidden md:grid-cols-[160px_1fr_auto] md:items-center">
+                  <img src={step.imageSrc} alt={step.imageAlt} className="h-28 w-full rounded-2xl object-cover md:w-40" />
+                  <div>
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-green-800 text-sm font-black text-white">{index + 1}</span>
+                    <h3 className="mt-3 text-2xl font-black text-green-900">{step.title}</h3>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-neutral-600">{step.body}</p>
+                  </div>
+                  <span className="text-3xl font-black text-green-800 transition group-open:rotate-45">+</span>
+                </summary>
+                <div className="grid gap-6 border-t border-neutral-200 p-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+                  <img src={step.imageSrc} alt={step.imageAlt} className="w-full rounded-2xl border border-neutral-200 object-contain shadow-sm" />
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Step {index + 1}</p>
+                    <h4 className="mt-2 text-3xl font-black tracking-tight">{step.title}</h4>
+                    <p className="mt-4 text-lg leading-8 text-neutral-700">{step.body}</p>
+                  </div>
                 </div>
-              </article>
+              </details>
             ))}
           </div>
         </div>
@@ -136,7 +174,7 @@ export default function InstallationsPage() {
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Video guide</p>
             <h2 className="mt-2 text-4xl font-black tracking-tight">Watch the installation walkthrough.</h2>
-            <p className="mt-4 leading-8 text-neutral-700">Use the video with the step cards above to plan the pour, lifting process, site preparation, and final placement.</p>
+            <p className="mt-4 leading-8 text-neutral-700">Use the video with the step list above to plan the pour, lifting process, site preparation, and final placement.</p>
             <a href="https://www.youtube.com/watch?v=ineaalZN26o" target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-lg bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900">Open on YouTube</a>
           </div>
           <div className="aspect-video overflow-hidden rounded-3xl border border-neutral-200 bg-black shadow-xl">
