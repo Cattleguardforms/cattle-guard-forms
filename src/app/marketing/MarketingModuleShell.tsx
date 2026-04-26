@@ -1,72 +1,5 @@
 import Link from "next/link";
-import MarketingSectionClient from "./[section]/MarketingSectionClient";
-
-const liveMarketingModules: Record<string, { title: string; description: string }> = {
-  "lead-inbox": {
-    title: "Lead Inbox",
-    description: "Capture incoming shop requests, quote leads, distributor inquiries, and follow-up opportunities.",
-  },
-  "custom-crm": {
-    title: "Custom CRM",
-    description: "Create general CRM records for customers, vendors, partners, follow-ups, and business relationships.",
-  },
-  "social-media-hub": {
-    title: "Social Media Hub",
-    description: "Plan and track social accounts, draft posts, media ideas, and manual publishing status.",
-  },
-  "campaign-calendar": {
-    title: "Campaign Calendar",
-    description: "Create and schedule campaigns for product education, distributor recruiting, seasonal pushes, and promotions.",
-  },
-  "distributor-accounts": {
-    title: "Distributor Accounts",
-    description: "Manage distributor account records, pricing, status, territory, and notes.",
-  },
-  "order-pipeline": {
-    title: "Order Pipeline",
-    description: "Track order stages from draft through payment, shipping, manufacturer handoff, and completion.",
-  },
-  "uploaded-files": {
-    title: "Uploaded Files",
-    description: "Catalog uploaded files, historical CSVs, customer files, media assets, and import documents.",
-  },
-  "email-activity": {
-    title: "Email Activity",
-    description: "Track email templates, outbound follow-ups, distributor messages, and customer communications.",
-  },
-  "marketing-content": {
-    title: "Marketing Content",
-    description: "Create marketing ideas, page copy, ad concepts, sales materials, and educational content.",
-  },
-  "automation-rules": {
-    title: "Automation Rules",
-    description: "Define manual and future automated rules for lead routing, follow-ups, imports, and campaign actions.",
-  },
-  contacts: {
-    title: "Contacts",
-    description: "Manage people tied to customers, distributors, manufacturers, vendors, partners, and prospects.",
-  },
-  companies: {
-    title: "Companies",
-    description: "Manage ranches, farms, distributors, contractors, manufacturers, and vendors.",
-  },
-  opportunities: {
-    title: "Opportunities",
-    description: "Track quotes, distributor deals, bulk purchases, and follow-up revenue opportunities.",
-  },
-  orders: {
-    title: "Orders",
-    description: "Track retail and distributor orders from request through payment, fulfillment, shipping, and completion.",
-  },
-  "marketing-posts": {
-    title: "Marketing Posts",
-    description: "Create social posts, email content, campaign drafts, and scheduled marketing content.",
-  },
-  campaigns: {
-    title: "Campaigns",
-    description: "Manage reusable campaign containers for education, distributor recruiting, promotions, and content pushes.",
-  },
-};
+import MarketingSectionClient, { marketingSections } from "./[section]/MarketingSectionClient";
 
 function formatSectionTitle(section: string) {
   return section
@@ -77,11 +10,10 @@ function formatSectionTitle(section: string) {
 }
 
 export default function MarketingModuleShell({ section }: { section: string }) {
-  const config = liveMarketingModules[section] ?? {
+  const config = marketingSections[section] ?? {
     title: formatSectionTitle(section) || "Marketing Module",
-    description: "This marketing module is active. Full persistence and deeper workflow wiring can be added in the next backend hardening pass.",
+    description: "Create and manage records for this marketing module.",
   };
-  const isConfiguredModule = Boolean(liveMarketingModules[section]);
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -111,14 +43,7 @@ export default function MarketingModuleShell({ section }: { section: string }) {
           </div>
         </div>
 
-        {isConfiguredModule ? (
-          <MarketingSectionClient section={section} />
-        ) : (
-          <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-xl font-semibold">Module active</h2>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">This marketing module has not been fully configured yet, but this route is live and no longer returns a 404.</p>
-          </div>
-        )}
+        <MarketingSectionClient section={section} />
       </section>
     </main>
   );
