@@ -2,13 +2,14 @@ import Link from "next/link";
 import { crmConfiguration } from "@/lib/crm/config";
 
 const cards = [
+  ["AI Marketing", "ChatGPT", "Generate social posts, emails, scripts, ads, and campaigns.", "/marketing/ai"],
   ["Leads", "0", "Incoming shop requests and quote leads.", "/marketing/lead-inbox"],
   ["CRM Contacts", "0", "Customers, distributors, vendors, and partners.", "/marketing/contacts"],
   ["Social Posts", "0", "Drafts, scheduled posts, and published campaigns.", "/marketing/social-media-hub"],
-  ["Open Tasks", "0", "Follow-ups, content work, and fulfillment actions.", "/marketing/automation-rules"],
 ];
 
 const modules = [
+  ["AI Marketing Generator", "/marketing/ai"],
   ["Lead Inbox", "/marketing/lead-inbox"],
   ["Custom CRM", "/marketing/custom-crm"],
   ["Social Media Hub", "/marketing/social-media-hub"],
@@ -45,6 +46,7 @@ export default function MarketingPortalPage() {
           <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
             <Link href="/admin" className="hover:text-green-800">Admin Portal</Link>
             <Link href="/marketing" className="text-green-800">Marketing Portal</Link>
+            <Link href="/marketing/ai" className="hover:text-green-800">AI Marketing</Link>
             <Link href="/contact" className="hover:text-green-800">Contact</Link>
           </nav>
         </div>
@@ -55,14 +57,14 @@ export default function MarketingPortalPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Reusable marketing workspace</p>
           <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_0.55fr] lg:items-end">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight">Marketing Portal + Configurable CRM</h1>
+              <h1 className="text-4xl font-bold tracking-tight">Marketing Portal + ChatGPT Content Generator</h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-                A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, uploaded files, email activity, CRM follow-up, and content operations.
+                A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, uploaded files, email activity, CRM follow-up, and AI-generated marketing content.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-              <Link href="/admin" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
-                Go to Admin Portal
+              <Link href="/marketing/ai" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
+                Generate Marketing
               </Link>
               <Link href="/admin/crm-import" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
                 CRM Import
@@ -70,7 +72,7 @@ export default function MarketingPortalPage() {
             </div>
           </div>
           <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
-            Marketing and CRM module pages are now live for creating, editing, and deleting records in this browser. Supabase-backed persistence is the next hardening step.
+            Marketing and CRM module pages are live. The AI Marketing Generator uses a server-side API route and requires OPENAI_API_KEY in the deployment environment.
           </div>
         </div>
 
@@ -121,7 +123,7 @@ export default function MarketingPortalPage() {
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {crmConfiguration.socialChannels.map((channel) => (
-              <Link key={channel.key} href="/marketing/social-media-hub" className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
+              <Link key={channel.key} href={`/marketing/${channel.key}`} className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
                 <div className="flex items-center justify-between gap-4">
                   <h3 className="font-semibold text-neutral-950">{channel.label}</h3>
                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">{channel.status.replaceAll("_", " ")}</span>
