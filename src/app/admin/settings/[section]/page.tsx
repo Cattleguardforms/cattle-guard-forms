@@ -1,136 +1,62 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SettingsSectionClient from "./SettingsSectionClient";
 
 type SettingPage = {
   title: string;
   eyebrow: string;
   description: string;
-  sections: {
-    heading: string;
-    items: string[];
-  }[];
+  note: string;
 };
 
 const settingPages: Record<string, SettingPage> = {
   "admin-users": {
     title: "Admin Users",
     eyebrow: "Admin / Settings / Admin Users",
-    description: "Manage approved admin users, roles, account status, and future invite workflows.",
-    sections: [
-      {
-        heading: "Active admins",
-        items: ["support@cattleguardforms.com — Admin — Active", "Role and status controls will connect to app_profiles."],
-      },
-      {
-        heading: "Invite admin",
-        items: ["Invite email placeholder", "Role selector placeholder", "Send invite action placeholder"],
-      },
-    ],
+    description: "Create and manage admin users, roles, and account status.",
+    note: "This creates an admin-side record now. Supabase Auth invitations should be connected next for production user provisioning.",
   },
   "distributor-roles": {
     title: "Distributor Roles",
     eyebrow: "Admin / Settings / Distributor Roles",
-    description: "Control distributor access rules, portal permissions, and account states.",
-    sections: [
-      {
-        heading: "Access states",
-        items: ["Approved distributors can access ordering tools.", "Pending distributors wait for admin review.", "Disabled distributors are blocked from portal access."],
-      },
-      {
-        heading: "Distributor placeholders",
-        items: ["Farm and Ranch Experts — Approved placeholder", "Barn World — Approved placeholder", "Future rows will read from distributor profiles."],
-      },
-    ],
+    description: "Create distributor profiles, set access state, and manage distributor pricing rules.",
+    note: "Distributor records are editable here now. Server-side writes to distributor_profiles should be wired next.",
   },
   email: {
     title: "Email Settings",
     eyebrow: "Admin / Settings / Email",
-    description: "Configure support, manufacturer, distributor, and order email routing.",
-    sections: [
-      {
-        heading: "Sender configuration",
-        items: ["Support email placeholder", "Manufacturer email placeholder", "Resend API status placeholder"],
-      },
-      {
-        heading: "Templates and routing",
-        items: ["Order confirmation templates", "Distributor order routing", "Manufacturer notification routing"],
-      },
-    ],
+    description: "Create email templates and routing rules for customers, distributors, manufacturers, and admins.",
+    note: "Templates can be created and edited now. Resend sending and database storage should be connected next.",
   },
   stripe: {
     title: "Stripe Settings",
     eyebrow: "Admin / Settings / Stripe",
-    description: "Track Stripe checkout setup, webhook health, payment mapping, and abandoned checkout events.",
-    sections: [
-      {
-        heading: "Connection status",
-        items: ["Stripe account status placeholder", "Checkout session status placeholder", "Webhook status placeholder"],
-      },
-      {
-        heading: "Payment events",
-        items: ["Abandoned checkout tracking", "Payment event mapping", "Order completion mapping"],
-      },
-    ],
+    description: "Configure Stripe event rules for checkout, payments, and abandoned checkout tracking.",
+    note: "Rules are editable now. Stripe webhook execution still needs secure API wiring.",
   },
   supabase: {
     title: "Supabase Settings",
     eyebrow: "Admin / Settings / Supabase",
-    description: "Monitor Supabase environment, tables, storage buckets, auth roles, and policies.",
-    sections: [
-      {
-        heading: "Environment checklist",
-        items: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
-      },
-      {
-        heading: "Database and storage checklist",
-        items: ["customers table", "orders table", "app_profiles table", "distributor profiles", "storage buckets"],
-      },
-    ],
+    description: "Track Supabase environment, tables, storage buckets, auth roles, and policy setup.",
+    note: "Checklist items are editable now. Live health checks should be connected to server routes next.",
   },
   "echo-shipping": {
     title: "Echo Shipping",
     eyebrow: "Admin / Settings / Echo Shipping",
-    description: "Configure Echo freight API settings, rate lookup behavior, and fallback shipping rules.",
-    sections: [
-      {
-        heading: "Echo API status",
-        items: ["API credential placeholder", "Rate lookup settings", "Freight selection rules"],
-      },
-      {
-        heading: "Fallback handling",
-        items: ["Manual freight quote placeholder", "Fallback BOL upload rules", "Admin review workflow placeholder"],
-      },
-    ],
+    description: "Configure Echo freight lookup behavior, freight selection rules, and fallback BOL handling.",
+    note: "Rules are editable now. Echo API rate lookup still needs credential-backed server integration.",
   },
   analytics: {
     title: "Analytics",
     eyebrow: "Admin / Settings / Analytics",
-    description: "Configure site event tracking, conversion metrics, and dashboard reporting.",
-    sections: [
-      {
-        heading: "Tracked events",
-        items: ["site_events tracking", "Quote starts", "Checkout starts", "Completed orders"],
-      },
-      {
-        heading: "Dashboard metrics",
-        items: ["Visits today", "Visits this month", "Conversion reporting placeholder"],
-      },
-    ],
+    description: "Create analytics events and conversion tracking rules for the admin dashboard.",
+    note: "Tracking definitions are editable now. site_events ingestion should be wired next.",
   },
   crm: {
     title: "CRM Configuration",
     eyebrow: "Admin / Settings / CRM",
-    description: "Configure CRM entities, custom fields, pipelines, statuses, and activity tracking.",
-    sections: [
-      {
-        heading: "CRM structure",
-        items: ["CRM entities", "Custom fields", "Pipelines", "Statuses"],
-      },
-      {
-        heading: "Activity tracking",
-        items: ["Contact intake tracking", "Quote follow-up activity", "Saved views and automation rules placeholder"],
-      },
-    ],
+    description: "Configure CRM pipelines, statuses, custom fields, saved views, and activity rules.",
+    note: "CRM settings are editable now. The CRM config can be promoted to Supabase-backed records next.",
   },
 };
 
@@ -138,8 +64,9 @@ export function generateStaticParams() {
   return Object.keys(settingPages).map((section) => ({ section }));
 }
 
-export default function AdminSettingDetailPage({ params }: { params: { section: string } }) {
-  const page = settingPages[params.section];
+export default async function AdminSettingDetailPage({ params }: { params: Promise<{ section: string }> }) {
+  const { section } = await params;
+  const page = settingPages[section];
 
   if (!page) {
     notFound();
@@ -164,6 +91,7 @@ export default function AdminSettingDetailPage({ params }: { params: { section: 
           <div>
             <h1 className="text-4xl font-bold tracking-tight">{page.title}</h1>
             <p className="mt-4 max-w-3xl leading-8 text-neutral-700">{page.description}</p>
+            <p className="mt-3 max-w-3xl rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">{page.note}</p>
           </div>
           <div className="flex gap-3">
             <Link href="/admin/settings" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Back to Settings</Link>
@@ -171,18 +99,7 @@ export default function AdminSettingDetailPage({ params }: { params: { section: 
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {page.sections.map((section) => (
-            <article key={section.heading} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-              <h2 className="text-lg font-semibold">{section.heading}</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-neutral-600">
-                {section.items.map((item) => (
-                  <li key={item} className="rounded border border-neutral-200 bg-neutral-50 px-4 py-3">{item}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
+        <SettingsSectionClient section={section} />
       </section>
     </main>
   );
