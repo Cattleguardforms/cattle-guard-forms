@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Field = {
   name: string;
@@ -27,8 +28,35 @@ type SectionConfig = {
   initialRecords: RecordItem[];
 };
 
+const statusOptions = ["new", "active", "draft", "scheduled", "completed", "archived"];
+const socialChannels = ["Facebook", "Instagram", "LinkedIn", "YouTube", "TikTok", "X / Twitter", "Email", "Website"];
+
+function sectionConfig(overrides: Partial<SectionConfig> & Pick<SectionConfig, "title" | "description" | "storageKey" | "formTitle" | "submitLabel" | "primaryField" | "secondaryFields" | "fields">): SectionConfig {
+  return { initialRecords: [], ...overrides };
+}
+
+function socialPlatformConfig(platform: string, key: string): SectionConfig {
+  return sectionConfig({
+    title: platform,
+    description: `Create and track ${platform} posts, captions, scripts, media ideas, schedules, and publishing status.`,
+    storageKey: `cgf-marketing-${key}`,
+    formTitle: `Create ${platform} item`,
+    submitLabel: `Save ${platform} Item`,
+    primaryField: "title",
+    secondaryFields: ["contentType", "status", "scheduledDate"],
+    fields: [
+      { name: "title", label: "Title", placeholder: `${platform} post, video, or campaign idea` },
+      { name: "contentType", label: "Content type", type: "select", options: ["post", "caption", "script", "ad", "story", "short video", "campaign"] },
+      { name: "status", label: "Status", type: "select", options: ["idea", "draft", "ready", "scheduled", "posted", "blocked"] },
+      { name: "scheduledDate", label: "Scheduled date", type: "date" },
+      { name: "copy", label: "Copy / script / notes", type: "textarea", placeholder: `Write or paste ${platform} content here` },
+      { name: "mediaAssets", label: "Media assets", placeholder: "Image, video, file, or asset reference" },
+    ],
+  });
+}
+
 export const marketingSections: Record<string, SectionConfig> = {
-  "lead-inbox": {
+  "lead-inbox": sectionConfig({
     title: "Lead Inbox",
     description: "Capture incoming shop requests, quote leads, distributor inquiries, and follow-up opportunities.",
     storageKey: "cgf-marketing-lead-inbox",
@@ -45,26 +73,117 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "status", label: "Status", type: "select", options: ["new", "contacted", "quoted", "won", "lost"] },
       { name: "notes", label: "Notes", type: "textarea", placeholder: "What does this lead need?" },
     ],
-    initialRecords: [],
-  },
-  "custom-crm": {
-    title: "Custom CRM",
-    description: "Create general CRM records for customers, vendors, partners, follow-ups, and business relationships.",
-    storageKey: "cgf-marketing-custom-crm",
-    formTitle: "Create CRM record",
-    submitLabel: "Save CRM Record",
-    primaryField: "recordName",
-    secondaryFields: ["recordType", "owner", "status"],
+  }),
+  contacts: sectionConfig({
+    title: "Contacts",
+    description: "Manage people tied to customers, distributors, manufacturers, vendors, partners, and prospects.",
+    storageKey: "cgf-crm-contacts",
+    formTitle: "Create contact",
+    submitLabel: "Save Contact",
+    primaryField: "firstName",
+    secondaryFields: ["lastName", "email", "phone", "company"],
     fields: [
-      { name: "recordName", label: "Record name", placeholder: "Customer, vendor, or partner" },
-      { name: "recordType", label: "Record type", type: "select", options: ["customer", "company", "vendor", "partner", "task", "note"] },
-      { name: "owner", label: "Owner", placeholder: "Assigned person" },
-      { name: "status", label: "Status", type: "select", options: ["active", "pending", "archived"] },
-      { name: "notes", label: "Notes", type: "textarea", placeholder: "CRM details" },
+      { name: "firstName", label: "First name", placeholder: "First" },
+      { name: "lastName", label: "Last name", placeholder: "Last" },
+      { name: "email", label: "Email", type: "email", placeholder: "Optional email" },
+      { name: "phone", label: "Phone", placeholder: "Optional phone" },
+      { name: "company", label: "Company", placeholder: "Optional company" },
+      { name: "role", label: "Role", placeholder: "Owner, buyer, installer, distributor, etc." },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Contact details" },
     ],
-    initialRecords: [],
-  },
-  "social-media-hub": {
+  }),
+  companies: sectionConfig({
+    title: "Companies",
+    description: "Manage ranches, farms, distributors, contractors, manufacturers, and vendors.",
+    storageKey: "cgf-crm-companies",
+    formTitle: "Create company",
+    submitLabel: "Save Company",
+    primaryField: "companyName",
+    secondaryFields: ["companyType", "primaryEmail", "primaryPhone"],
+    fields: [
+      { name: "companyName", label: "Company name", placeholder: "Company" },
+      { name: "companyType", label: "Company type", type: "select", options: ["customer", "distributor", "vendor", "manufacturer", "contractor", "partner"] },
+      { name: "website", label: "Website", placeholder: "https://" },
+      { name: "primaryEmail", label: "Primary email", type: "email", placeholder: "Optional email" },
+      { name: "primaryPhone", label: "Primary phone", placeholder: "Optional phone" },
+      { name: "territory", label: "Territory", placeholder: "Region or state" },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Company details" },
+    ],
+  }),
+  opportunities: sectionConfig({
+    title: "Opportunities",
+    description: "Track quotes, distributor deals, bulk purchases, and follow-up revenue opportunities.",
+    storageKey: "cgf-crm-opportunities",
+    formTitle: "Create opportunity",
+    submitLabel: "Save Opportunity",
+    primaryField: "opportunityTitle",
+    secondaryFields: ["company", "estimatedValue", "status"],
+    fields: [
+      { name: "opportunityTitle", label: "Opportunity title", placeholder: "Bulk CowStop order" },
+      { name: "company", label: "Company", placeholder: "Optional company" },
+      { name: "primaryContact", label: "Primary contact", placeholder: "Contact" },
+      { name: "estimatedValue", label: "Estimated value", type: "number", placeholder: "0" },
+      { name: "quantity", label: "Quantity", type: "number", placeholder: "0" },
+      { name: "leadSource", label: "Lead source", placeholder: "Website, distributor, phone" },
+      { name: "status", label: "Status", type: "select", options: ["new", "quoted", "negotiating", "won", "lost"] },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Opportunity details" },
+    ],
+  }),
+  orders: sectionConfig({
+    title: "Orders",
+    description: "Track retail and distributor orders from request through payment, fulfillment, shipping, and completion.",
+    storageKey: "cgf-crm-orders",
+    formTitle: "Create order",
+    submitLabel: "Save Order",
+    primaryField: "orderNumber",
+    secondaryFields: ["company", "quantity", "status"],
+    fields: [
+      { name: "orderNumber", label: "Order number", placeholder: "Order reference" },
+      { name: "company", label: "Company", placeholder: "Optional company" },
+      { name: "contact", label: "Contact", placeholder: "Customer/contact" },
+      { name: "orderType", label: "Order type", type: "select", options: ["retail", "distributor", "historical", "manual"] },
+      { name: "quantity", label: "Quantity", type: "number", placeholder: "0" },
+      { name: "unitPrice", label: "Unit price", type: "number", placeholder: "0" },
+      { name: "status", label: "Status", type: "select", options: ["draft", "paid", "shipping ready", "shipped", "completed"] },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Order details" },
+    ],
+  }),
+  "marketing-posts": sectionConfig({
+    title: "Marketing Posts",
+    description: "Create social posts, email content, campaign drafts, and scheduled marketing content.",
+    storageKey: "cgf-crm-marketing-posts",
+    formTitle: "Create marketing post",
+    submitLabel: "Save Post",
+    primaryField: "title",
+    secondaryFields: ["channel", "status", "scheduledAt"],
+    fields: [
+      { name: "title", label: "Title", placeholder: "Post title" },
+      { name: "channel", label: "Channel", type: "select", options: socialChannels },
+      { name: "caption", label: "Caption / copy", type: "textarea", placeholder: "Post copy" },
+      { name: "status", label: "Status", type: "select", options: ["idea", "draft", "scheduled", "published"] },
+      { name: "scheduledAt", label: "Scheduled date", type: "date" },
+      { name: "mediaAssets", label: "Media assets", placeholder: "Image/video reference" },
+    ],
+  }),
+  campaigns: sectionConfig({
+    title: "Campaigns",
+    description: "Manage reusable campaign containers for education, distributor recruiting, promotions, and content pushes.",
+    storageKey: "cgf-crm-campaigns",
+    formTitle: "Create campaign",
+    submitLabel: "Save Campaign",
+    primaryField: "campaignName",
+    secondaryFields: ["goal", "startDate", "status"],
+    fields: [
+      { name: "campaignName", label: "Campaign name", placeholder: "Campaign" },
+      { name: "goal", label: "Goal", placeholder: "Campaign goal" },
+      { name: "startDate", label: "Start date", type: "date" },
+      { name: "endDate", label: "End date", type: "date" },
+      { name: "budget", label: "Budget", type: "number", placeholder: "0" },
+      { name: "status", label: "Status", type: "select", options: ["planning", "active", "paused", "completed"] },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Campaign details" },
+    ],
+  }),
+  "social-media-hub": sectionConfig({
     title: "Social Media Hub",
     description: "Plan and track social accounts, draft posts, media ideas, and manual publishing status.",
     storageKey: "cgf-marketing-social-media-hub",
@@ -74,14 +193,18 @@ export const marketingSections: Record<string, SectionConfig> = {
     secondaryFields: ["channel", "status", "scheduledDate"],
     fields: [
       { name: "title", label: "Title", placeholder: "Post idea or account task" },
-      { name: "channel", label: "Channel", type: "select", options: ["Facebook", "Instagram", "X / Twitter", "LinkedIn", "YouTube", "TikTok"] },
+      { name: "channel", label: "Channel", type: "select", options: socialChannels },
       { name: "status", label: "Status", type: "select", options: ["idea", "draft", "ready", "posted", "blocked"] },
       { name: "scheduledDate", label: "Scheduled date", type: "date" },
       { name: "copy", label: "Caption / copy", type: "textarea", placeholder: "Write post copy or notes" },
     ],
-    initialRecords: [],
-  },
-  "campaign-calendar": {
+  }),
+  facebook: socialPlatformConfig("Facebook", "facebook"),
+  instagram: socialPlatformConfig("Instagram", "instagram"),
+  linkedin: socialPlatformConfig("LinkedIn", "linkedin"),
+  youtube: socialPlatformConfig("YouTube", "youtube"),
+  tiktok: socialPlatformConfig("TikTok", "tiktok"),
+  "campaign-calendar": sectionConfig({
     title: "Campaign Calendar",
     description: "Create and schedule campaigns for product education, distributor recruiting, seasonal pushes, and promotions.",
     storageKey: "cgf-marketing-campaign-calendar",
@@ -97,9 +220,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "budget", label: "Budget", type: "number", placeholder: "0" },
       { name: "status", label: "Status", type: "select", options: ["planning", "active", "paused", "completed"] },
     ],
-    initialRecords: [],
-  },
-  "distributor-accounts": {
+  }),
+  "distributor-accounts": sectionConfig({
     title: "Distributor Accounts",
     description: "Manage distributor account records, pricing, status, territory, and notes.",
     storageKey: "cgf-marketing-distributor-accounts",
@@ -120,8 +242,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { id: "farm-ranch", companyName: "Farm and Ranch Experts", contactName: "", email: "", phone: "", pricePerUnit: "750", status: "active" },
       { id: "tractor-supply", companyName: "Tractor Supply Company", contactName: "", email: "", phone: "", pricePerUnit: "750", status: "legacy" },
     ],
-  },
-  "order-pipeline": {
+  }),
+  "order-pipeline": sectionConfig({
     title: "Order Pipeline",
     description: "Track order stages from draft through payment, shipping, manufacturer handoff, and completion.",
     storageKey: "cgf-marketing-order-pipeline",
@@ -137,9 +259,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "quantity", label: "Quantity", type: "number", placeholder: "0" },
       { name: "notes", label: "Notes", type: "textarea", placeholder: "Order details" },
     ],
-    initialRecords: [],
-  },
-  "uploaded-files": {
+  }),
+  "uploaded-files": sectionConfig({
     title: "Uploaded Files",
     description: "Catalog uploaded files, historical CSVs, customer files, media assets, and import documents.",
     storageKey: "cgf-marketing-uploaded-files",
@@ -154,9 +275,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "status", label: "Status", type: "select", options: ["received", "reviewed", "imported", "archived"] },
       { name: "notes", label: "Notes", type: "textarea", placeholder: "What is in this file?" },
     ],
-    initialRecords: [],
-  },
-  "email-activity": {
+  }),
+  "email-activity": sectionConfig({
     title: "Email Activity",
     description: "Track email templates, outbound follow-ups, distributor messages, and customer communications.",
     storageKey: "cgf-marketing-email-activity",
@@ -171,9 +291,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "sendDate", label: "Send date", type: "date" },
       { name: "body", label: "Email body / notes", type: "textarea", placeholder: "Message content or notes" },
     ],
-    initialRecords: [],
-  },
-  "marketing-content": {
+  }),
+  "marketing-content": sectionConfig({
     title: "Marketing Content",
     description: "Create marketing ideas, page copy, ad concepts, sales materials, and educational content.",
     storageKey: "cgf-marketing-content",
@@ -188,9 +307,8 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "status", label: "Status", type: "select", options: ["idea", "draft", "review", "approved", "published"] },
       { name: "copy", label: "Copy / notes", type: "textarea", placeholder: "Content draft" },
     ],
-    initialRecords: [],
-  },
-  "automation-rules": {
+  }),
+  "automation-rules": sectionConfig({
     title: "Automation Rules",
     description: "Define manual and future automated rules for lead routing, follow-ups, imports, and campaign actions.",
     storageKey: "cgf-marketing-automation-rules",
@@ -205,119 +323,33 @@ export const marketingSections: Record<string, SectionConfig> = {
       { name: "status", label: "Status", type: "select", options: ["draft", "enabled", "disabled"] },
       { name: "notes", label: "Notes", type: "textarea", placeholder: "Rule details" },
     ],
-    initialRecords: [],
-  },
-  contacts: {
-    title: "Contacts",
-    description: "Manage people tied to customers, distributors, manufacturers, vendors, partners, and prospects.",
-    storageKey: "cgf-crm-contacts",
-    formTitle: "Create contact",
-    submitLabel: "Save Contact",
-    primaryField: "firstName",
-    secondaryFields: ["lastName", "email", "phone", "company"],
-    fields: [
-      { name: "firstName", label: "First name", placeholder: "First" },
-      { name: "lastName", label: "Last name", placeholder: "Last" },
-      { name: "email", label: "Email", type: "email", placeholder: "Optional email" },
-      { name: "phone", label: "Phone", placeholder: "Optional phone" },
-      { name: "company", label: "Company", placeholder: "Optional company" },
-      { name: "role", label: "Role", placeholder: "Owner, buyer, installer, etc." },
-    ],
-    initialRecords: [],
-  },
-  companies: {
-    title: "Companies",
-    description: "Manage ranches, farms, distributors, contractors, manufacturers, and vendors.",
-    storageKey: "cgf-crm-companies",
-    formTitle: "Create company",
-    submitLabel: "Save Company",
-    primaryField: "companyName",
-    secondaryFields: ["companyType", "primaryEmail", "primaryPhone"],
-    fields: [
-      { name: "companyName", label: "Company name", placeholder: "Company" },
-      { name: "companyType", label: "Company type", type: "select", options: ["customer", "distributor", "vendor", "manufacturer", "contractor", "partner"] },
-      { name: "website", label: "Website", placeholder: "https://" },
-      { name: "primaryEmail", label: "Primary email", type: "email", placeholder: "Optional email" },
-      { name: "primaryPhone", label: "Primary phone", placeholder: "Optional phone" },
-      { name: "territory", label: "Territory", placeholder: "Region or state" },
-    ],
-    initialRecords: [],
-  },
-  opportunities: {
-    title: "Opportunities",
-    description: "Track quotes, distributor deals, bulk purchases, and follow-up revenue opportunities.",
-    storageKey: "cgf-crm-opportunities",
-    formTitle: "Create opportunity",
-    submitLabel: "Save Opportunity",
-    primaryField: "opportunityTitle",
-    secondaryFields: ["company", "estimatedValue", "status"],
-    fields: [
-      { name: "opportunityTitle", label: "Opportunity title", placeholder: "Bulk CowStop order" },
-      { name: "company", label: "Company", placeholder: "Optional company" },
-      { name: "primaryContact", label: "Primary contact", placeholder: "Contact" },
-      { name: "estimatedValue", label: "Estimated value", type: "number", placeholder: "0" },
-      { name: "quantity", label: "Quantity", type: "number", placeholder: "0" },
-      { name: "leadSource", label: "Lead source", placeholder: "Website, distributor, phone" },
-      { name: "status", label: "Status", type: "select", options: ["new", "quoted", "negotiating", "won", "lost"] },
-    ],
-    initialRecords: [],
-  },
-  orders: {
-    title: "Orders",
-    description: "Track retail and distributor orders from request through payment, fulfillment, shipping, and completion.",
-    storageKey: "cgf-crm-orders",
-    formTitle: "Create order",
-    submitLabel: "Save Order",
-    primaryField: "orderNumber",
-    secondaryFields: ["company", "quantity", "status"],
-    fields: [
-      { name: "orderNumber", label: "Order number", placeholder: "Order reference" },
-      { name: "company", label: "Company", placeholder: "Optional company" },
-      { name: "contact", label: "Contact", placeholder: "Customer/contact" },
-      { name: "orderType", label: "Order type", type: "select", options: ["retail", "distributor", "historical", "manual"] },
-      { name: "quantity", label: "Quantity", type: "number", placeholder: "0" },
-      { name: "unitPrice", label: "Unit price", type: "number", placeholder: "0" },
-      { name: "status", label: "Status", type: "select", options: ["draft", "paid", "shipping ready", "shipped", "completed"] },
-    ],
-    initialRecords: [],
-  },
-  "marketing-posts": {
-    title: "Marketing Posts",
-    description: "Create social posts, email content, campaign drafts, and scheduled marketing content.",
-    storageKey: "cgf-crm-marketing-posts",
-    formTitle: "Create marketing post",
-    submitLabel: "Save Post",
-    primaryField: "title",
-    secondaryFields: ["channel", "status", "scheduledAt"],
-    fields: [
-      { name: "title", label: "Title", placeholder: "Post title" },
-      { name: "channel", label: "Channel", type: "select", options: ["Facebook", "Instagram", "X / Twitter", "LinkedIn", "YouTube", "Email"] },
-      { name: "caption", label: "Caption / copy", type: "textarea", placeholder: "Post copy" },
-      { name: "status", label: "Status", type: "select", options: ["idea", "draft", "scheduled", "published"] },
-      { name: "scheduledAt", label: "Scheduled date", type: "date" },
-      { name: "mediaAssets", label: "Media assets", placeholder: "Image/video reference" },
-    ],
-    initialRecords: [],
-  },
-  campaigns: {
-    title: "Campaigns",
-    description: "Manage reusable campaign containers for education, distributor recruiting, promotions, and content pushes.",
-    storageKey: "cgf-crm-campaigns",
-    formTitle: "Create campaign",
-    submitLabel: "Save Campaign",
-    primaryField: "campaignName",
-    secondaryFields: ["goal", "startDate", "status"],
-    fields: [
-      { name: "campaignName", label: "Campaign name", placeholder: "Campaign" },
-      { name: "goal", label: "Goal", placeholder: "Campaign goal" },
-      { name: "startDate", label: "Start date", type: "date" },
-      { name: "endDate", label: "End date", type: "date" },
-      { name: "budget", label: "Budget", type: "number", placeholder: "0" },
-      { name: "status", label: "Status", type: "select", options: ["planning", "active", "paused", "completed"] },
-    ],
-    initialRecords: [],
-  },
+  }),
 };
+
+function genericConfig(section: string): SectionConfig {
+  const title = section
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "Marketing Module";
+
+  return sectionConfig({
+    title,
+    description: "Create and manage records for this marketing module.",
+    storageKey: `cgf-marketing-${section}`,
+    formTitle: `Create ${title} record`,
+    submitLabel: "Save Record",
+    primaryField: "title",
+    secondaryFields: ["status", "owner", "dueDate"],
+    fields: [
+      { name: "title", label: "Title", placeholder: `${title} record` },
+      { name: "status", label: "Status", type: "select", options: statusOptions },
+      { name: "owner", label: "Owner", placeholder: "Assigned person" },
+      { name: "dueDate", label: "Due date", type: "date" },
+      { name: "notes", label: "Notes", type: "textarea", placeholder: "Details" },
+    ],
+  });
+}
 
 function emptyForm(fields: Field[]) {
   return fields.reduce<Record<string, string>>((values, field) => {
@@ -331,14 +363,13 @@ function labelFor(fieldName: string) {
 }
 
 export default function MarketingSectionClient({ section }: { section: string }) {
-  const config = marketingSections[section];
-  const [records, setRecords] = useState<RecordItem[]>(config?.initialRecords ?? []);
-  const [form, setForm] = useState<Record<string, string>>(() => emptyForm(config?.fields ?? []));
+  const config = useMemo(() => marketingSections[section] ?? genericConfig(section), [section]);
+  const [records, setRecords] = useState<RecordItem[]>(config.initialRecords);
+  const [form, setForm] = useState<Record<string, string>>(() => emptyForm(config.fields));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!config) return;
     const saved = window.localStorage.getItem(config.storageKey);
     if (saved) {
       try {
@@ -346,17 +377,17 @@ export default function MarketingSectionClient({ section }: { section: string })
       } catch {
         setRecords(config.initialRecords);
       }
+    } else {
+      setRecords(config.initialRecords);
     }
+    setForm(emptyForm(config.fields));
+    setEditingId(null);
+    setMessage(null);
   }, [config]);
 
   useEffect(() => {
-    if (!config) return;
     window.localStorage.setItem(config.storageKey, JSON.stringify(records));
-  }, [config, records]);
-
-  if (!config) {
-    return null;
-  }
+  }, [config.storageKey, records]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -409,9 +440,15 @@ export default function MarketingSectionClient({ section }: { section: string })
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">{editingId ? "Edit record" : config.formTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">These records are live in this browser now and persist locally. Supabase-backed persistence is the next hardening step.</p>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">This module is live in this browser now and saves records locally. Supabase-backed persistence is the next backend hardening step.</p>
           </div>
           <button type="button" onClick={resetDefaults} className="rounded border border-neutral-300 px-3 py-2 text-xs font-semibold hover:border-green-800 hover:bg-green-50">Reset defaults</button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/marketing/ai" className="rounded bg-green-800 px-4 py-2 text-sm font-semibold text-white hover:bg-green-900">Generate with AI</Link>
+          <Link href="/marketing/marketing-posts" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Marketing Posts</Link>
+          <Link href="/marketing/campaigns" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Campaigns</Link>
         </div>
 
         {message ? <div className="mt-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">{message}</div> : null}
