@@ -90,6 +90,13 @@ alter table public.distributor_profiles add column if not exists aliases text[] 
 alter table public.distributor_profiles alter column contact_email drop not null;
 alter table public.distributor_profiles alter column contact_phone drop not null;
 
+-- Seed active current distributor profiles.
+insert into public.distributor_profiles (company_name, contact_name, contact_email, contact_phone, status, price_per_unit, legacy_vendor, aliases, notes)
+values
+  ('Barn World', null, null, null, 'active', 750, false, array[]::text[], 'Active distributor profile.'),
+  ('Farm and Ranch Experts', null, null, null, 'active', 750, false, array['Farm & Ranch Experts', 'Farm and Ranch'], 'Active distributor profile.')
+on conflict do nothing;
+
 -- 4. Old vendors. TSC must normalize to Tractor Supply Company.
 create table if not exists public.old_vendors (
   id uuid primary key default gen_random_uuid(),
@@ -227,6 +234,11 @@ alter table public.crm_import_errors enable row level security;
 select 'admin_profile' as check_name, email, role, status
 from public.app_profiles
 where email = 'support@cattleguardforms.com';
+
+select 'distributors' as check_name, company_name, status, price_per_unit, legacy_vendor
+from public.distributor_profiles
+where company_name in ('Barn World', 'Farm and Ranch Experts', 'Tractor Supply Company')
+order by company_name;
 
 select 'old_vendor' as check_name, name, aliases, status
 from public.old_vendors
