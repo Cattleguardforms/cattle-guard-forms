@@ -5,6 +5,8 @@ import { FormEvent, useMemo, useState } from "react";
 
 const DISTRIBUTOR_UNIT_PRICE = 750;
 
+type ShippingMethod = "echo" | "own";
+
 const metrics = [
   { label: "New Requests", value: "0" },
   { label: "Pending Follow-Up", value: "0" },
@@ -13,11 +15,11 @@ const metrics = [
 ];
 
 const workflow = [
-  "Review new CowStop quote and order requests",
-  "Distributor pays online at the approved distributor rate",
-  "Confirm shipping details before fulfillment",
-  "Add carrier and tracking number when the order ships",
-  "Customer receives tracking updates by email — no customer portal needed",
+  "Distributor places the CowStop order at the approved $750 distributor rate",
+  "Distributor chooses Cattle Guard Forms/Echo shipping rates or selects Ship on My Own",
+  "If shipping independently, distributor uploads the BOL before fulfillment",
+  "After payment and shipping/BOL are complete, the order is sent to the manufacturer and support@cattleguardforms.com",
+  "Manufacturer replies with the expected ship date, and the distributor receives email updates",
 ];
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -30,14 +32,36 @@ export default function DistributorPortalPage() {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [contactName, setContactName] = useState("");
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("echo");
+  const [shipToAddress, setShipToAddress] = useState("");
+  const [shipToCity, setShipToCity] = useState("");
+  const [shipToState, setShipToState] = useState("");
+  const [shipToZip, setShipToZip] = useState("");
+  const [selectedRate, setSelectedRate] = useState("");
+  const [bolFileName, setBolFileName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = useMemo(() => quantity * DISTRIBUTOR_UNIT_PRICE, [quantity]);
+  const productTotal = useMemo(() => quantity * DISTRIBUTOR_UNIT_PRICE, [quantity]);
+
+  const checkoutReady =
+    shippingMethod === "echo"
+      ? shipToAddress.trim() && shipToCity.trim() && shipToState.trim() && shipToZip.trim() && selectedRate
+      : bolFileName;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+
+    if (!checkoutReady) {
+      setError(
+        shippingMethod === "echo"
+          ? "Enter the ship-to address and select an Echo shipping option before payment."
+          : "Upload the BOL before payment when shipping on your own.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,6 +75,13 @@ export default function DistributorPortalPage() {
           email,
           company,
           contactName,
+          shippingMethod,
+          shipToAddress,
+          shipToCity,
+          shipToState,
+          shipToZip,
+          selectedRate,
+          bolFileName,
         }),
       });
 
@@ -108,7 +139,7 @@ export default function DistributorPortalPage() {
                 Distributor Portal
               </h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-                Approved distributors can place CowStop orders online, pay at the distributor rate, and manage customer fulfillment without requiring a customer login portal.
+                Approved distributors can place CowStop orders online at the $750 distributor rate, choose Cattle Guard Forms shipping through Echo, or upload their own BOL when shipping independently.
               </p>
             </div>
             <Link
@@ -132,7 +163,7 @@ export default function DistributorPortalPage() {
         <section className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-semibold">Distributor Online Payment</h2>
+              <h2 className="text-2xl font-semibold">Distributor Online Order</h2>
               <span className="rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-800 ring-1 ring-green-200">
                 {currencyFormatter.format(DISTRIBUTOR_UNIT_PRICE)} / unit
               </span>
@@ -144,54 +175,149 @@ export default function DistributorPortalPage() {
               </div>
             ) : null}
 
-            <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-              <div className="grid gap-4 sm:grid-cols-2">
+            <form className="mt-6 grid gap-6" onSubmit={handleSubmit}>
+              <section className="grid gap-4">
+                <h3 className="text-lg font-semibold">Distributor Details</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                    Contact name
+                    <input
+                      value={contactName}
+                      onChange={(event) => setContactName(event.target.value)}
+                      placeholder="Name"
+                      className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                    Company
+                    <input
+                      value={company}
+                      onChange={(event) => setCompany(event.target.value)}
+                      placeholder="Distributor company"
+                      className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                    />
+                  </label>
+                </div>
+
                 <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                  Contact name
+                  Email for receipt and order updates
                   <input
-                    value={contactName}
-                    onChange={(event) => setContactName(event.target.value)}
-                    placeholder="Name"
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="orders@example.com"
                     className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
                   />
                 </label>
+
                 <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                  Company
-                  <input
-                    value={company}
-                    onChange={(event) => setCompany(event.target.value)}
-                    placeholder="Distributor company"
+                  Quantity
+                  <select
+                    value={quantity}
+                    onChange={(event) => setQuantity(Number(event.target.value))}
                     className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
-                  />
+                  >
+                    {Array.from({ length: 50 }, (_, index) => index + 1).map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              </div>
+              </section>
 
-              <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                Email for receipt
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="orders@example.com"
-                  className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
-                />
-              </label>
+              <section className="rounded-xl border border-neutral-200 p-5">
+                <h3 className="text-lg font-semibold">Shipping Method</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setShippingMethod("echo")}
+                    className={`rounded-lg border p-4 text-left ${
+                      shippingMethod === "echo" ? "border-green-800 bg-green-50" : "border-neutral-200 bg-white"
+                    }`}
+                  >
+                    <span className="font-semibold">Use Cattle Guard Forms Shipping</span>
+                    <span className="mt-1 block text-sm leading-6 text-neutral-600">
+                      Echo rates will appear here after the Echo API is connected.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShippingMethod("own")}
+                    className={`rounded-lg border p-4 text-left ${
+                      shippingMethod === "own" ? "border-green-800 bg-green-50" : "border-neutral-200 bg-white"
+                    }`}
+                  >
+                    <span className="font-semibold">Ship on My Own</span>
+                    <span className="mt-1 block text-sm leading-6 text-neutral-600">
+                      Upload your BOL and we will attach it to the manufacturer order.
+                    </span>
+                  </button>
+                </div>
 
-              <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                Quantity
-                <select
-                  value={quantity}
-                  onChange={(event) => setQuantity(Number(event.target.value))}
-                  className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
-                >
-                  {Array.from({ length: 50 }, (_, index) => index + 1).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                {shippingMethod === "echo" ? (
+                  <div className="mt-5 grid gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <input
+                        value={shipToAddress}
+                        onChange={(event) => setShipToAddress(event.target.value)}
+                        placeholder="Ship-to address"
+                        className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
+                      />
+                      <input
+                        value={shipToCity}
+                        onChange={(event) => setShipToCity(event.target.value)}
+                        placeholder="City"
+                        className="rounded border border-neutral-300 px-3 py-2"
+                      />
+                      <input
+                        value={shipToState}
+                        onChange={(event) => setShipToState(event.target.value)}
+                        placeholder="State"
+                        className="rounded border border-neutral-300 px-3 py-2"
+                      />
+                      <input
+                        value={shipToZip}
+                        onChange={(event) => setShipToZip(event.target.value)}
+                        placeholder="ZIP code"
+                        className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
+                      />
+                    </div>
+                    <div className="rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
+                      Echo API rate lookup is the next backend integration. Until credentials and lane rules are connected, this selector is a placeholder for live Echo shipping options.
+                    </div>
+                    <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                      Shipping option
+                      <select
+                        value={selectedRate}
+                        onChange={(event) => setSelectedRate(event.target.value)}
+                        className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                      >
+                        <option value="">Select Echo rate after API connection</option>
+                        <option value="echo-placeholder-standard">Echo freight option pending live rate</option>
+                      </select>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="mt-5 grid gap-4">
+                    <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                      Upload BOL
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(event) => setBolFileName(event.target.files?.[0]?.name ?? "")}
+                        className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                      />
+                    </label>
+                    {bolFileName ? (
+                      <p className="rounded bg-green-50 px-3 py-2 text-sm font-medium text-green-800 ring-1 ring-green-200">
+                        BOL selected: {bolFileName}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </section>
 
               <div className="rounded-xl bg-neutral-50 p-5 ring-1 ring-neutral-200">
                 <div className="flex justify-between text-sm text-neutral-600">
@@ -202,9 +328,13 @@ export default function DistributorPortalPage() {
                   <span>Quantity</span>
                   <span>{quantity}</span>
                 </div>
+                <div className="mt-2 flex justify-between text-sm text-neutral-600">
+                  <span>Shipping</span>
+                  <span>{shippingMethod === "echo" ? "Selected Echo rate will be added after live API wiring" : "Own BOL"}</span>
+                </div>
                 <div className="mt-4 flex justify-between border-t border-neutral-200 pt-4 text-xl font-bold text-neutral-950">
-                  <span>Total</span>
-                  <span>{currencyFormatter.format(total)}</span>
+                  <span>Product Total</span>
+                  <span>{currencyFormatter.format(productTotal)}</span>
                 </div>
               </div>
 
@@ -217,7 +347,7 @@ export default function DistributorPortalPage() {
               </button>
 
               <p className="text-sm leading-6 text-neutral-500">
-                Payments are processed through Stripe Checkout. Tracking updates will be sent by email after shipment, so a customer portal is not required.
+                After payment and shipping information are complete, the fulfillment workflow will email the manufacturer and support@cattleguardforms.com. The distributor will receive order confirmation and later ship-date updates by email.
               </p>
             </form>
           </div>
