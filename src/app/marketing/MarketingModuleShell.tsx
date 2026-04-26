@@ -22,7 +22,8 @@ export default function MarketingModuleShell({ section }: { section: string }) {
           <Link href="/marketing" className="font-semibold text-green-800">Marketing Portal</Link>
           <nav className="flex gap-6 text-sm font-medium text-neutral-700">
             <Link href="/marketing" className="hover:text-green-800">Marketing Home</Link>
-            <Link href="/marketing/ai" className="hover:text-green-800">AI Marketing</Link>
+            <Link href="/marketing/email" className="hover:text-green-800">Email Composer</Link>
+            <Link href="/marketing/ai" className="hover:text-green-800">AI Content Studio</Link>
             <Link href="/admin" className="hover:text-green-800">Admin Portal</Link>
             <Link href="/admin/crm-import" className="hover:text-green-800">CRM Import</Link>
           </nav>
@@ -38,7 +39,7 @@ export default function MarketingModuleShell({ section }: { section: string }) {
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/marketing" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Back to Marketing</Link>
-            <Link href="/marketing/ai" className="rounded bg-green-800 px-4 py-2 text-sm font-semibold text-white hover:bg-green-900">Generate with AI</Link>
+            <Link href="/marketing/email" className="rounded bg-green-800 px-4 py-2 text-sm font-semibold text-white hover:bg-green-900">Write Email</Link>
             <Link href="/admin/crm-import" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">CRM Import</Link>
           </div>
         </div>
