@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export type CrmIntakeSource = "contact_form" | "shop_quote" | "distributor_order";
+export type CrmIntakeSource = "contact_form" | "shop_quote" | "distributor_order" | "marketing_email";
 
 export type CrmContactInput = {
   email: string;
