@@ -38,8 +38,11 @@ export default function HomePage() {
             />
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+            <Link href="/" className="hover:text-green-800">
+              Home
+            </Link>
             <Link href="/quote" className="hover:text-green-800">
-              CowStop
+              Shop
             </Link>
             <Link href="/installations" className="hover:text-green-800">
               Installations
