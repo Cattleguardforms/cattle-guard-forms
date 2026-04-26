@@ -10,6 +10,7 @@ export default function MarketingAiPage() {
           <nav className="flex gap-6 text-sm font-medium text-neutral-700">
             <Link href="/marketing" className="hover:text-green-800">Marketing Home</Link>
             <Link href="/marketing/marketing-posts" className="hover:text-green-800">Marketing Posts</Link>
+            <Link href="/marketing/marketing-content" className="hover:text-green-800">Marketing Content</Link>
             <Link href="/marketing/campaigns" className="hover:text-green-800">Campaigns</Link>
             <Link href="/admin" className="hover:text-green-800">Admin Portal</Link>
           </nav>
@@ -17,12 +18,12 @@ export default function MarketingAiPage() {
       </header>
 
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <p className="text-sm font-semibold uppercase tracking-wide text-green-800">ChatGPT Marketing Assistant</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-green-800">AI Content Studio</p>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">AI Marketing Generator</h1>
+            <h1 className="text-4xl font-bold tracking-tight">AI Content Studio</h1>
             <p className="mt-4 max-w-3xl leading-8 text-neutral-700">
-              Generate ready-to-use marketing copy for social media, video scripts, emails, distributor outreach, ads, campaigns, and website content.
+              Generate marketing copy, real image creatives, and video plans for social media, ads, distributor outreach, campaigns, and website content.
             </p>
           </div>
           <Link href="/marketing" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Back to Marketing</Link>
