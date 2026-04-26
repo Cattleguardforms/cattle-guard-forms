@@ -53,9 +53,6 @@ export default function HomePage() {
             <Link href="/blog" className="hover:text-green-800">
               Blog
             </Link>
-            <Link href="/distributor" className="hover:text-green-800">
-              Distributor Portal
-            </Link>
           </nav>
         </div>
       </header>
@@ -77,10 +74,10 @@ export default function HomePage() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/quote"
+              href="/contact"
               className="inline-flex justify-center rounded bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900"
             >
-              Request CowStop Pricing
+              Request CowStop Support
             </Link>
             <Link
               href="/installations"
@@ -188,10 +185,10 @@ export default function HomePage() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/quote"
+              href="/contact"
               className="inline-flex justify-center rounded bg-white px-6 py-3 font-semibold text-neutral-950 hover:bg-neutral-100"
             >
-              Request a CowStop Quote
+              Contact Support
             </Link>
             <Link
               href="/installations"
