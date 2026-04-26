@@ -81,11 +81,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 shadow-sm">
           <img
-            src="https://www.farmandranchexperts.com/wp-content/uploads/2024/11/Cattle-Guard-Reusable-Cow-Stop-cement-form.jpg"
-            alt="CowStop reusable cattle guard form"
-            className="h-auto w-full rounded-xl bg-white object-contain"
+            src="/products/cattle-guard-hero.png"
+            alt="Concrete cattle guard installed at a ranch entrance with cattle behind a gate"
+            className="h-full min-h-[420px] w-full object-cover"
           />
         </div>
       </section>
