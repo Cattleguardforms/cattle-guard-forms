@@ -10,11 +10,11 @@ const navItems = [
 ];
 
 const features = [
-  ["Built to Reuse", "Durable forms designed for repeat pours season after season.", "↻"],
-  ["Precision Engineered", "Consistent dimensions for a tight, repeatable fit.", "◎"],
-  ["Heavy-Duty Strength", "Designed for ranch, farm, loader, and livestock traffic.", "♜"],
-  ["HS-20 Rated", "Engineering data available for HS-20 loading.", "HS-20"],
-  ["Save Time & Money", "Reusable forms reduce freight, labor, and material waste.", "$"],
+  ["Built to Reuse", "Durable forms designed for repeat pours season after season.", "↻", "/installations#materials"],
+  ["Precision Engineered", "Consistent dimensions for a tight, repeatable fit.", "◎", "/faq#sizing"],
+  ["Heavy-Duty Strength", "Designed for ranch, farm, loader, and livestock traffic.", "♜", "/installations#steps"],
+  ["HS-20 Rated", "Engineering data available for HS-20 loading.", "HS-20", "/engineering/hs20"],
+  ["Save Time & Money", "Reusable forms reduce freight, labor, and material waste.", "$", "/quote"],
 ];
 
 const cards = [
@@ -47,11 +47,12 @@ export default function HomePage() {
           <img src="/products/cattle-guard-hero.png" alt="Concrete cattle guard installed at a ranch entrance" className="h-full w-full object-cover opacity-85" />
           <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/25 to-transparent" />
         </div>
-        <div className="absolute bottom-20 right-[6%] z-10 hidden h-44 w-44 rotate-[-7deg] rounded-full border-[6px] border-amber-200/45 bg-amber-950/70 text-center font-black uppercase tracking-wide text-amber-100 shadow-2xl backdrop-blur-sm lg:flex lg:flex-col lg:items-center lg:justify-center">
-          <span className="text-xs tracking-[0.22em]">Built to Last</span>
-          <span className="my-2 h-px w-24 bg-amber-200/50" />
-          <span className="text-2xl leading-6">Cattle Guard<br />Forms</span>
-          <span className="my-2 h-px w-24 bg-amber-200/50" />
+        <div className="absolute bottom-16 right-[7%] z-10 hidden h-48 w-48 rotate-[-8deg] rounded-full border-[5px] border-amber-200/65 bg-green-950/80 text-center font-black uppercase tracking-wide text-amber-100 shadow-2xl backdrop-blur-sm lg:flex lg:flex-col lg:items-center lg:justify-center">
+          <div className="absolute inset-3 rounded-full border border-amber-200/40" />
+          <span className="text-xs tracking-[0.24em]">Built to Last</span>
+          <span className="my-2 h-px w-28 bg-amber-200/60" />
+          <span className="text-4xl leading-9 tracking-[0.03em]">CowStop</span>
+          <span className="my-2 h-px w-28 bg-amber-200/60" />
           <span className="text-xs tracking-[0.18em]">Rancher Tested</span>
         </div>
         <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:min-h-[560px] lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
@@ -76,12 +77,13 @@ export default function HomePage() {
 
       <section className="relative z-10 mx-auto -mt-10 max-w-7xl px-6">
         <div className="grid gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl md:grid-cols-5">
-          {features.map(([title, body, icon]) => (
-            <div key={title} className="rounded-xl p-4 transition hover:-translate-y-1 hover:bg-green-50">
+          {features.map(([title, body, icon, href]) => (
+            <Link key={title} href={href} className="rounded-xl p-4 transition hover:-translate-y-1 hover:bg-green-50 hover:shadow-md">
               <div className="flex h-12 w-12 items-center justify-center rounded-full border border-green-200 bg-green-50 text-sm font-black text-green-800">{icon}</div>
               <h3 className="mt-3 font-bold text-green-900">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-neutral-600">{body}</p>
-            </div>
+              <span className="mt-3 inline-flex text-xs font-bold uppercase tracking-wide text-green-800">Open →</span>
+            </Link>
           ))}
         </div>
       </section>
@@ -95,7 +97,7 @@ export default function HomePage() {
                 <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Engineering data</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-green-950">HS-20 Rated</h2>
                 <p className="mt-3 leading-7 text-neutral-700">Engineering documentation is available for HS-20 loading. The certification package includes engineering drawings and a stamped certification sheet.</p>
-                <Link href="/faq#hs20" className="mt-5 inline-flex rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">View HS-20 Details</Link>
+                <Link href="/engineering/hs20" className="mt-5 inline-flex rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Open HS-20 Certificate</Link>
               </div>
             </div>
           </article>
@@ -105,7 +107,7 @@ export default function HomePage() {
                 <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">How it works</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight">Simple steps. Strong results.</h2>
                 <div className="mt-6 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
-                  {[["1", "Prep"], ["2", "Pour"], ["3", "Cure"], ["4", "Lift & Place"]].map(([number, label]) => (
+                  {[["1", "Prep"], ["2", "Pour"], ["3", "Cure"], ["4", "Hardware"], ["5", "Attach"], ["6", "Lift"], ["7", "Place"]].map(([number, label]) => (
                     <div key={label} className="rounded-xl bg-neutral-50 p-4"><span className="mr-2 rounded-full bg-green-800 px-2 py-1 text-xs font-bold text-white">{number}</span>{label}</div>
                   ))}
                 </div>
