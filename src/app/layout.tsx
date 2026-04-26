@@ -25,13 +25,22 @@ export default function RootLayout({
           Skip to main content
         </a>
         <div id="main-content">{children}</div>
-        <Link
-          href="/contact"
-          className="fixed bottom-5 right-5 z-40 rounded-full bg-green-800 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-green-700 hover:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-950 focus:ring-offset-2"
-          aria-label="Contact Cattle Guard Forms support"
-        >
-          Contact Us
-        </Link>
+        <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 sm:flex-row">
+          <Link
+            href="/portals"
+            className="rounded-full border border-green-200 bg-white px-5 py-3 text-sm font-semibold text-green-900 shadow-lg hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-950 focus:ring-offset-2"
+            aria-label="Open Cattle Guard Forms portal access page"
+          >
+            Portal Access
+          </Link>
+          <Link
+            href="/contact"
+            className="rounded-full bg-green-800 px-5 py-3 text-sm font-semibold text-white shadow-lg ring-1 ring-green-700 hover:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-950 focus:ring-offset-2"
+            aria-label="Contact Cattle Guard Forms support"
+          >
+            Contact Us
+          </Link>
+        </div>
       </body>
     </html>
   );
