@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         destination: "/engineering/hs20-updated",
         permanent: true,
       },
+      {
+        source: "/reseller",
+        destination: "/distributor",
+        permanent: true,
+      },
     ];
   },
 };
