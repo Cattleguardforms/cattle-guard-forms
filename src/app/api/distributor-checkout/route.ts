@@ -21,8 +21,16 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     quantity?: number;
     email?: string;
-    company?: string;
-    contactName?: string;
+    distributorAccountName?: string;
+    shippingMethod?: "echo" | "own";
+    shipToName?: string;
+    shipToAddress?: string;
+    shipToAddress2?: string;
+    shipToCity?: string;
+    shipToState?: string;
+    shipToZip?: string;
+    selectedRate?: string;
+    bolFileName?: string;
   };
 
   const quantity = Number(body.quantity);
@@ -38,6 +46,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
   }
 
+  if (body.shippingMethod === "echo") {
+    const missingShipTo = [
+      body.shipToName,
+      body.shipToAddress,
+      body.shipToCity,
+      body.shipToState,
+      body.shipToZip,
+      body.selectedRate,
+    ].some((value) => !value?.trim());
+
+    if (missingShipTo) {
+      return NextResponse.json(
+        { error: "Ship-to name, address, and shipping option are required for Cattle Guard Forms shipping." },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (body.shippingMethod === "own" && !body.bolFileName?.trim()) {
+    return NextResponse.json({ error: "BOL upload is required when shipping on your own." }, { status: 400 });
+  }
+
+  // TODO: Enforce distributor auth and distributor role server-side before production.
+  // The client gate is only a UX layer; this API must verify the signed-in distributor account.
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const baseUrl = getBaseUrl(request);
 
@@ -59,10 +91,18 @@ export async function POST(request: Request) {
     ],
     metadata: {
       order_type: "distributor",
-      contact_name: body.contactName ?? "",
-      company: body.company ?? "",
+      distributor_account_name: body.distributorAccountName ?? "Distributor",
       quantity: String(quantity),
       unit_price: "750.00",
+      shipping_method: body.shippingMethod ?? "",
+      ship_to_name: body.shipToName ?? "",
+      ship_to_address: body.shipToAddress ?? "",
+      ship_to_address_2: body.shipToAddress2 ?? "",
+      ship_to_city: body.shipToCity ?? "",
+      ship_to_state: body.shipToState ?? "",
+      ship_to_zip: body.shipToZip ?? "",
+      selected_rate: body.selectedRate ?? "",
+      bol_file_name: body.bolFileName ?? "",
     },
     success_url: `${baseUrl}/distributor?checkout=success`,
     cancel_url: `${baseUrl}/distributor?checkout=cancelled`,
