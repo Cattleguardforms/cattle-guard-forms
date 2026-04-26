@@ -2,9 +2,10 @@
 
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const ADMIN_EMAIL = "support@cattleguardforms.com";
+const ADMIN_SESSION_KEY = "cgf-admin-authenticated";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseKey);
@@ -47,10 +48,20 @@ function Header() {
 
 export default function AdminPortalPage() {
   const [signedIn, setSignedIn] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [email, setEmail] = useState(ADMIN_EMAIL);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Temporary browser persistence so admin navigation does not force the setup login.
+    // Replace with server-side Supabase session + app_profiles.role = admin checks before production.
+    if (window.localStorage.getItem(ADMIN_SESSION_KEY) === "true") {
+      setSignedIn(true);
+    }
+    setSessionChecked(true);
+  }, []);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,14 +82,38 @@ export default function AdminPortalPage() {
           setError(`${signInError.message}. Create or reset ${ADMIN_EMAIL} in Supabase Auth.`);
           return;
         }
+        window.localStorage.setItem(ADMIN_SESSION_KEY, "true");
         setSignedIn(true);
         return;
       }
 
+      window.localStorage.setItem(ADMIN_SESSION_KEY, "true");
       setSignedIn(true);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSignOut() {
+    window.localStorage.removeItem(ADMIN_SESSION_KEY);
+    setSignedIn(false);
+    setPassword("");
+
+    if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      await supabase.auth.signOut();
+    }
+  }
+
+  if (!sessionChecked) {
+    return (
+      <main className="min-h-screen bg-neutral-50 text-neutral-950">
+        <Header />
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Loading admin session</p>
+        </section>
+      </main>
+    );
   }
 
   if (!signedIn) {
@@ -130,7 +165,7 @@ export default function AdminPortalPage() {
             </div>
             <div className="flex gap-3">
               <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing Portal</Link>
-              <button onClick={() => setSignedIn(false)} className="rounded border border-neutral-300 px-5 py-3 font-semibold">Sign Out</button>
+              <button onClick={handleSignOut} className="rounded border border-neutral-300 px-5 py-3 font-semibold">Sign Out</button>
             </div>
           </div>
         </div>
