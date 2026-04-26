@@ -7,16 +7,29 @@ const openingRows = [
   { opening: "24 ft opening", recommendation: "3 eight-foot sections", layout: "3 sections across", notes: "Requires about 4 cubic yards of concrete total." },
 ];
 
+const palletRows = [
+  { quantity: "1 CowStop", dimensions: "72 x 48 x 20 in", weight: "105 lb", palletCount: "1 pallet" },
+  { quantity: "2 CowStops", dimensions: "72 x 48 x 20 in", weight: "190 lb", palletCount: "1 pallet" },
+  { quantity: "3 CowStops", dimensions: "72 x 48 x 36 in", weight: "270 lb", palletCount: "1 pallet" },
+  { quantity: "4 CowStops", dimensions: "72 x 48 x 36 in", weight: "355 lb", palletCount: "1 pallet" },
+  { quantity: "5 CowStops", dimensions: "72 x 48 x 52 in", weight: "440 lb", palletCount: "1 pallet" },
+  { quantity: "6 CowStops", dimensions: "72 x 48 x 52 in", weight: "525 lb", palletCount: "1 pallet max" },
+];
+
 const quickFacts = [
   ["HS-20 Rated", "Engineering certification available"],
+  ["Form size", "6 ft long x 21.5 in wide x 16 in high"],
+  ["Groove depth", "9 in deep grooves"],
+  ["Form weight", "80 lb reusable mold"],
   ["Recommended concrete", "4000 PSI concrete mix"],
-  ["Heavy vehicle cure target", "28 days"],
   ["Typical form removal", "48–72 hours depending on conditions"],
-  ["Install depth", "Keep grooves above grade for drainage"],
-  ["Material", "Reusable polyethylene form"],
+  ["Heavy vehicle cure target", "28 days"],
+  ["Pallet max", "Only 6 CowStops fit on one pallet"],
 ];
 
 const faqs = [
+  ["What are the CowStop reusable mold specs?", "The CowStop reusable mold is 6 feet long, 21.5 inches wide, and 16 inches high. The grooves are 9 inches deep, and the reusable form weighs approximately 80 pounds. These specs should be used as the base product dimensions and weight for pallet/shipping setup."],
+  ["How many CowStops fit on one pallet?", "A maximum of 6 CowStops fit on one pallet. For 1–6 CowStops, use the pallet dimension and weight table on this page. For 7 or more CowStops, start a second pallet and repeat the same planning logic."],
   ["What does HS-20 rated mean?", "The engineering certificate package references HS-20 loading and includes stamped engineering drawings and certification pages. Use the certificate package when customers need engineering documentation."],
   ["How should a 16 ft driveway look?", "A 16 ft driveway should be represented by two 8 ft cattle guard sections side by side, tight together, with only a narrow center seam. It should not look like one short form only spans half the driveway."],
   ["How many pours are suggested for 12 ft and 18 ft openings?", "For a 12 ft opening, use 6 pours arranged 2 wide x 3 deep. For an 18 ft opening, use 9 pours arranged 3 wide x 3 deep."],
@@ -56,7 +69,7 @@ export default function FAQPage() {
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Frequently asked questions</p>
             <h1 className="mt-5 text-5xl font-black leading-tight tracking-tight md:text-7xl">Straight answers for ranch-ready installs.</h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-green-50">Sizing, HS-20 engineering, concrete requirements, curing, lifting, drainage, and layout guidance for Cattle Guard Forms.</p>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-green-50">Sizing, HS-20 engineering, concrete requirements, curing, lifting, drainage, product specs, pallet dimensions, and layout guidance for Cattle Guard Forms.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/contact" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">Ask a Question</Link>
               <Link href="/installations" className="rounded-lg border border-white/40 px-6 py-4 text-center font-bold text-white hover:bg-white/10">View Installations</Link>
@@ -69,13 +82,52 @@ export default function FAQPage() {
       </section>
 
       <section className="mx-auto -mt-10 max-w-7xl px-6 relative z-10">
-        <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl md:grid-cols-4 lg:grid-cols-8">
           {quickFacts.map(([label, value]) => (
             <div key={label} className="rounded-xl bg-green-50 p-4">
               <p className="text-sm font-bold uppercase tracking-wide text-green-800">{label}</p>
               <p className="mt-2 text-sm font-semibold leading-6 text-neutral-700">{value}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section id="specs" className="mx-auto max-w-7xl px-6 pt-16">
+        <div className="rounded-3xl border border-green-100 bg-green-50 p-8 shadow-sm">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Specs</p>
+          <h2 className="mt-2 text-4xl font-black tracking-tight text-green-950">CowStop reusable mold dimensions.</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-800">Length</p><p className="mt-2 text-2xl font-black">6 ft</p></div>
+            <div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-800">Width</p><p className="mt-2 text-2xl font-black">21.5 in</p></div>
+            <div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-800">Height</p><p className="mt-2 text-2xl font-black">16 in</p></div>
+            <div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-800">Weight</p><p className="mt-2 text-2xl font-black">80 lb</p></div>
+          </div>
+          <p className="mt-5 leading-8 text-neutral-700">Grooves are 9 inches deep. These are the base product specs to use for pallet dimensions, pallet weight planning, freight quoting, and shipping setup.</p>
+        </div>
+      </section>
+
+      <section id="pallets" className="mx-auto max-w-7xl px-6 pt-10">
+        <div className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
+          <div className="bg-green-950 p-8 text-white">
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-200">Pallet dimensions and weights</p>
+            <h2 className="mt-2 text-4xl font-black tracking-tight">1–6 CowStops per pallet.</h2>
+            <p className="mt-4 max-w-3xl leading-8 text-green-50">Only six CowStops fit on one pallet. Use this table for distributor quoting, freight setup, and Echo shipping calculations.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
+              <thead className="bg-neutral-50">
+                <tr><th className="px-5 py-4">Quantity</th><th className="px-5 py-4">Pallet dimensions</th><th className="px-5 py-4">Pallet weight</th><th className="px-5 py-4">Pallet count</th></tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200">
+                {palletRows.map((row) => (
+                  <tr key={row.quantity}><td className="px-5 py-4 font-bold text-green-950">{row.quantity}</td><td className="px-5 py-4">{row.dimensions}</td><td className="px-5 py-4">{row.weight}</td><td className="px-5 py-4 text-neutral-600">{row.palletCount}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-neutral-200 bg-amber-50 p-5 text-sm font-semibold leading-7 text-amber-950">
+            Distributor note: 6 CowStops is the maximum per pallet. Orders over 6 require an additional pallet and should repeat the same 1–6 pallet planning table for the remaining quantity.
+          </div>
         </div>
       </section>
 
@@ -142,7 +194,7 @@ export default function FAQPage() {
       <section className="mx-auto max-w-7xl px-6 pb-16">
         <div className="rounded-3xl bg-green-950 px-8 py-12 text-white shadow-xl">
           <h2 className="text-4xl font-black tracking-tight">Still have questions?</h2>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-green-50">Contact us for help choosing the right layout, number of pours, installation approach, or distributor order.</p>
+          <p className="mt-4 max-w-3xl text-lg leading-8 text-green-50">Contact us for help choosing the right layout, number of pours, installation approach, distributor orders, or pallet freight planning.</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/contact" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">Contact Support</Link>
             <Link href="/quote" className="rounded-lg border border-white/40 px-6 py-4 text-center font-bold text-white hover:bg-white/10">Shop Forms</Link>
