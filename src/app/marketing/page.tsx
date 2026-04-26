@@ -44,10 +44,22 @@ export default function MarketingPortalPage() {
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200">
           <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Reusable marketing workspace</p>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight">Marketing Portal + Configurable CRM</h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-            A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, uploaded files, email activity, CRM follow-up, and content operations.
-          </p>
+          <div className="mt-3 grid gap-6 lg:grid-cols-[1fr_0.55fr] lg:items-end">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">Marketing Portal + Configurable CRM</h1>
+              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
+                A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, uploaded files, email activity, CRM follow-up, and content operations.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+              <Link href="/admin" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
+                Go to Admin Portal
+              </Link>
+              <Link href="/admin/crm-activity" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
+                CRM Activity
+              </Link>
+            </div>
+          </div>
           <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
             Social OAuth, CRM persistence, live records, saved views, and campaign automation will be connected after Supabase tables and admin roles are in place.
           </div>
