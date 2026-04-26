@@ -46,7 +46,9 @@ export default function MarketingPortalPage() {
             <img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-16 w-auto object-contain" />
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+            <Link href="/portals" className="hover:text-green-800">Portal Access</Link>
             <Link href="/admin" className="hover:text-green-800">Admin Portal</Link>
+            <Link href="/distributor" className="hover:text-green-800">Distributor Portal</Link>
             <Link href="/marketing" className="text-green-800">Marketing Portal</Link>
             <Link href="/marketing/email" className="hover:text-green-800">Email Composer</Link>
             <Link href="/marketing/ai" className="hover:text-green-800">AI Marketing</Link>
