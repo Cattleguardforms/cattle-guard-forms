@@ -24,6 +24,15 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
+        <div className="border-b border-neutral-200 bg-white px-6 py-2 text-sm font-medium text-neutral-700">
+          <nav className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-5" aria-label="Sitewide navigation">
+            <Link href="/" className="hover:text-green-800">Home</Link>
+            <Link href="/quote" className="hover:text-green-800">Shop</Link>
+            <Link href="/installations" className="hover:text-green-800">Installations</Link>
+            <Link href="/faq" className="hover:text-green-800">FAQ</Link>
+            <Link href="/blog" className="hover:text-green-800">Blog</Link>
+          </nav>
+        </div>
         <div id="main-content">{children}</div>
         <Link
           href="/contact"
@@ -36,7 +45,12 @@ export default function RootLayout({
           <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p>© Cattle Guard Forms. Support: support@cattleguardforms.com</p>
             <nav className="flex flex-wrap gap-4" aria-label="Footer navigation">
-              <Link href="/contact" className="hover:text-green-800">Contact</Link>
+              <Link href="/" className="hover:text-green-800">Home</Link>
+              <Link href="/quote" className="hover:text-green-800">Shop</Link>
+              <Link href="/installations" className="hover:text-green-800">Installations</Link>
+              <Link href="/faq" className="hover:text-green-800">FAQ</Link>
+              <Link href="/blog" className="hover:text-green-800">Blog</Link>
+              <Link href="/contact" className="hover:text-green-800">Support</Link>
               <Link href="/terms" className="hover:text-green-800">Terms & Conditions</Link>
               <Link href="/accessibility" className="hover:text-green-800">Accessibility</Link>
             </nav>
