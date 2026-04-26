@@ -72,8 +72,12 @@ export default function InstallationsPage() {
     <main className="min-h-screen bg-white text-slate-950">
       <section className="mx-auto max-w-7xl px-6 py-12">
         <header className="mb-12">
-          <a href="/" className="inline-flex items-center text-sm font-semibold uppercase tracking-wide text-green-800">
-            Cattle Guard Forms
+          <a href="/" className="inline-flex items-center">
+            <img
+              src="/brand/cgf-logo.png"
+              alt="Cattle Guard Forms"
+              className="h-16 w-auto object-contain"
+            />
           </a>
           <h1 className="mt-8 text-4xl font-bold tracking-tight text-green-800">
             CowStop Installation Instructions
