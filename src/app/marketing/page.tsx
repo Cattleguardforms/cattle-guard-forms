@@ -3,13 +3,14 @@ import { crmConfiguration } from "@/lib/crm/config";
 
 const cards = [
   ["AI Marketing", "ChatGPT", "Generate social posts, emails, scripts, ads, and campaigns.", "/marketing/ai"],
+  ["Blog Manager", "Content", "Plan blog posts and connect public articles to marketing campaigns.", "/marketing/blog"],
   ["Leads", "0", "Incoming shop requests and quote leads.", "/marketing/lead-inbox"],
-  ["CRM Contacts", "0", "Customers, distributors, vendors, and partners.", "/marketing/contacts"],
   ["Social Posts", "0", "Drafts, scheduled posts, and published campaigns.", "/marketing/social-media-hub"],
 ];
 
 const modules = [
-  ["AI Marketing Generator", "/marketing/ai"],
+  ["AI Content Studio", "/marketing/ai"],
+  ["Blog Manager", "/marketing/blog"],
   ["Lead Inbox", "/marketing/lead-inbox"],
   ["Custom CRM", "/marketing/custom-crm"],
   ["Social Media Hub", "/marketing/social-media-hub"],
@@ -47,6 +48,7 @@ export default function MarketingPortalPage() {
             <Link href="/admin" className="hover:text-green-800">Admin Portal</Link>
             <Link href="/marketing" className="text-green-800">Marketing Portal</Link>
             <Link href="/marketing/ai" className="hover:text-green-800">AI Marketing</Link>
+            <Link href="/blog" className="hover:text-green-800">Public Blog</Link>
             <Link href="/contact" className="hover:text-green-800">Contact</Link>
           </nav>
         </div>
@@ -59,20 +61,20 @@ export default function MarketingPortalPage() {
             <div>
               <h1 className="text-4xl font-bold tracking-tight">Marketing Portal + ChatGPT Content Generator</h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-                A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, uploaded files, email activity, CRM follow-up, and AI-generated marketing content.
+                A reusable workspace for leads, contacts, distributor activity, social media planning, campaign management, blog planning, uploaded files, email activity, CRM follow-up, and AI-generated marketing content.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
               <Link href="/marketing/ai" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
                 Generate Marketing
               </Link>
-              <Link href="/admin/crm-import" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
-                CRM Import
+              <Link href="/marketing/blog" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
+                Blog Manager
               </Link>
             </div>
           </div>
           <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
-            Marketing and CRM module pages are live. The AI Marketing Generator uses a server-side API route and requires OPENAI_API_KEY in the deployment environment.
+            Marketing and CRM module pages are live. Blog planning is connected to the public /blog page and the AI Content Studio.
           </div>
         </div>
 
@@ -113,6 +115,28 @@ export default function MarketingPortalPage() {
               ))}
             </ol>
           </aside>
+        </section>
+
+        <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Blog + content workflow</p>
+          <h2 className="mt-2 text-2xl font-semibold">Public Blog Connection</h2>
+          <p className="mt-3 max-w-4xl leading-7 text-neutral-700">
+            Use the Blog Manager to plan article topics, AI Content Studio to generate drafts and images, Marketing Content to hold reusable copy, and the public Blog page to publish customer-facing education.
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <Link href="/marketing/blog" className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
+              <h3 className="font-semibold text-neutral-950">Blog Manager</h3>
+              <p className="mt-3 text-sm leading-6 text-neutral-600">Plan posts, status, SEO title, category, and draft notes.</p>
+            </Link>
+            <Link href="/marketing/ai" className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
+              <h3 className="font-semibold text-neutral-950">AI Content Studio</h3>
+              <p className="mt-3 text-sm leading-6 text-neutral-600">Generate blog copy, social images, and video outlines.</p>
+            </Link>
+            <Link href="/blog" className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
+              <h3 className="font-semibold text-neutral-950">Public Blog</h3>
+              <p className="mt-3 text-sm leading-6 text-neutral-600">View the customer-facing blog page.</p>
+            </Link>
+          </div>
         </section>
 
         <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
