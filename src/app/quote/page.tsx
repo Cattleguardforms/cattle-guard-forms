@@ -171,15 +171,23 @@ export default function QuotePage() {
     <main className="min-h-screen bg-white text-neutral-900">
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <a href="/" className="text-xl font-bold tracking-tight">
-            Cattle Guard Forms
+          <a href="/" className="inline-flex items-center">
+            <img
+              src="/brand/cgf-logo.png"
+              alt="Cattle Guard Forms"
+              className="h-16 w-auto object-contain"
+            />
           </a>
-          <nav className="flex items-center gap-6 text-sm text-neutral-600">
-            <a href="/quote" className="font-medium text-neutral-950">
-              CowStop
+          <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+            <a href="/" className="hover:text-green-800">
+              Home
             </a>
-            <span>Customer Portal</span>
-            <span>Distributor Portal</span>
+            <a href="/quote" className="text-green-800">
+              Shop
+            </a>
+            <a href="/installations" className="hover:text-green-800">
+              Installations
+            </a>
           </nav>
         </div>
       </header>
