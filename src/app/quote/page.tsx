@@ -28,7 +28,7 @@ type QuoteResponse = {
 const PRODUCT_NAME = "Cattle Guard Forms CowStop Reusable Form";
 const PRODUCT_SUBMIT_NAME = "CowStop Reusable Form";
 const PRODUCT_TYPE = "Cowstop";
-const UNIT_PRICE = 1299;
+const UNIT_PRICE = 1499;
 const PRODUCT_IMAGE_SRC =
   "https://www.farmandranchexperts.com/wp-content/uploads/2024/11/Cattle-Guard-Reusable-Cow-Stop-cement-form.jpg";
 
