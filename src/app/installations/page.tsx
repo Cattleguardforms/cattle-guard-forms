@@ -42,9 +42,9 @@ const steps = [
     imageAlt: "Cured concrete cattle guard being lifted from the reusable form",
   },
   {
-    title: "Step 7: Transport and Position",
+    title: "Step 7: Prepare Site, Transport, and Position",
     body:
-      "Move the cattle guard to its designated location. Set it square and level on the prepared gravel pad, keeping the top elevated above grade as intended.",
+      "Before setting the form, select and prepare the installation area. Choose a level, well-drained location aligned with the roadway or gate. Excavate approximately 8 inches deep so the cattle guard can sit elevated above grade for better drainage and visibility. Add a 4–6 inch layer of compacted gravel to stabilize the base and promote water runoff. Verify level and alignment before positioning the form. Then move the cattle guard to its designated location and set it square and level on the prepared gravel pad.",
     imageSrc: "/installations/step%20-%207.png",
     imageAlt: "Finished CowStop concrete section ready for positioning",
   },
@@ -141,19 +141,6 @@ export default function InstallationsPage() {
               </section>
             );
           })}
-        </section>
-
-        <section className="mt-20 rounded-2xl bg-slate-50 p-8">
-          <h2 className="text-3xl font-bold text-green-800">Prepare Site</h2>
-          <p className="mt-6 text-lg leading-8 text-slate-800">
-            Before setting the form, select and prepare the installation area:
-          </p>
-          <ul className="mt-3 list-disc space-y-2 pl-8 text-lg leading-8 text-slate-800">
-            <li>Choose a level, well-drained location aligned with the roadway or gate.</li>
-            <li>Excavate approximately 8 inches deep so the cattle guard can sit elevated above grade for better drainage and visibility.</li>
-            <li>Add a 4–6 inch layer of compacted gravel to stabilize the base and promote water runoff.</li>
-            <li>Verify level and alignment before positioning the form.</li>
-          </ul>
         </section>
 
         <section className="mt-20">
