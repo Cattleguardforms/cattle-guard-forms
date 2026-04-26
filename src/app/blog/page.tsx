@@ -87,7 +87,6 @@ export default function BlogPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Featured articles</p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight">Latest Blog Posts</h2>
           </div>
-          <Link href="/marketing/blog" className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50">Manage blog in Marketing Portal</Link>
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -106,21 +105,6 @@ export default function BlogPage() {
               </div>
             </article>
           ))}
-        </div>
-      </section>
-
-      <section className="bg-neutral-50 py-14">
-        <div className="mx-auto max-w-4xl px-6">
-          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Content foundation</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight">Blog Publishing Workflow</h2>
-          <p className="mt-4 text-lg leading-8 text-neutral-700">
-            This public blog is connected to the Marketing Portal. Use the Marketing Blog Manager to draft article ideas, use AI Content Studio to generate article drafts or images, then publish finished posts here as the site grows.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <Link href="/marketing/blog" className="rounded-xl border border-neutral-200 bg-white p-5 font-semibold hover:border-green-800 hover:bg-green-50">Blog Manager</Link>
-            <Link href="/marketing/ai" className="rounded-xl border border-neutral-200 bg-white p-5 font-semibold hover:border-green-800 hover:bg-green-50">AI Content Studio</Link>
-            <Link href="/marketing/marketing-content" className="rounded-xl border border-neutral-200 bg-white p-5 font-semibold hover:border-green-800 hover:bg-green-50">Marketing Content</Link>
-          </div>
         </div>
       </section>
     </main>
