@@ -1,188 +1,148 @@
+import Link from "next/link";
+
 const steps = [
   {
-    title: "Step 1: Prep the Form",
+    title: "Prep the Form",
     body:
-      "Spray the inside of the form with silicone spray or another approved concrete form release agent. Lay the rebar grid according to the reinforcement plan, keeping at least 2 inches of clearance from all edges. Install lift hooks or eyebolts securely before the pour.",
+      "Apply concrete release agent inside the reusable form. Set the rebar, tomato stakes, J-bolts, and tie wire according to the reinforcement plan before pouring.",
     imageSrc: "/installations/step%20-%201.jpg",
-    imageAlt: "CowStop form prepared with rebar and lift points",
+    imageAlt: "Cattle Guard Forms reusable form prepared with rebar and lift points",
   },
   {
-    title: "Step 2: Begin Pour — Use 4000 PSI Concrete, Fill Halfway",
+    title: "Pour 4000 PSI Concrete",
     body:
-      "Mix and pour 4000 PSI concrete into the form until it is about half full. Spread the mix evenly across the form to prevent shifting, imbalance, or voids around the reinforcement.",
+      "Pour 4000 PSI concrete into the form evenly. Work the mix around reinforcement, corners, and anchor points to reduce voids and keep the finished section consistent.",
     imageSrc: "/installations/step%20-%202.jpg",
-    imageAlt: "Concrete being poured into the CowStop form",
+    imageAlt: "Concrete being poured into the reusable cattle guard form",
   },
   {
-    title: "Step 3: Settle and Level",
+    title: "Settle, Level, and Cure",
     body:
-      "Use a rod, shovel, or concrete vibrator to work the mix around the rebar and into the corners. Make sure there are no air pockets or voids under the reinforcement. Tap the ends and sides of the form with a hammer or rubber mallet to release trapped air, then continue pouring until the form is full. Strike off and smooth the top surface.",
+      "Tap or vibrate the form to release trapped air, strike off the top surface, and let the concrete cure undisturbed. Curing time depends on temperature and humidity.",
     imageSrc: "/installations/step%20-%203.jpg",
-    imageAlt: "Concrete settled and leveled inside the CowStop form",
+    imageAlt: "Concrete settled and leveled inside the form",
   },
   {
-    title: "Step 4: Install J-Bolts and Cure",
+    title: "Lift and Place",
     body:
-      "While the concrete is still plastic, insert the J-bolts at the designated anchor points. Check alignment and depth before the concrete sets. Allow the concrete to cure undisturbed for 48–72 hours, keeping it covered or damp as needed.",
-    imageSrc: "/installations/step%20-%204.jpg",
-    imageAlt: "CowStop cured section with J-bolt chain connection markings",
-  },
-  {
-    title: "Step 5: Attach Chain to J-Hooks",
-    body:
-      "Once the concrete is fully cured, attach lifting chains or slings securely to the J-hooks. Confirm that the load is balanced evenly before lifting.",
-    imageSrc: "/installations/step%20-%205.png",
-    imageAlt: "Chain attached to CowStop lifting hardware",
-  },
-  {
-    title: "Step 6: Lift Cattle Guard From the Form",
-    body:
-      "Using a loader, forklift, or crane, carefully lift the cured cattle guard out of the form. Avoid sudden jerks, twisting, or uneven lifting that could crack the concrete or damage the embedded hardware.",
-    imageSrc: "/installations/step%20-%206.jpg",
-    imageAlt: "Cured concrete cattle guard being lifted from the reusable form",
-  },
-  {
-    title: "Step 7: Prepare Site, Transport, and Position",
-    body:
-      "Before setting the form, select and prepare the installation area. Choose a level, well-drained location aligned with the roadway or gate. Excavate approximately 8 inches deep so the cattle guard can sit elevated above grade for better drainage and visibility. Add a 4–6 inch layer of compacted gravel to stabilize the base and promote water runoff. Verify level and alignment before positioning the form. Then move the cattle guard to its designated location and set it square and level on the prepared gravel pad.",
+      "Use the embedded lifting hardware with a loader, forklift, tractor, or crane. Set the cured cattle guard section square and level on a compacted, well-drained base.",
     imageSrc: "/installations/step%20-%207.png",
-    imageAlt: "Finished CowStop concrete section ready for positioning",
-  },
-  {
-    title: "Step 8: Final Alignment and Backfill",
-    body:
-      "Confirm final alignment, elevation, and stability. Backfill around the edges with compacted gravel or soil to lock the cattle guard in place and maintain proper drainage.",
-    imageSrc: "/installations/step%20-%208.png",
-    imageAlt: "Tractor moving CowStop section for final alignment",
+    imageAlt: "Finished concrete cattle guard section ready for positioning",
   },
 ];
 
 const materials = [
-  "Use a tube of grease or any concrete release agent. Apply it to the inside of the form before pouring.",
-  "Buy two 20-foot bars of 1/2-inch rebar and cut three pieces to 70 1/4 inches and three pieces to 68 1/2 inches.",
-  "Buy two tomato stakes, each 17 inches long, to use as cross members for the horizontal slots. These help hold the rebar in position while concrete is poured around it.",
-  "Use two 10-inch J-bolts. These will be set in the concrete and used later to attach chains so a tractor, loader, or similar equipment can lift the cured section while removing the form.",
-  "Use two 8-inch J-bolts. These are used to lift the finished section from the top and set it into the opening. If you have a forklift, these 8-inch J-bolts may not be needed.",
-  "Use 12 bags of 80 lb, 4000 PSI concrete mix for each pour.",
-  "Use tie wire or plastic zip ties to fasten the rebar to the J-bolts and tomato stakes.",
+  "Concrete release agent or grease for the inside of the form",
+  "Two 20-foot bars of 1/2-inch rebar cut to the required lengths",
+  "Two tomato stakes, each 17 inches long, for cross members",
+  "Two 10-inch J-bolts for lifting while removing from the form",
+  "Two 8-inch J-bolts for lifting and placing the finished section",
+  "12 bags of 80 lb, 4000 PSI concrete mix per pour",
+  "Tie wire or plastic zip ties for fastening rebar and hardware",
+];
+
+const highlights = [
+  ["4000 PSI", "Recommended concrete strength"],
+  ["HS-20", "Engineering certification available"],
+  ["48–72 hrs", "Typical form removal window"],
+  ["28 days", "Heavy vehicle cure target"],
 ];
 
 export default function InstallationsPage() {
   return (
-    <main className="min-h-screen bg-white text-slate-950">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <a href="/" className="inline-flex items-center">
-            <img
-              src="/brand/cgf-logo.png"
-              alt="Cattle Guard Forms"
-              className="h-16 w-auto object-contain"
-            />
-          </a>
-          <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
-            <a href="/" className="hover:text-green-800">
-              Home
-            </a>
-            <a href="/quote" className="hover:text-green-800">
-              Shop
-            </a>
-            <a href="/installations" className="text-green-800">
-              Installations
-            </a>
+    <main className="min-h-screen bg-white text-neutral-950">
+      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-14 w-auto object-contain" />
+            <span className="hidden text-xl font-black uppercase leading-5 tracking-wide text-green-900 sm:block">Cattle Guard<br />Forms</span>
+          </Link>
+          <nav className="hidden items-center gap-7 text-sm font-semibold text-neutral-700 md:flex">
+            <Link href="/" className="hover:text-green-800">Home</Link>
+            <Link href="/quote" className="hover:text-green-800">Shop</Link>
+            <Link href="/installations" className="text-green-900 underline decoration-green-800 decoration-2 underline-offset-8">Installations</Link>
+            <Link href="/faq" className="hover:text-green-800">FAQ</Link>
+            <Link href="/blog" className="hover:text-green-800">Blog</Link>
+            <Link href="/contact" className="hover:text-green-800">Contact</Link>
           </nav>
+          <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Request a Quote</Link>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <header className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-green-800">
-            CowStop Installation Instructions
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-700">
-            Follow these instructions to prepare the CowStop form, pour the concrete section, remove it from the form, and position it at the installation site.
-          </p>
-        </header>
+      <section className="relative overflow-hidden bg-green-950 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(34,197,94,0.20),transparent_26%)]" />
+        <div className="absolute inset-y-0 right-0 hidden w-[58%] lg:block">
+          <img src="/installations/step%20-%207.png" alt="Finished cattle guard section ready for placement" className="h-full w-full object-cover opacity-75" />
+          <div className="absolute inset-0 bg-gradient-to-r from-green-950 via-green-950/55 to-transparent" />
+        </div>
+        <div className="relative mx-auto max-w-7xl px-6 py-16 lg:py-24">
+          <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Installation guide</p>
+          <h1 className="mt-5 max-w-3xl text-5xl font-black leading-tight tracking-tight md:text-7xl">Simple steps. Strong results.</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Prepare the form, pour the section, cure the concrete, and set the finished cattle guard into a compacted, well-drained gate opening.</p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <a href="#steps" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">View Steps</a>
+            <a href="#video" className="rounded-lg border border-white/40 px-6 py-4 text-center font-bold text-white hover:bg-white/10">Watch Video</a>
+          </div>
+        </div>
+      </section>
 
-        <section className="grid items-start gap-12 lg:grid-cols-[1fr_0.85fr]">
-          <div>
-            <h2 className="text-3xl font-bold text-green-800">Material list: “COW STOP”</h2>
-            <p className="mt-8 text-lg italic text-slate-800">For each pour</p>
-            <ol className="mt-4 list-decimal space-y-3 pl-8 text-lg leading-8 text-slate-900">
-              {materials.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
+      <section className="mx-auto -mt-10 max-w-7xl px-6 relative z-10">
+        <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl md:grid-cols-4">
+          {highlights.map(([value, label]) => (
+            <div key={label} className="rounded-xl bg-green-50 p-5 text-center">
+              <p className="text-3xl font-black text-green-900">{value}</p>
+              <p className="mt-2 text-sm font-semibold text-neutral-600">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-3xl border border-green-100 bg-green-50 p-8 shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Material list</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-green-950">What you need for each pour</h2>
+            <ol className="mt-6 list-decimal space-y-3 pl-6 leading-7 text-neutral-700">
+              {materials.map((item) => <li key={item}>{item}</li>)}
             </ol>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <img
-              src="/installations/material.png"
-              alt="CowStop material layout including form, rebar, concrete, J-bolts, release agent, and ties"
-              className="h-auto w-full rounded-xl object-contain"
-            />
+          <div className="overflow-hidden rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <img src="/installations/material.png" alt="Cattle Guard Forms material layout" className="h-auto w-full rounded-2xl object-contain" />
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="mt-20 space-y-20">
-          {steps.map((step, index) => {
-            const image = (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                <img
-                  src={step.imageSrc}
-                  alt={step.imageAlt}
-                  className="mx-auto h-auto max-h-[360px] w-full rounded-xl object-contain"
-                />
-              </div>
-            );
-
-            const copy = (
-              <div>
-                <h2 className="text-3xl font-bold leading-tight text-green-800">{step.title}</h2>
-                <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-800">{step.body}</p>
-              </div>
-            );
-
-            return (
-              <section key={step.title} className="grid items-center gap-12 lg:grid-cols-2">
-                {index % 2 === 0 ? (
-                  <>
-                    {image}
-                    {copy}
-                  </>
-                ) : (
-                  <>
-                    {copy}
-                    {image}
-                  </>
-                )}
-              </section>
-            );
-          })}
-        </section>
-
-        <section className="mt-20">
-          <h2 className="text-3xl font-bold text-green-800">Installation Video</h2>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-700">
-            Watch the installation walkthrough below. If the embedded video does not load in your browser, use the button underneath to open it directly on YouTube.
-          </p>
-          <div className="mt-6 aspect-video overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-            <iframe
-              className="h-full w-full"
-              src="https://www.youtube-nocookie.com/embed/ineaalZN26o"
-              title="CowStop installation video"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
+      <section id="steps" className="bg-neutral-50 py-16">
+        <div className="mx-auto max-w-7xl px-6">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Process</p>
+          <h2 className="mt-2 text-4xl font-black tracking-tight">From prep to placement.</h2>
+          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {steps.map((step, index) => (
+              <article key={step.title} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                <img src={step.imageSrc} alt={step.imageAlt} className="h-52 w-full object-cover transition duration-500 group-hover:scale-105" />
+                <div className="p-6">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-green-800 text-sm font-black text-white">{index + 1}</span>
+                  <h3 className="mt-4 text-xl font-black text-green-900">{step.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-neutral-600">{step.body}</p>
+                </div>
+              </article>
+            ))}
           </div>
-          <a
-            href="https://www.youtube.com/watch?v=ineaalZN26o"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-5 inline-flex rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900"
-          >
-            Watch installation video on YouTube
-          </a>
-        </section>
+        </div>
+      </section>
+
+      <section id="video" className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Video guide</p>
+            <h2 className="mt-2 text-4xl font-black tracking-tight">Watch the installation walkthrough.</h2>
+            <p className="mt-4 leading-8 text-neutral-700">Use the video with the step cards above to plan the pour, lifting process, site preparation, and final placement.</p>
+            <a href="https://www.youtube.com/watch?v=ineaalZN26o" target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-lg bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900">Open on YouTube</a>
+          </div>
+          <div className="aspect-video overflow-hidden rounded-3xl border border-neutral-200 bg-black shadow-xl">
+            <iframe className="h-full w-full" src="https://www.youtube-nocookie.com/embed/ineaalZN26o" title="Cattle Guard Forms installation video" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+          </div>
+        </div>
       </section>
     </main>
   );
