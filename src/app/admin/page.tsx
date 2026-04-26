@@ -25,6 +25,7 @@ const modules = [
   ["Abandoned Checkouts", "/admin/abandoned-checkouts"],
   ["Site Analytics", "/admin/analytics"],
   ["CRM Activity", "/admin/crm-activity"],
+  ["CRM Historical Import", "/admin/crm-import"],
   ["Settings", "/admin/settings"],
 ];
 
@@ -161,7 +162,7 @@ export default function AdminPortalPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Business command center</p>
               <h1 className="mt-3 text-4xl font-bold tracking-tight">Admin Portal</h1>
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, active orders, abandoned checkouts, analytics, CRM activity, and settings.</p>
+              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
             </div>
             <div className="flex gap-3">
               <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing Portal</Link>
