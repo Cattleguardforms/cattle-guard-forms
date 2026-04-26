@@ -2,24 +2,33 @@ import Link from "next/link";
 import { crmConfiguration } from "@/lib/crm/config";
 
 const cards = [
-  ["Leads", "0", "Incoming shop requests and quote leads."],
-  ["CRM Contacts", "0", "Customers, distributors, vendors, and partners."],
-  ["Social Posts", "0", "Drafts, scheduled posts, and published campaigns."],
-  ["Open Tasks", "0", "Follow-ups, content work, and fulfillment actions."],
+  ["Leads", "0", "Incoming shop requests and quote leads.", "/marketing/lead-inbox"],
+  ["CRM Contacts", "0", "Customers, distributors, vendors, and partners.", "/marketing/contacts"],
+  ["Social Posts", "0", "Drafts, scheduled posts, and published campaigns.", "/marketing/social-media-hub"],
+  ["Open Tasks", "0", "Follow-ups, content work, and fulfillment actions.", "/marketing/automation-rules"],
 ];
 
 const modules = [
-  "Lead Inbox",
-  "Custom CRM",
-  "Social Media Hub",
-  "Campaign Calendar",
-  "Distributor Accounts",
-  "Order Pipeline",
-  "Uploaded Files",
-  "Email Activity",
-  "Marketing Content",
-  "Automation Rules",
+  ["Lead Inbox", "/marketing/lead-inbox"],
+  ["Custom CRM", "/marketing/custom-crm"],
+  ["Social Media Hub", "/marketing/social-media-hub"],
+  ["Campaign Calendar", "/marketing/campaign-calendar"],
+  ["Distributor Accounts", "/marketing/distributor-accounts"],
+  ["Order Pipeline", "/marketing/order-pipeline"],
+  ["Uploaded Files", "/marketing/uploaded-files"],
+  ["Email Activity", "/marketing/email-activity"],
+  ["Marketing Content", "/marketing/marketing-content"],
+  ["Automation Rules", "/marketing/automation-rules"],
 ];
+
+const entityLinks: Record<string, string> = {
+  contacts: "/marketing/contacts",
+  companies: "/marketing/companies",
+  opportunities: "/marketing/opportunities",
+  orders: "/marketing/orders",
+  marketing_posts: "/marketing/marketing-posts",
+  campaigns: "/marketing/campaigns",
+};
 
 export default function MarketingPortalPage() {
   const distributorOrderPipeline = crmConfiguration.pipelines.find(
@@ -55,23 +64,23 @@ export default function MarketingPortalPage() {
               <Link href="/admin" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
                 Go to Admin Portal
               </Link>
-              <Link href="/admin/crm-activity" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
-                CRM Activity
+              <Link href="/admin/crm-import" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50">
+                CRM Import
               </Link>
             </div>
           </div>
-          <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
-            Social OAuth, CRM persistence, live records, saved views, and campaign automation will be connected after Supabase tables and admin roles are in place.
+          <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
+            Marketing and CRM module pages are now live for creating, editing, and deleting records in this browser. Supabase-backed persistence is the next hardening step.
           </div>
         </div>
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map(([label, value, note]) => (
-            <article key={label} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+          {cards.map(([label, value, note, href]) => (
+            <Link key={label} href={href} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200 hover:ring-green-800">
               <p className="text-sm font-medium text-neutral-500">{label}</p>
               <p className="mt-2 text-3xl font-bold">{value}</p>
               <p className="mt-2 text-sm text-neutral-500">{note}</p>
-            </article>
+            </Link>
           ))}
         </section>
 
@@ -79,11 +88,11 @@ export default function MarketingPortalPage() {
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
             <h2 className="text-2xl font-semibold">Marketing Modules</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {modules.map((module) => (
-                <div key={module} className="rounded-xl border border-neutral-200 p-5">
+              {modules.map(([module, href]) => (
+                <Link key={module} href={href} className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
                   <h3 className="font-semibold text-neutral-950">{module}</h3>
-                  <p className="mt-2 text-sm leading-6 text-neutral-600">Supabase wiring next.</p>
-                </div>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">Open workspace</p>
+                </Link>
               ))}
             </div>
           </div>
@@ -112,13 +121,13 @@ export default function MarketingPortalPage() {
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {crmConfiguration.socialChannels.map((channel) => (
-              <article key={channel.key} className="rounded-xl border border-neutral-200 p-5">
+              <Link key={channel.key} href="/marketing/social-media-hub" className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
                 <div className="flex items-center justify-between gap-4">
                   <h3 className="font-semibold text-neutral-950">{channel.label}</h3>
                   <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">{channel.status.replaceAll("_", " ")}</span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-neutral-600">{channel.description}</p>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
@@ -127,11 +136,11 @@ export default function MarketingPortalPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-green-800">CRM</p>
           <h2 className="mt-2 text-2xl font-semibold">Configurable CRM Layer</h2>
           <p className="mt-3 max-w-4xl leading-7 text-neutral-700">
-            The CRM has reusable entity, field, pipeline, and social-channel configuration. Supabase will persist configuration and store real records next.
+            The CRM has reusable entity, field, pipeline, and social-channel configuration. Click any CRM entity below to create and manage records.
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {crmConfiguration.entities.map((entity) => (
-              <article key={entity.key} className="rounded-xl border border-neutral-200 p-5">
+              <Link key={entity.key} href={entityLinks[entity.key] ?? "/marketing/custom-crm"} className="rounded-xl border border-neutral-200 p-5 hover:border-green-800 hover:bg-green-50">
                 <h3 className="font-semibold text-neutral-950">{entity.pluralLabel}</h3>
                 <p className="mt-3 text-sm leading-6 text-neutral-600">{entity.description}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -139,7 +148,7 @@ export default function MarketingPortalPage() {
                     <span key={field.key} className="rounded-full bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-700 ring-1 ring-neutral-200">{field.label}</span>
                   ))}
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
