@@ -70,16 +70,32 @@ const materials = [
 export default function InstallationsPage() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <header className="mb-12">
-          <a href="/" className="inline-flex items-center -ml-48 sm:-ml-48 max-sm:ml-0">
+      <header className="border-b border-neutral-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+          <a href="/" className="inline-flex items-center">
             <img
               src="/brand/cgf-logo.png"
               alt="Cattle Guard Forms"
-              className="h-24 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
           </a>
-          <h1 className="mt-8 text-4xl font-bold tracking-tight text-green-800">
+          <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+            <a href="/" className="hover:text-green-800">
+              Home
+            </a>
+            <a href="/quote" className="hover:text-green-800">
+              Shop
+            </a>
+            <a href="/installations" className="text-green-800">
+              Installations
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <section className="mx-auto max-w-7xl px-6 py-12">
+        <header className="mb-12">
+          <h1 className="text-4xl font-bold tracking-tight text-green-800">
             CowStop Installation Instructions
           </h1>
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-700">
