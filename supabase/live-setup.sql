@@ -20,10 +20,20 @@ create table if not exists public.app_profiles (
 -- Existing project already has customers/orders; add missing CRM-safe columns only.
 alter table public.customers add column if not exists source text;
 alter table public.customers add column if not exists status text default 'active';
+alter table public.customers add column if not exists company_email text;
+alter table public.customers add column if not exists company_phone text;
+alter table public.customers add column if not exists legacy_import_year integer;
+alter table public.customers add column if not exists legacy_source_file text;
+alter table public.customers add column if not exists normalized_vendor_name text;
+alter table public.customers add column if not exists raw_vendor_name text;
 alter table public.customers add column if not exists created_at timestamptz default now();
 alter table public.customers add column if not exists updated_at timestamptz default now();
 
 alter table public.orders add column if not exists order_type text;
+alter table public.orders add column if not exists sale_date date;
+alter table public.orders add column if not exists product_name text;
+alter table public.orders add column if not exists product_status text default 'active';
+alter table public.orders add column if not exists cowstop_quantity integer;
 alter table public.orders add column if not exists unit_price numeric;
 alter table public.orders add column if not exists total numeric;
 alter table public.orders add column if not exists payment_status text default 'pending';
@@ -32,6 +42,11 @@ alter table public.orders add column if not exists bol_file text;
 alter table public.orders add column if not exists tracking_number text;
 alter table public.orders add column if not exists expected_ship_date date;
 alter table public.orders add column if not exists distributor_profile_id uuid;
+alter table public.orders add column if not exists old_vendor_id uuid;
+alter table public.orders add column if not exists raw_vendor_name text;
+alter table public.orders add column if not exists normalized_vendor_name text;
+alter table public.orders add column if not exists legacy_import_year integer;
+alter table public.orders add column if not exists legacy_source_file text;
 alter table public.orders add column if not exists created_at timestamptz default now();
 alter table public.orders add column if not exists updated_at timestamptz default now();
 
@@ -49,6 +64,35 @@ create table if not exists public.distributor_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists public.old_vendors (
+  id uuid primary key default gen_random_uuid(),
+  name text unique not null,
+  aliases text[] default '{}'::text[],
+  status text not null default 'archived' check (status in ('active', 'archived')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.old_vendors (name, aliases, status, notes)
+values ('Tractor Supply Company', array['TSC', 'Tractor Supply', 'Tractor Supply Co.'], 'archived', 'Historical old vendor imported from legacy sales files.')
+on conflict (name) do update set aliases = excluded.aliases, status = excluded.status, notes = excluded.notes;
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text unique not null,
+  status text not null default 'active' check (status in ('active', 'archived')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.products (name, status, notes)
+values
+  ('CowStop Reusable Form', 'active', 'Primary current cattle guard form product.'),
+  ('Texan', 'archived', 'Archived legacy product retained for historical sales analysis and possible future review.')
+on conflict (name) do update set status = excluded.status, notes = excluded.notes;
 
 create table if not exists public.abandoned_checkouts (
   id uuid primary key default gen_random_uuid(),
@@ -94,6 +138,30 @@ create table if not exists public.crm_activity (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.crm_import_batches (
+  id uuid primary key default gen_random_uuid(),
+  file_name text not null,
+  import_year integer,
+  status text not null default 'pending' check (status in ('pending', 'validated', 'importing', 'completed', 'failed')),
+  total_rows integer default 0,
+  imported_customers integer default 0,
+  imported_orders integer default 0,
+  skipped_rows integer default 0,
+  error_rows integer default 0,
+  notes text,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table if not exists public.crm_import_errors (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid references public.crm_import_batches(id) on delete cascade,
+  row_number integer,
+  row_data jsonb,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.marketing_campaigns (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -134,9 +202,13 @@ alter table public.app_profiles enable row level security;
 alter table public.customers enable row level security;
 alter table public.orders enable row level security;
 alter table public.distributor_profiles enable row level security;
+alter table public.old_vendors enable row level security;
+alter table public.products enable row level security;
 alter table public.abandoned_checkouts enable row level security;
 alter table public.site_events enable row level security;
 alter table public.crm_activity enable row level security;
+alter table public.crm_import_batches enable row level security;
+alter table public.crm_import_errors enable row level security;
 alter table public.marketing_campaigns enable row level security;
 alter table public.marketing_posts enable row level security;
 
