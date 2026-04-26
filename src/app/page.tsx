@@ -47,6 +47,12 @@ export default function HomePage() {
             <Link href="/installations" className="hover:text-green-800">
               Installations
             </Link>
+            <Link href="/faq" className="hover:text-green-800">
+              FAQ
+            </Link>
+            <Link href="/blog" className="hover:text-green-800">
+              Blog
+            </Link>
             <Link href="/distributor" className="hover:text-green-800">
               Distributor Portal
             </Link>
