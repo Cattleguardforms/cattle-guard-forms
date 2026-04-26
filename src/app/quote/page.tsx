@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 
+type ReceivingMethod = "pickup" | "ship";
+type FreightTier = "good" | "better" | "best";
+
 type OrderFormData = {
   email: string;
   first_name: string;
@@ -10,6 +13,13 @@ type OrderFormData = {
   phone: string;
   company: string;
   quantity: number;
+  receiving_method: ReceivingMethod;
+  freight_tier: FreightTier;
+  add_insurance: boolean;
+  residential_delivery: boolean;
+  liftgate_required: boolean;
+  limited_access: boolean;
+  call_before_delivery: boolean;
   project_address_line1: string;
   project_address_line2: string;
   project_city: string;
@@ -32,6 +42,23 @@ const UNIT_PRICE = 1499;
 const PRODUCT_IMAGE_SRC =
   "https://www.farmandranchexperts.com/wp-content/uploads/2024/11/Cattle-Guard-Reusable-Cow-Stop-cement-form.jpg";
 
+const COWSTOP_SPECS = {
+  length: "72 in / 6 ft",
+  width: "21.5 in",
+  height: "16 in",
+  grooveDepth: "9 in",
+  formWeight: "80 lb",
+};
+
+const palletRows = [
+  { count: 1, dimensions: "72 x 48 x 20 in", weight: "105 lb" },
+  { count: 2, dimensions: "72 x 48 x 20 in", weight: "190 lb" },
+  { count: 3, dimensions: "72 x 48 x 36 in", weight: "270 lb" },
+  { count: 4, dimensions: "72 x 48 x 36 in", weight: "355 lb" },
+  { count: 5, dimensions: "72 x 48 x 52 in", weight: "440 lb" },
+  { count: 6, dimensions: "72 x 48 x 52 in", weight: "525 lb" },
+];
+
 const navItems = [
   ["Home", "/"],
   ["Shop", "/quote"],
@@ -49,6 +76,12 @@ const featureLinks = [
   ["Save Time & Money", "Reduce freight, labor, and repeat install costs.", "$", "/quote"],
 ];
 
+const freightTiers = [
+  { key: "good", label: "Good", description: "Lowest practical freight option. Best when price matters most." },
+  { key: "better", label: "Better", description: "Recommended balance of carrier quality, price, and transit time." },
+  { key: "best", label: "Best", description: "Premium option for stronger service, speed, or reliability when available." },
+] as const;
+
 const initialFormData: OrderFormData = {
   email: "",
   first_name: "",
@@ -56,6 +89,13 @@ const initialFormData: OrderFormData = {
   phone: "",
   company: "",
   quantity: 1,
+  receiving_method: "ship",
+  freight_tier: "better",
+  add_insurance: false,
+  residential_delivery: false,
+  liftgate_required: false,
+  limited_access: false,
+  call_before_delivery: false,
   project_address_line1: "",
   project_address_line2: "",
   project_city: "",
@@ -80,6 +120,26 @@ function clampQuantity(quantity: number) {
   return Math.min(20, Math.max(1, quantity));
 }
 
+function getPalletCount(quantity: number) {
+  return Math.ceil(quantity / 6);
+}
+
+function getPalletPlan(quantity: number) {
+  const plan: Array<{ pallet: number; cowStops: number; dimensions: string; weight: string }> = [];
+  let remaining = quantity;
+  let palletNumber = 1;
+
+  while (remaining > 0) {
+    const cowStops = Math.min(6, remaining);
+    const row = palletRows.find((item) => item.count === cowStops) ?? palletRows[palletRows.length - 1];
+    plan.push({ pallet: palletNumber, cowStops, dimensions: row.dimensions, weight: row.weight });
+    remaining -= cowStops;
+    palletNumber += 1;
+  }
+
+  return plan;
+}
+
 export default function QuotePage() {
   const [formData, setFormData] = useState<OrderFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -95,9 +155,13 @@ export default function QuotePage() {
     return { subtotal, discountRate, discountAmount, total };
   }, [formData.quantity]);
 
+  const palletPlan = useMemo(() => getPalletPlan(formData.quantity), [formData.quantity]);
+  const palletCount = getPalletCount(formData.quantity);
+
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = event.target;
-    setFormData((previous) => ({ ...previous, [name]: value }));
+    const { name, value, type } = event.target;
+    const checked = type === "checkbox" ? (event.target as HTMLInputElement).checked : undefined;
+    setFormData((previous) => ({ ...previous, [name]: type === "checkbox" ? checked : value }));
   };
 
   const setQuantity = (quantity: number) => {
@@ -108,6 +172,11 @@ export default function QuotePage() {
     setQuantity(Number.parseInt(event.target.value, 10));
   };
 
+  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
+  };
+
   const validate = () => {
     if (!emailPattern.test(formData.email)) {
       return "Please enter a valid email address.";
@@ -115,6 +184,12 @@ export default function QuotePage() {
 
     if (!Number.isInteger(formData.quantity) || formData.quantity < 1 || formData.quantity > 20) {
       return "Quantity must be between 1 and 20.";
+    }
+
+    if (formData.receiving_method === "ship") {
+      if (!formData.project_address_line1 || !formData.project_city || !formData.project_state || !formData.project_postal_code) {
+        return "Please enter the delivery address so shipping can be quoted.";
+      }
     }
 
     return null;
@@ -139,10 +214,30 @@ export default function QuotePage() {
       `Subtotal: ${currencyFormatter.format(pricing.subtotal)}`,
       `Discount: ${(pricing.discountRate * 100).toFixed(0)}%`,
       `Discount Amount: ${currencyFormatter.format(pricing.discountAmount)}`,
-      `Total: ${currencyFormatter.format(pricing.total)}`,
+      `Product Total: ${currencyFormatter.format(pricing.total)}`,
     ].join("\n");
 
-    const noteParts = [formData.notes.trim(), pricingSummary].filter((value) => value.length > 0);
+    const productSpecsSummary = [
+      "CowStop Specs:",
+      `Mold dimensions: ${COWSTOP_SPECS.length} long x ${COWSTOP_SPECS.width} wide x ${COWSTOP_SPECS.height} high`,
+      `Groove depth: ${COWSTOP_SPECS.grooveDepth}`,
+      `Reusable mold weight: ${COWSTOP_SPECS.formWeight}`,
+    ].join("\n");
+
+    const shippingSummary = [
+      "Shipping / Fulfillment Summary:",
+      `Receiving Method: ${formData.receiving_method === "pickup" ? "Pickup" : "Ship to customer"}`,
+      `Pallet Count: ${palletCount}`,
+      ...palletPlan.map((item) => `Pallet ${item.pallet}: ${item.cowStops} CowStop(s), ${item.dimensions}, ${item.weight}`),
+      formData.receiving_method === "ship" ? `Freight Tier Requested: ${formData.freight_tier.toUpperCase()}` : "Pickup requested",
+      formData.receiving_method === "ship" ? `Insurance Requested: ${formData.add_insurance ? "Yes" : "No"}` : undefined,
+      formData.receiving_method === "ship" ? `Residential Delivery: ${formData.residential_delivery ? "Yes" : "No"}` : undefined,
+      formData.receiving_method === "ship" ? `Liftgate Required: ${formData.liftgate_required ? "Yes" : "No"}` : undefined,
+      formData.receiving_method === "ship" ? `Limited Access: ${formData.limited_access ? "Yes" : "No"}` : undefined,
+      formData.receiving_method === "ship" ? `Call Before Delivery: ${formData.call_before_delivery ? "Yes" : "No"}` : undefined,
+    ].filter(Boolean).join("\n");
+
+    const noteParts = [formData.notes.trim(), pricingSummary, productSpecsSummary, shippingSummary].filter((value) => value.length > 0);
 
     try {
       setLoading(true);
@@ -208,7 +303,7 @@ export default function QuotePage() {
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Shop Cattle Guard Forms</p>
             <h1 className="mt-5 text-5xl font-black leading-tight tracking-tight md:text-6xl">Buy the reusable form. Pour strong cattle guards on-site.</h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Order the reusable CowStop form, choose your quantity, and submit your details so the team can confirm next steps, shipping, and project requirements.</p>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Order the reusable CowStop form, choose pickup or shipping, and submit delivery details so freight can be quoted and booked.</p>
           </div>
           <div className="rounded-[2rem] border border-white/20 bg-white/10 p-3 shadow-2xl backdrop-blur">
             <img src={PRODUCT_IMAGE_SRC} alt="Cattle Guard Forms CowStop reusable plastic form" className="h-full max-h-[420px] w-full rounded-[1.35rem] bg-white object-contain p-5" />
@@ -262,15 +357,27 @@ export default function QuotePage() {
             </div>
 
             <div className="rounded-3xl border border-green-100 bg-green-50 p-6 shadow-sm">
-              <h2 className="text-xl font-black text-green-950">Benefits & Product Details</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-neutral-700">
-                <li>✓ Reusable form system for multiple pours</li>
-                <li>✓ Helps reduce traditional steel cattle guard cost</li>
-                <li>✓ Creates concrete cattle guard sections on-site</li>
-                <li>✓ Built-in hoof-stop design</li>
-                <li>✓ Flexible sizing by pouring multiple sections</li>
-                <li>✓ No rust, no painting, and lower long-term maintenance</li>
-              </ul>
+              <h2 className="text-xl font-black text-green-950">Product Specs</h2>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Length</p><p>{COWSTOP_SPECS.length}</p></div>
+                <div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Width</p><p>{COWSTOP_SPECS.width}</p></div>
+                <div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Height</p><p>{COWSTOP_SPECS.height}</p></div>
+                <div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Weight</p><p>{COWSTOP_SPECS.formWeight}</p></div>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-neutral-700">Grooves are {COWSTOP_SPECS.grooveDepth} deep. Pallet freight calculations are based on the shipping table used internally/distributor-side.</p>
+            </div>
+
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-black text-neutral-950">Pallet Plan</h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">One pallet holds up to 6 CowStops. Your current quantity requires <strong>{palletCount}</strong> pallet{palletCount === 1 ? "" : "s"}.</p>
+              <div className="mt-4 space-y-2">
+                {palletPlan.map((item) => (
+                  <div key={item.pallet} className="rounded-xl bg-neutral-50 p-3 text-sm">
+                    <p className="font-bold text-green-900">Pallet {item.pallet}: {item.cowStops} CowStop{item.cowStops === 1 ? "" : "s"}</p>
+                    <p className="text-neutral-600">{item.dimensions} • {item.weight}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </aside>
 
@@ -289,7 +396,7 @@ export default function QuotePage() {
               <dl className="mt-6 space-y-3 text-sm">
                 <div className="flex justify-between"><dt className="text-neutral-500">Subtotal</dt><dd className="font-bold">{currencyFormatter.format(pricing.subtotal)}</dd></div>
                 <div className="flex justify-between"><dt className="text-neutral-500">Discount {pricing.discountRate > 0 ? `(${(pricing.discountRate * 100).toFixed(0)}%)` : ""}</dt><dd className="font-bold text-emerald-700">-{currencyFormatter.format(pricing.discountAmount)}</dd></div>
-                <div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Total</dt><dd className="text-3xl font-black text-green-950">{currencyFormatter.format(pricing.total)}</dd></div></div>
+                <div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Product Total</dt><dd className="text-3xl font-black text-green-950">{currencyFormatter.format(pricing.total)}</dd></div></div>
               </dl>
             </div>
 
@@ -306,15 +413,57 @@ export default function QuotePage() {
               </section>
 
               <section>
-                <h2 className="text-xl font-black">Shipping / Project Location</h2>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <input name="project_address_line1" value={formData.project_address_line1} onChange={handleChange} placeholder="Project address line 1" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
-                  <input name="project_address_line2" value={formData.project_address_line2} onChange={handleChange} placeholder="Project address line 2" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
-                  <input name="project_city" value={formData.project_city} onChange={handleChange} placeholder="Project city" className="rounded-xl border border-neutral-300 px-3 py-3" />
-                  <input name="project_state" value={formData.project_state} onChange={handleChange} placeholder="Project state" className="rounded-xl border border-neutral-300 px-3 py-3" />
-                  <input name="project_postal_code" value={formData.project_postal_code} onChange={handleChange} placeholder="Project postal code" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
-                  <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Notes" rows={4} className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
+                <h2 className="text-xl font-black">Fulfillment</h2>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <label className={`rounded-2xl border p-4 ${formData.receiving_method === "pickup" ? "border-green-800 bg-green-50" : "border-neutral-200"}`}>
+                    <input type="radio" name="receiving_method" value="pickup" checked={formData.receiving_method === "pickup"} onChange={handleChange} className="mr-2" />
+                    <span className="font-bold">Pickup</span>
+                    <p className="mt-2 text-sm leading-6 text-neutral-600">Pickup from manufacturer. No customer freight quote needed.</p>
+                  </label>
+                  <label className={`rounded-2xl border p-4 ${formData.receiving_method === "ship" ? "border-green-800 bg-green-50" : "border-neutral-200"}`}>
+                    <input type="radio" name="receiving_method" value="ship" checked={formData.receiving_method === "ship"} onChange={handleChange} className="mr-2" />
+                    <span className="font-bold">Ship to my address</span>
+                    <p className="mt-2 text-sm leading-6 text-neutral-600">Enter delivery details and request Good / Better / Best freight options.</p>
+                  </label>
                 </div>
+              </section>
+
+              {formData.receiving_method === "ship" ? (
+                <section>
+                  <h2 className="text-xl font-black">Shipping Details</h2>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <input name="project_address_line1" value={formData.project_address_line1} onChange={handleChange} placeholder="Delivery address line 1 *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
+                    <input name="project_address_line2" value={formData.project_address_line2} onChange={handleChange} placeholder="Delivery address line 2" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
+                    <input name="project_city" value={formData.project_city} onChange={handleChange} placeholder="City *" className="rounded-xl border border-neutral-300 px-3 py-3" />
+                    <input name="project_state" value={formData.project_state} onChange={handleChange} placeholder="State *" className="rounded-xl border border-neutral-300 px-3 py-3" />
+                    <input name="project_postal_code" value={formData.project_postal_code} onChange={handleChange} placeholder="ZIP *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" />
+                    <select name="freight_tier" value={formData.freight_tier} onChange={handleSelectChange} className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2">
+                      {freightTiers.map((tier) => <option key={tier.key} value={tier.key}>{tier.label}: {tier.description}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <Checkbox name="add_insurance" checked={formData.add_insurance} onChange={handleChange} label="Add freight insurance" />
+                    <Checkbox name="residential_delivery" checked={formData.residential_delivery} onChange={handleChange} label="Residential delivery" />
+                    <Checkbox name="liftgate_required" checked={formData.liftgate_required} onChange={handleChange} label="Liftgate required" />
+                    <Checkbox name="limited_access" checked={formData.limited_access} onChange={handleChange} label="Limited access location" />
+                    <Checkbox name="call_before_delivery" checked={formData.call_before_delivery} onChange={handleChange} label="Call before delivery" />
+                  </div>
+
+                  <div className="mt-5 rounded-2xl bg-amber-50 p-4 text-sm leading-6 text-amber-950 ring-1 ring-amber-200">
+                    Echo freight pricing is not live yet. These choices are saved with the order so the same structure can plug into Echo for Good / Better / Best quotes, insurance, liftgate, residential, and limited-access accessorials.
+                  </div>
+                </section>
+              ) : (
+                <section className="rounded-2xl bg-green-50 p-5 text-sm leading-7 text-green-950 ring-1 ring-green-100">
+                  <h2 className="text-xl font-black">Pickup Instructions</h2>
+                  <p className="mt-2">Your order will be marked for pickup. The team should confirm manufacturer pickup address, ready window, and pickup instructions after order review.</p>
+                </section>
+              )}
+
+              <section>
+                <h2 className="text-xl font-black">Notes</h2>
+                <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Order notes, delivery notes, access details, preferred carrier notes, etc." rows={4} className="mt-5 w-full rounded-xl border border-neutral-300 px-3 py-3" />
               </section>
             </div>
 
@@ -325,5 +474,14 @@ export default function QuotePage() {
         </section>
       </form>
     </main>
+  );
+}
+
+function Checkbox({ name, checked, onChange, label }: { name: string; checked: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void; label: string }) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-sm font-semibold text-neutral-700">
+      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="h-4 w-4" />
+      {label}
+    </label>
   );
 }
