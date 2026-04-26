@@ -10,6 +10,26 @@ type ShippingMethod = "echo" | "own";
 
 type AuthMode = "signed-out" | "signed-in";
 
+type DistributorAccount = {
+  id: string;
+  name: string;
+  email: string;
+  logoUrl?: string;
+};
+
+const distributorAccounts: DistributorAccount[] = [
+  {
+    id: "farm-and-ranch-experts",
+    name: "Farm and Ranch Experts",
+    email: "orders@farmandranchexperts.com",
+  },
+  {
+    id: "barn-world",
+    name: "Barn World",
+    email: "orders@barnworld.com",
+  },
+];
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey);
@@ -82,11 +102,22 @@ function Header({ signedIn }: { signedIn: boolean }) {
   );
 }
 
+function findDistributorByEmail(email: string) {
+  const normalizedEmail = email.toLowerCase();
+  return distributorAccounts.find((account) => {
+    const domain = account.email.split("@")[1]?.toLowerCase();
+    return normalizedEmail === account.email.toLowerCase() || Boolean(domain && normalizedEmail.endsWith(`@${domain}`));
+  });
+}
+
 export default function DistributorPortalPage() {
   const [authMode, setAuthMode] = useState<AuthMode>("signed-out");
   const [loginEmail, setLoginEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedDistributorId, setSelectedDistributorId] = useState(distributorAccounts[0].id);
   const [distributorAccountName, setDistributorAccountName] = useState("Distributor");
+  const [distributorLogoFileName, setDistributorLogoFileName] = useState("");
+  const [distributorLogoPreview, setDistributorLogoPreview] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [email, setEmail] = useState("");
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("echo");
@@ -115,6 +146,17 @@ export default function DistributorPortalPage() {
         selectedRate
       : bolFileName;
 
+  const handleDistributorLogoUpload = (file: File | undefined) => {
+    if (!file) {
+      setDistributorLogoFileName("");
+      setDistributorLogoPreview(null);
+      return;
+    }
+
+    setDistributorLogoFileName(file.name);
+    setDistributorLogoPreview(URL.createObjectURL(file));
+  };
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoginError(null);
@@ -133,22 +175,33 @@ export default function DistributorPortalPage() {
           return;
         }
 
-        // TODO: Load distributor profile/company data from Supabase and enforce approved distributor role server-side.
+        // TODO: Load distributor profile/company/logo data from Supabase and enforce approved distributor role server-side.
+        const matchedDistributor = findDistributorByEmail(data.user?.email ?? loginEmail);
         const accountName =
           data.user?.user_metadata?.company_name ??
           data.user?.user_metadata?.company ??
           data.user?.user_metadata?.name ??
+          matchedDistributor?.name ??
           "Distributor";
+        const logoUrl = data.user?.user_metadata?.logo_url ?? matchedDistributor?.logoUrl ?? null;
 
         setDistributorAccountName(String(accountName));
-        setEmail(data.user?.email ?? loginEmail);
+        setDistributorLogoPreview(logoUrl ? String(logoUrl) : null);
+        setDistributorLogoFileName(logoUrl ? "Saved distributor logo" : "");
+        setEmail(data.user?.email ?? matchedDistributor?.email ?? loginEmail);
         setAuthMode("signed-in");
         return;
       }
 
       // TODO: Remove placeholder login before production and require Supabase distributor-role enforcement.
-      setDistributorAccountName(loginEmail ? loginEmail.split("@")[0] || "Distributor" : "Distributor");
-      setEmail(loginEmail);
+      const selectedDistributor =
+        distributorAccounts.find((account) => account.id === selectedDistributorId) ?? distributorAccounts[0];
+      const matchedDistributor = findDistributorByEmail(loginEmail) ?? selectedDistributor;
+
+      setDistributorAccountName(matchedDistributor.name);
+      setDistributorLogoPreview(matchedDistributor.logoUrl ?? null);
+      setDistributorLogoFileName(matchedDistributor.logoUrl ? "Saved distributor logo" : "");
+      setEmail(loginEmail || matchedDistributor.email);
       setAuthMode("signed-in");
     } finally {
       setLoginLoading(false);
@@ -180,6 +233,7 @@ export default function DistributorPortalPage() {
           quantity,
           email,
           distributorAccountName,
+          distributorLogoFileName,
           shippingMethod,
           shipToName,
           shipToAddress,
@@ -225,6 +279,17 @@ export default function DistributorPortalPage() {
             <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-700">
               Interested in becoming a distributor? Please email support@cattleguardforms.com.
             </p>
+            <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+              <h2 className="text-xl font-semibold">Approved Distributor Accounts</h2>
+              <div className="mt-4 grid gap-3">
+                {distributorAccounts.map((account) => (
+                  <div key={account.id} className="rounded-lg border border-neutral-200 p-4">
+                    <p className="font-semibold text-neutral-950">{account.name}</p>
+                    <p className="mt-1 text-sm text-neutral-600">{account.email}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
             {!hasSupabaseAuth ? (
               <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
                 Supabase authentication is not configured in this environment. This placeholder gate is for setup/testing only and is not production security.
@@ -245,6 +310,22 @@ export default function DistributorPortalPage() {
             ) : null}
 
             <div className="mt-6 grid gap-4">
+              {!hasSupabaseAuth ? (
+                <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                  Placeholder distributor account
+                  <select
+                    value={selectedDistributorId}
+                    onChange={(event) => setSelectedDistributorId(event.target.value)}
+                    className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                  >
+                    {distributorAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="grid gap-2 text-sm font-medium text-neutral-700">
                 Email
                 <input
@@ -492,18 +573,52 @@ export default function DistributorPortalPage() {
             </form>
           </div>
 
-          <aside className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-2xl font-semibold">Portal Workflow</h2>
-            <ol className="mt-5 space-y-4">
-              {workflow.map((item, index) => (
-                <li key={item} className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-800 text-sm font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <span className="leading-7 text-neutral-700">{item}</span>
-                </li>
-              ))}
-            </ol>
+          <aside className="space-y-8">
+            <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+              <h2 className="text-2xl font-semibold">Distributor Branding</h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">
+                Upload a distributor logo here. This preview is ready for the portal, and permanent storage should be connected to Supabase Storage next.
+              </p>
+              <div className="mt-5 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-center">
+                {distributorLogoPreview ? (
+                  <img
+                    src={distributorLogoPreview}
+                    alt={`${distributorAccountName} logo preview`}
+                    className="mx-auto max-h-28 w-auto object-contain"
+                  />
+                ) : (
+                  <p className="text-sm text-neutral-500">No logo uploaded yet.</p>
+                )}
+              </div>
+              <label className="mt-5 grid gap-2 text-sm font-medium text-neutral-700">
+                Upload distributor logo
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,.svg"
+                  onChange={(event) => handleDistributorLogoUpload(event.target.files?.[0])}
+                  className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                />
+              </label>
+              {distributorLogoFileName ? (
+                <p className="mt-3 rounded bg-green-50 px-3 py-2 text-sm font-medium text-green-800 ring-1 ring-green-200">
+                  Logo selected: {distributorLogoFileName}
+                </p>
+              ) : null}
+            </section>
+
+            <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+              <h2 className="text-2xl font-semibold">Portal Workflow</h2>
+              <ol className="mt-5 space-y-4">
+                {workflow.map((item, index) => (
+                  <li key={item} className="flex gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-800 text-sm font-bold text-white">
+                      {index + 1}
+                    </span>
+                    <span className="leading-7 text-neutral-700">{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
           </aside>
         </section>
       </section>
