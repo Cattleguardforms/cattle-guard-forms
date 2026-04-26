@@ -1,5 +1,6 @@
 "use client";
 
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
@@ -7,12 +8,11 @@ const DISTRIBUTOR_UNIT_PRICE = 750;
 
 type ShippingMethod = "echo" | "own";
 
-const metrics = [
-  { label: "New Requests", value: "0" },
-  { label: "Pending Follow-Up", value: "0" },
-  { label: "Paid Orders", value: "0" },
-  { label: "Shipped", value: "0" },
-];
+type AuthMode = "signed-out" | "signed-in";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const hasSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey);
 
 const workflow = [
   "Distributor places the CowStop order at the approved $750 distributor rate",
@@ -27,27 +27,133 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
+function PublicNav() {
+  return (
+    <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+      <Link href="/" className="hover:text-green-800">
+        Home
+      </Link>
+      <Link href="/quote" className="hover:text-green-800">
+        Shop
+      </Link>
+      <Link href="/installations" className="hover:text-green-800">
+        Installations
+      </Link>
+      <Link href="/distributor" className="text-green-800">
+        Distributor Portal
+      </Link>
+    </nav>
+  );
+}
+
+function DistributorNav() {
+  return (
+    <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
+      <Link href="/" className="hover:text-green-800">
+        Home
+      </Link>
+      <a href="#distributor-order" className="hover:text-green-800">
+        Distributor Order
+      </a>
+      <Link href="/installations" className="hover:text-green-800">
+        Installations
+      </Link>
+      <Link href="/distributor" className="text-green-800">
+        Distributor Portal
+      </Link>
+    </nav>
+  );
+}
+
+function Header({ signedIn }: { signedIn: boolean }) {
+  return (
+    <header className="border-b border-neutral-200 bg-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <Link href="/" className="inline-flex items-center">
+          <img
+            src="/brand/cgf-logo.png"
+            alt="Cattle Guard Forms"
+            className="h-16 w-auto object-contain"
+          />
+        </Link>
+        {signedIn ? <DistributorNav /> : <PublicNav />}
+      </div>
+    </header>
+  );
+}
+
 export default function DistributorPortalPage() {
+  const [authMode, setAuthMode] = useState<AuthMode>("signed-out");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [distributorAccountName, setDistributorAccountName] = useState("Distributor");
   const [quantity, setQuantity] = useState(1);
   const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
-  const [contactName, setContactName] = useState("");
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("echo");
+  const [shipToName, setShipToName] = useState("");
   const [shipToAddress, setShipToAddress] = useState("");
+  const [shipToAddress2, setShipToAddress2] = useState("");
   const [shipToCity, setShipToCity] = useState("");
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
   const [selectedRate, setSelectedRate] = useState("");
   const [bolFileName, setBolFileName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const productTotal = useMemo(() => quantity * DISTRIBUTOR_UNIT_PRICE, [quantity]);
 
   const checkoutReady =
     shippingMethod === "echo"
-      ? shipToAddress.trim() && shipToCity.trim() && shipToState.trim() && shipToZip.trim() && selectedRate
+      ? shipToName.trim() &&
+        shipToAddress.trim() &&
+        shipToCity.trim() &&
+        shipToState.trim() &&
+        shipToZip.trim() &&
+        selectedRate
       : bolFileName;
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginError(null);
+    setLoginLoading(true);
+
+    try {
+      if (hasSupabaseAuth && supabaseUrl && supabaseAnonKey) {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password,
+        });
+
+        if (signInError) {
+          setLoginError(signInError.message);
+          return;
+        }
+
+        // TODO: Load distributor profile/company data from Supabase and enforce approved distributor role server-side.
+        const accountName =
+          data.user?.user_metadata?.company_name ??
+          data.user?.user_metadata?.company ??
+          data.user?.user_metadata?.name ??
+          "Distributor";
+
+        setDistributorAccountName(String(accountName));
+        setEmail(data.user?.email ?? loginEmail);
+        setAuthMode("signed-in");
+        return;
+      }
+
+      // TODO: Remove placeholder login before production and require Supabase distributor-role enforcement.
+      setDistributorAccountName(loginEmail ? loginEmail.split("@")[0] || "Distributor" : "Distributor");
+      setEmail(loginEmail);
+      setAuthMode("signed-in");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,7 +162,7 @@ export default function DistributorPortalPage() {
     if (!checkoutReady) {
       setError(
         shippingMethod === "echo"
-          ? "Enter the ship-to address and select an Echo shipping option before payment."
+          ? "Enter the ship-to name, address, and select an Echo shipping option before payment."
           : "Upload the BOL before payment when shipping on your own.",
       );
       return;
@@ -73,10 +179,11 @@ export default function DistributorPortalPage() {
         body: JSON.stringify({
           quantity,
           email,
-          company,
-          contactName,
+          distributorAccountName,
           shippingMethod,
+          shipToName,
           shipToAddress,
+          shipToAddress2,
           shipToCity,
           shipToState,
           shipToZip,
@@ -100,33 +207,83 @@ export default function DistributorPortalPage() {
     }
   };
 
+  if (authMode === "signed-out") {
+    return (
+      <main className="min-h-screen bg-neutral-50 text-neutral-950">
+        <Header signedIn={false} />
+        <section className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-green-800">
+              Distributor access
+            </p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-neutral-950">
+              Distributor Portal
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">
+              Distributors may log in here.
+            </p>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-700">
+              Interested in becoming a distributor? Please email support@cattleguardforms.com.
+            </p>
+            {!hasSupabaseAuth ? (
+              <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
+                Supabase authentication is not configured in this environment. This placeholder gate is for setup/testing only and is not production security.
+              </div>
+            ) : null}
+          </div>
+
+          <form className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200" onSubmit={handleLogin}>
+            <h2 className="text-2xl font-semibold">Distributor Sign In</h2>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">
+              Access is for approved Cattle Guard Forms distributors only.
+            </p>
+
+            {loginError ? (
+              <div className="mt-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {loginError}
+              </div>
+            ) : null}
+
+            <div className="mt-6 grid gap-4">
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                Email
+                <input
+                  required
+                  type="email"
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  placeholder="distributor@example.com"
+                  className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">
+                Password
+                <input
+                  required={hasSupabaseAuth}
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Password"
+                  className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loginLoading ? "Signing in..." : "Log In"}
+              </button>
+            </div>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link href="/" className="inline-flex items-center">
-            <img
-              src="/brand/cgf-logo.png"
-              alt="Cattle Guard Forms"
-              className="h-16 w-auto object-contain"
-            />
-          </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
-            <Link href="/" className="hover:text-green-800">
-              Home
-            </Link>
-            <Link href="/quote" className="hover:text-green-800">
-              Shop
-            </Link>
-            <Link href="/installations" className="hover:text-green-800">
-              Installations
-            </Link>
-            <Link href="/distributor" className="text-green-800">
-              Distributor Portal
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Header signedIn />
 
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200">
@@ -136,34 +293,26 @@ export default function DistributorPortalPage() {
           <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 className="text-4xl font-bold tracking-tight text-neutral-950">
-                Distributor Portal
+                Hello, {distributorAccountName || "Distributor"}
               </h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-                Approved distributors can place CowStop orders online at the $750 distributor rate, choose Cattle Guard Forms shipping through Echo, or upload their own BOL when shipping independently.
+                Place CowStop orders online at the $750 distributor rate, choose Cattle Guard Forms shipping through Echo, or upload your own BOL when shipping independently.
               </p>
             </div>
-            <Link
-              href="/quote"
-              className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900"
+            <button
+              type="button"
+              onClick={() => setAuthMode("signed-out")}
+              className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-neutral-50"
             >
-              View Retail Shop Page
-            </Link>
+              Sign Out
+            </button>
           </div>
         </div>
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-              <p className="text-sm font-medium text-neutral-500">{metric.label}</p>
-              <p className="mt-2 text-3xl font-bold text-neutral-950">{metric.value}</p>
-            </div>
-          ))}
-        </section>
-
-        <section className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr]">
+        <section className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr]" id="distributor-order">
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-semibold">Distributor Online Order</h2>
+              <h2 className="text-2xl font-semibold">Distributor Order</h2>
               <span className="rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-800 ring-1 ring-green-200">
                 {currencyFormatter.format(DISTRIBUTOR_UNIT_PRICE)} / unit
               </span>
@@ -177,28 +326,6 @@ export default function DistributorPortalPage() {
 
             <form className="mt-6 grid gap-6" onSubmit={handleSubmit}>
               <section className="grid gap-4">
-                <h3 className="text-lg font-semibold">Distributor Details</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                    Contact name
-                    <input
-                      value={contactName}
-                      onChange={(event) => setContactName(event.target.value)}
-                      placeholder="Name"
-                      className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                    Company
-                    <input
-                      value={company}
-                      onChange={(event) => setCompany(event.target.value)}
-                      placeholder="Distributor company"
-                      className="rounded border border-neutral-300 px-3 py-2 font-normal text-neutral-950"
-                    />
-                  </label>
-                </div>
-
                 <label className="grid gap-2 text-sm font-medium text-neutral-700">
                   Email for receipt and order updates
                   <input
@@ -258,29 +385,42 @@ export default function DistributorPortalPage() {
 
                 {shippingMethod === "echo" ? (
                   <div className="mt-5 grid gap-4">
+                    <h4 className="font-semibold">Ship To</h4>
                     <div className="grid gap-4 sm:grid-cols-2">
+                      <input
+                        value={shipToName}
+                        onChange={(event) => setShipToName(event.target.value)}
+                        placeholder="Customer or Company Name"
+                        className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
+                      />
                       <input
                         value={shipToAddress}
                         onChange={(event) => setShipToAddress(event.target.value)}
-                        placeholder="Ship-to address"
+                        placeholder="Ship-to Address Line 1"
+                        className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
+                      />
+                      <input
+                        value={shipToAddress2}
+                        onChange={(event) => setShipToAddress2(event.target.value)}
+                        placeholder="Ship-to Address Line 2"
                         className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
                       />
                       <input
                         value={shipToCity}
                         onChange={(event) => setShipToCity(event.target.value)}
-                        placeholder="City"
+                        placeholder="Ship-to City"
                         className="rounded border border-neutral-300 px-3 py-2"
                       />
                       <input
                         value={shipToState}
                         onChange={(event) => setShipToState(event.target.value)}
-                        placeholder="State"
+                        placeholder="Ship-to State"
                         className="rounded border border-neutral-300 px-3 py-2"
                       />
                       <input
                         value={shipToZip}
                         onChange={(event) => setShipToZip(event.target.value)}
-                        placeholder="ZIP code"
+                        placeholder="Ship-to ZIP"
                         className="rounded border border-neutral-300 px-3 py-2 sm:col-span-2"
                       />
                     </div>
@@ -347,7 +487,7 @@ export default function DistributorPortalPage() {
               </button>
 
               <p className="text-sm leading-6 text-neutral-500">
-                After payment and shipping information are complete, the fulfillment workflow will email the manufacturer and support@cattleguardforms.com. The distributor will receive order confirmation and later ship-date updates by email.
+                Once the order is paid and shipping/BOL is complete, the order will be sent to the manufacturer. support@cattleguardforms.com will receive a copy. The distributor receives order confirmation by email, and the manufacturer later replies with the expected ship date.
               </p>
             </form>
           </div>
@@ -365,35 +505,6 @@ export default function DistributorPortalPage() {
               ))}
             </ol>
           </aside>
-        </section>
-
-        <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold">Incoming Requests</h2>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800 ring-1 ring-amber-200">
-              Supabase order table wiring next
-            </span>
-          </div>
-
-          <div className="mt-6 overflow-hidden rounded-xl border border-neutral-200">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-neutral-100 text-neutral-600">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Customer</th>
-                  <th className="px-4 py-3 font-semibold">Qty</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Tracking</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t border-neutral-200">
-                  <td className="px-4 py-6 text-neutral-500" colSpan={4}>
-                    No live requests loaded yet. Next step is connecting this table to Supabase orders.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </section>
       </section>
     </main>
