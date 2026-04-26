@@ -31,7 +31,7 @@ const steps = [
     title: "Step 5: Attach Chain to J-Hooks",
     body:
       "Once the concrete is fully cured, attach lifting chains or slings securely to the J-hooks. Confirm that the load is balanced evenly before lifting.",
-    imageSrc: "/installations/step%20-%205.jpg",
+    imageSrc: "/installations/step%20-%205.png",
     imageAlt: "Chain attached to CowStop lifting hardware",
   },
   {
@@ -45,14 +45,14 @@ const steps = [
     title: "Step 7: Transport and Position",
     body:
       "Move the cattle guard to its designated location. Set it square and level on the prepared gravel pad, keeping the top elevated above grade as intended.",
-    imageSrc: "/installations/step%20-%207.jpg",
+    imageSrc: "/installations/step%20-%207.png",
     imageAlt: "Finished CowStop concrete section ready for positioning",
   },
   {
     title: "Step 8: Final Alignment and Backfill",
     body:
       "Confirm final alignment, elevation, and stability. Backfill around the edges with compacted gravel or soil to lock the cattle guard in place and maintain proper drainage.",
-    imageSrc: "/installations/step%20-%208.jpg",
+    imageSrc: "/installations/step%20-%208.png",
     imageAlt: "Tractor moving CowStop section for final alignment",
   },
 ];
