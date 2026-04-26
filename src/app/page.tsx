@@ -47,8 +47,9 @@ export default function HomePage() {
             <Link href="/installations" className="hover:text-green-800">
               Installations
             </Link>
-            <span className="text-neutral-400">Customer Portal</span>
-            <span className="text-neutral-400">Distributor Portal</span>
+            <Link href="/distributor" className="hover:text-green-800">
+              Distributor Portal
+            </Link>
           </nav>
         </div>
       </header>
