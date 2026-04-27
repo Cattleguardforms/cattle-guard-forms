@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
+import { companyBusinessProfile, formatCompanyAddress } from "@/lib/company/business-profile";
 
 type ContactFormData = {
   email: string;
@@ -96,7 +97,7 @@ export default function ContactPage() {
               For order help, distributor questions, accessibility assistance, or general support, use the contact form or email support directly.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <a href="mailto:support@cattleguardforms.com" className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
+              <a href={`mailto:${companyBusinessProfile.supportEmail}`} className="inline-flex justify-center rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">
                 Email Support
               </a>
               <Link href="/terms" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-white">
@@ -105,6 +106,10 @@ export default function ContactPage() {
               <Link href="/accessibility" className="inline-flex justify-center rounded border border-neutral-300 px-5 py-3 font-semibold text-neutral-950 hover:bg-white sm:col-span-2">
                 Accessibility Statement
               </Link>
+            </div>
+            <div className="mt-5 rounded-xl bg-white p-4 text-sm leading-6 text-neutral-700 ring-1 ring-neutral-200">
+              <p className="font-semibold text-neutral-950">Business Address</p>
+              <address className="mt-2 whitespace-pre-line not-italic">{formatCompanyAddress()}</address>
             </div>
             <p className="mt-4 text-sm leading-6 text-neutral-500">
               By submitting the contact form, you agree that Cattle Guard Forms may use your information to respond to your request, manage customer/distributor records, and follow up through our CRM.
