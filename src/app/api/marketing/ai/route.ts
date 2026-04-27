@@ -10,6 +10,22 @@ type MarketingAiRequest = {
   notes?: string;
 };
 
+type OpenAiTextContent = {
+  text?: unknown;
+};
+
+type OpenAiOutputItem = {
+  content?: OpenAiTextContent[];
+};
+
+type OpenAiResponsePayload = {
+  output_text?: unknown;
+  output?: OpenAiOutputItem[];
+  error?: {
+    message?: unknown;
+  };
+};
+
 const allowedContentTypes = new Set([
   "Facebook post",
   "Instagram caption",
@@ -27,15 +43,15 @@ function safeValue(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 3000) : fallback;
 }
 
-function extractOutputText(data: any) {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+function extractOutputText(data: OpenAiResponsePayload) {
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
     return data.output_text.trim();
   }
 
   const chunks: string[] = [];
-  for (const item of data?.output ?? []) {
-    for (const content of item?.content ?? []) {
-      if (typeof content?.text === "string") chunks.push(content.text);
+  for (const item of data.output ?? []) {
+    for (const content of item.content ?? []) {
+      if (typeof content.text === "string") chunks.push(content.text);
     }
   }
 
@@ -86,11 +102,12 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as OpenAiResponsePayload;
 
     if (!response.ok) {
+      const message = typeof data.error?.message === "string" ? data.error.message : "OpenAI request failed.";
       return NextResponse.json(
-        { error: data?.error?.message ?? "OpenAI request failed." },
+        { error: message },
         { status: response.status },
       );
     }
