@@ -63,8 +63,8 @@ const steps = [
     title: "Backfill, Grade, and Inspect",
     body:
       "Backfill around the cattle guard, grade the approach so vehicles transition smoothly, and confirm the unit is level, stable, and clear of loose debris before opening the crossing to traffic.",
-    imageSrc: "/installations/step%20-%207.png",
-    imageAlt: "Finished cattle guard installed and ready for final grading and inspection",
+    imageSrc: "/installations/step%20-%208.png",
+    imageAlt: "Finished above-grade cattle guard with yellow edges ready for final grading and inspection",
   },
 ];
 
