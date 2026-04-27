@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 type Blocker =
   | "missing_env"
@@ -44,7 +44,7 @@ function classifyError(error: unknown): Blocker {
   return "unknown_error";
 }
 
-async function countTable(supabase: ReturnType<typeof createClient>, table: "customers" | "orders") {
+async function countTable(supabase: SupabaseClient, table: "customers" | "orders") {
   try {
     const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
 
