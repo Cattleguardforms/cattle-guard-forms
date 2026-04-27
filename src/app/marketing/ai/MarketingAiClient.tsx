@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
-type Mode = "copy" | "image" | "video";
+type Mode = "copy" | "image" | "video" | "blog" | "seo";
 
 type CopyFormState = {
   contentType: string;
@@ -39,6 +39,34 @@ type VideoFormState = {
   notes: string;
 };
 
+type BlogFormState = {
+  topic: string;
+  primaryKeyword: string;
+  secondaryKeywords: string;
+  audience: string;
+  tone: string;
+  goal: string;
+  wordCount: string;
+  notes: string;
+};
+
+type SeoFormState = {
+  url: string;
+  primaryKeyword: string;
+};
+
+type ApiTextResponse = {
+  output?: string;
+  error?: string;
+};
+
+type ApiImageResponse = {
+  imageUrl?: string;
+  prompt?: string;
+  caption?: string;
+  error?: string;
+};
+
 const contentTypes = [
   "Facebook post",
   "Instagram caption",
@@ -72,11 +100,11 @@ const defaultImageForm: ImageFormState = {
   imageType: "Ad creative",
   audience: "farmers, ranchers, land owners, contractors, concrete companies, and distributors",
   tone: "professional, rugged, practical, clean",
-  offer: "CowStop reusable cattle guard forms",
+  offer: "CowStop reusable concrete cattle guard forms",
   goal: "generate qualified leads and product interest",
   headline: "Build Better Cattle Guards",
   cta: "Request a quote",
-  visualNotes: "A realistic rural ranch entrance with a durable concrete cattle guard form, professional agricultural marketing style.",
+  visualNotes: "A realistic rural ranch entrance with visible concrete cattle guard formwork, an installed or poured cattle guard context, gravel driveway, construction/ranch setting, and clean space for ad text overlay.",
   size: "1024x1024",
 };
 
@@ -92,11 +120,33 @@ const defaultVideoForm: VideoFormState = {
   notes: "Focus on reusable forms, concrete cattle guard installation, practical savings, and distributor opportunity. Do not invent fake stats.",
 };
 
+const defaultBlogForm: BlogFormState = {
+  topic: "How reusable concrete cattle guard forms help ranchers save time and money",
+  primaryKeyword: "concrete cattle guard forms",
+  secondaryKeywords: "reusable cattle guard forms, cattle guard installation, CowStop, ranch entrance, concrete cattle guard",
+  audience: "farmers, ranchers, land owners, contractors, concrete companies, and distributors",
+  tone: "clear, practical, professional, SEO-friendly, and sales-aware",
+  goal: "educate buyers, improve organic search visibility, and generate quote requests",
+  wordCount: "1200",
+  notes: "Mention CowStop reusable forms, practical installation benefits, distributor opportunity, durability, and request-a-quote CTA. Do not invent fake statistics or fake certifications.",
+};
+
+const defaultSeoForm: SeoFormState = {
+  url: "https://cattle-guard-forms-4cug.vercel.app/",
+  primaryKeyword: "concrete cattle guard forms",
+};
+
+async function parseJson<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
+
 export default function MarketingAiClient() {
   const [mode, setMode] = useState<Mode>("copy");
   const [copyForm, setCopyForm] = useState<CopyFormState>(defaultCopyForm);
   const [imageForm, setImageForm] = useState<ImageFormState>(defaultImageForm);
   const [videoForm, setVideoForm] = useState<VideoFormState>(defaultVideoForm);
+  const [blogForm, setBlogForm] = useState<BlogFormState>(defaultBlogForm);
+  const [seoForm, setSeoForm] = useState<SeoFormState>(defaultSeoForm);
   const [textOutput, setTextOutput] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
@@ -123,8 +173,8 @@ export default function MarketingAiClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(copyForm),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Marketing AI request failed.");
+      const data = await parseJson<ApiTextResponse>(response);
+      if (!response.ok) throw new Error(data.error ?? "Marketing AI request failed.");
       setTextOutput(data.output ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Marketing AI request failed.");
@@ -144,8 +194,8 @@ export default function MarketingAiClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(imageForm),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Marketing image request failed.");
+      const data = await parseJson<ApiImageResponse>(response);
+      if (!response.ok) throw new Error(data.error ?? "Marketing image request failed.");
       setImageUrl(data.imageUrl ?? "");
       setImagePrompt(data.prompt ?? "");
       setTextOutput(data.caption ?? "");
@@ -167,11 +217,53 @@ export default function MarketingAiClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(videoForm),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Marketing video request failed.");
+      const data = await parseJson<ApiTextResponse>(response);
+      if (!response.ok) throw new Error(data.error ?? "Marketing video request failed.");
       setTextOutput(data.output ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Marketing video request failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitBlog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    resetOutput();
+
+    try {
+      const response = await fetch("/api/marketing/ai/blog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(blogForm),
+      });
+      const data = await parseJson<ApiTextResponse>(response);
+      if (!response.ok) throw new Error(data.error ?? "Blog generator request failed.");
+      setTextOutput(data.output ?? "");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Blog generator request failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitSeo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    resetOutput();
+
+    try {
+      const response = await fetch("/api/marketing/seo/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(seoForm),
+      });
+      const data = await parseJson<ApiTextResponse>(response);
+      if (!response.ok) throw new Error(data.error ?? "SEO audit request failed.");
+      setTextOutput(data.output ?? "");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "SEO audit request failed.");
     } finally {
       setLoading(false);
     }
@@ -184,14 +276,38 @@ export default function MarketingAiClient() {
     setCopied(true);
   }
 
+  const modeTitle =
+    mode === "copy"
+      ? "Generate marketing copy"
+      : mode === "image"
+        ? "Generate marketing image"
+        : mode === "video"
+          ? "Generate video plan"
+          : mode === "blog"
+            ? "Generate SEO blog package"
+            : "Run SEO tester";
+
+  const modeDescription =
+    mode === "copy"
+      ? "Create first drafts for posts, emails, ads, campaigns, landing pages, and distributor outreach."
+      : mode === "image"
+        ? "Create ad creatives, social graphics, thumbnails, flyers, and promo images tied tightly to cattle guard forms."
+        : mode === "video"
+          ? "Create hooks, scripts, storyboards, shot lists, captions, and thumbnail prompts for video content."
+          : mode === "blog"
+            ? "Generate a full blog draft with SEO metadata, image prompt, video angle, social captions, and email repurposing."
+            : "Check a live page for SEO basics like title, description, headings, keyword usage, images, links, and improvement actions.";
+
   return (
     <div className="mt-8">
       <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-neutral-200">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-5">
           {[
-            ["copy", "Copy Generator", "Ads, emails, captions, scripts"],
-            ["image", "Image Generator", "Ad images, thumbnails, social graphics"],
-            ["video", "Video Planner", "Scripts, storyboards, shot lists"],
+            ["copy", "Copy Generator", "Ads, emails, captions"],
+            ["blog", "Blog Generator", "SEO, image, social, email"],
+            ["image", "Image Generator", "Ads, thumbnails, graphics"],
+            ["video", "Video Planner", "Scripts, storyboards"],
+            ["seo", "SEO Tester", "Page audit and fixes"],
           ].map(([key, label, note]) => (
             <button
               key={key}
@@ -208,16 +324,8 @@ export default function MarketingAiClient() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-          <h2 className="text-xl font-semibold">
-            {mode === "copy" ? "Generate marketing copy" : mode === "image" ? "Generate marketing image" : "Generate video plan"}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">
-            {mode === "copy"
-              ? "Create first drafts for posts, emails, ads, campaigns, landing pages, and distributor outreach."
-              : mode === "image"
-                ? "Create ad creatives, social graphics, thumbnails, flyers, and promo images."
-                : "Create hooks, scripts, storyboards, shot lists, captions, and thumbnail prompts for video content."}
-          </p>
+          <h2 className="text-xl font-semibold">{modeTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">{modeDescription}</p>
 
           {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
 
@@ -231,6 +339,20 @@ export default function MarketingAiClient() {
               <Input label="Goal" value={copyForm.goal} onChange={(value) => setCopyForm((current) => ({ ...current, goal: value }))} />
               <Textarea label="Notes / facts to include" value={copyForm.notes} onChange={(value) => setCopyForm((current) => ({ ...current, notes: value }))} />
               <SubmitButton loading={loading} label="Generate Copy" />
+            </form>
+          ) : null}
+
+          {mode === "blog" ? (
+            <form onSubmit={submitBlog} className="mt-6 grid gap-4">
+              <Input label="Blog topic" value={blogForm.topic} onChange={(value) => setBlogForm((current) => ({ ...current, topic: value }))} />
+              <Input label="Primary SEO keyword" value={blogForm.primaryKeyword} onChange={(value) => setBlogForm((current) => ({ ...current, primaryKeyword: value }))} />
+              <Textarea label="Secondary keywords" value={blogForm.secondaryKeywords} onChange={(value) => setBlogForm((current) => ({ ...current, secondaryKeywords: value }))} />
+              <Input label="Audience" value={blogForm.audience} onChange={(value) => setBlogForm((current) => ({ ...current, audience: value }))} />
+              <Select label="Tone" value={blogForm.tone} options={tones} onChange={(value) => setBlogForm((current) => ({ ...current, tone: value }))} />
+              <Input label="Goal" value={blogForm.goal} onChange={(value) => setBlogForm((current) => ({ ...current, goal: value }))} />
+              <Select label="Target length" value={blogForm.wordCount} options={["800", "1200", "1600", "2200"]} onChange={(value) => setBlogForm((current) => ({ ...current, wordCount: value }))} />
+              <Textarea label="Facts, offers, constraints" value={blogForm.notes} onChange={(value) => setBlogForm((current) => ({ ...current, notes: value }))} />
+              <SubmitButton loading={loading} label="Generate Blog Package" />
             </form>
           ) : null}
 
@@ -264,13 +386,21 @@ export default function MarketingAiClient() {
               <SubmitButton loading={loading} label="Generate Video Plan" />
             </form>
           ) : null}
+
+          {mode === "seo" ? (
+            <form onSubmit={submitSeo} className="mt-6 grid gap-4">
+              <Input label="Page URL to test" value={seoForm.url} onChange={(value) => setSeoForm((current) => ({ ...current, url: value }))} />
+              <Input label="Primary keyword" value={seoForm.primaryKeyword} onChange={(value) => setSeoForm((current) => ({ ...current, primaryKeyword: value }))} />
+              <SubmitButton loading={loading} label="Run SEO Test" />
+            </form>
+          ) : null}
         </section>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold">Studio output</h2>
-              <p className="mt-2 text-sm leading-6 text-neutral-600">Copy this into Marketing Posts, Campaigns, Marketing Content, or the social pages.</p>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">Copy this into Marketing Posts, Campaigns, Marketing Content, the website blog, or email campaigns.</p>
             </div>
             <button type="button" onClick={copyOutput} disabled={!textOutput && !imagePrompt} className="rounded border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50">
               {copied ? "Copied" : "Copy output"}
