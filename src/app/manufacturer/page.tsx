@@ -16,9 +16,11 @@ const manufacturerOrders = [
     quantity: "2 CowStop forms",
     shipTo: "Shipping address appears here after order submission",
     status: "New order",
-    bolStatus: "BOL pending upload",
-    signedBolStatus: "Not returned",
+    bolStatus: "Original BOL pending upload",
+    signedBolStatus: "Signed BOL not returned",
     notificationStatus: "Not sent",
+    bolDownloadLabel: "Download Original BOL",
+    signedBolUploadLabel: "Upload Signed BOL",
   },
   {
     id: "CGF-MFG-DEMO-1002",
@@ -27,9 +29,11 @@ const manufacturerOrders = [
     quantity: "1 CowStop form",
     shipTo: "Shipping address appears here after order submission",
     status: "Awaiting ship date",
-    bolStatus: "BOL ready when uploaded",
-    signedBolStatus: "Not returned",
+    bolStatus: "Original BOL available when uploaded",
+    signedBolStatus: "Signed BOL not returned",
     notificationStatus: "Waiting on shipping block",
+    bolDownloadLabel: "Download Original BOL",
+    signedBolUploadLabel: "Upload Signed BOL",
   },
 ];
 
@@ -41,12 +45,12 @@ const workflowCards = [
   },
   {
     title: "2. Download BOLs",
-    description: "When admin/distributor shipping documents are uploaded, the BOL should appear in the order row for manufacturer download.",
+    description: "When admin/distributor shipping documents are uploaded or emailed, the original BOL should be downloadable from the order row.",
     href: "#bol-downloads",
   },
   {
     title: "3. Return Signed BOL",
-    description: "After fulfillment, upload or email the signed BOL back to orders@cattleguardforms.com so it attaches to the order record.",
+    description: "After fulfillment, upload the signed BOL in the portal or reply to orders@cattleguardforms.com with the signed BOL attached.",
     href: "#fulfilled-orders",
   },
   {
@@ -100,13 +104,13 @@ export default function ManufacturerPortalPage() {
             <div>
               <h1 className="text-5xl font-black tracking-tight md:text-6xl">Review orders. Download BOLs. Return signed paperwork.</h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-green-50">
-                This portal is the manufacturer-facing fulfillment workspace for CowStop orders. New orders, BOL downloads, signed BOL return, shipping details, and distributor notification status should all flow through this page.
+                This portal is the manufacturer-facing fulfillment workspace for CowStop orders. Original BOLs should be downloadable here, signed BOLs should upload here, and email attachments should land in the same order file bucket.
               </p>
             </div>
             <div className="rounded-2xl bg-white/10 p-5 ring-1 ring-white/20">
               <p className="text-sm font-bold uppercase tracking-wide text-green-100">System inbox</p>
               <p className="mt-2 text-2xl font-black">orders@cattleguardforms.com</p>
-              <p className="mt-3 text-sm leading-6 text-green-50">Manufacturer replies should keep the order ID in the subject or body so BOLs and shipping updates can be attached to the correct order.</p>
+              <p className="mt-3 text-sm leading-6 text-green-50">Manufacturer replies should keep the order ID in the subject or body. Signed BOL attachments from email should attach to the same order bucket as portal uploads.</p>
             </div>
           </div>
         </div>
@@ -137,9 +141,9 @@ export default function ManufacturerPortalPage() {
             <span className="col-span-2">Order</span>
             <span className="col-span-2">Distributor</span>
             <span className="col-span-2">Quantity</span>
-            <span className="col-span-3">Ship To</span>
-            <span className="col-span-2">BOL</span>
-            <span className="col-span-1">Open</span>
+            <span className="col-span-2">Ship To</span>
+            <span className="col-span-2">Original BOL</span>
+            <span className="col-span-2">Actions</span>
           </div>
           {manufacturerOrders.map((order) => (
             <div key={order.id} className="grid grid-cols-12 gap-3 border-t border-neutral-100 px-4 py-4 text-sm hover:bg-green-50/60">
@@ -149,10 +153,11 @@ export default function ManufacturerPortalPage() {
               </div>
               <div className="col-span-2">{order.distributor}</div>
               <div className="col-span-2">{order.quantity}</div>
-              <div className="col-span-3 text-neutral-700">{order.shipTo}</div>
+              <div className="col-span-2 text-neutral-700">{order.shipTo}</div>
               <div className="col-span-2">{order.bolStatus}</div>
-              <div className="col-span-1">
-                <a href={`#order-${order.id}`} className="font-bold text-green-800 hover:text-green-950">View</a>
+              <div className="col-span-2 flex flex-col gap-2">
+                <a href="#bol-downloads" className="rounded bg-green-800 px-3 py-2 text-center text-xs font-bold text-white hover:bg-green-900">Download BOL</a>
+                <a href={`#order-${order.id}`} className="rounded border border-neutral-300 px-3 py-2 text-center text-xs font-bold text-neutral-900 hover:border-green-800 hover:bg-green-50">View / Upload</a>
               </div>
             </div>
           ))}
@@ -163,25 +168,36 @@ export default function ManufacturerPortalPage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-6 lg:grid-cols-[1fr_0.8fr]">
           <div className="rounded-2xl border border-neutral-200 p-6 shadow-sm">
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">BOL downloads</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">BOL files should appear on each order.</h2>
+            <h2 className="mt-2 text-3xl font-black tracking-tight">Original BOLs should be downloadable on each order.</h2>
             <p className="mt-4 leading-7 text-neutral-700">
-              When admin or distributor uploads a BOL, the file should attach to the order and become available here for the manufacturer to download. This v1 screen establishes the workflow area; the next backend pass should connect it to Supabase Storage or the final order-file table.
+              When the distributor uses their own shipper account, the distributor uploads the original BOL before payment/fulfillment. That original BOL should attach to the order, travel with the manufacturer email, and be downloadable here if the manufacturer needs it again.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-neutral-50 p-4 ring-1 ring-neutral-200">
                 <p className="font-bold text-neutral-950">Original BOL</p>
-                <p className="mt-2 text-sm text-neutral-600">Uploaded before shipment and downloaded by manufacturer.</p>
+                <p className="mt-2 text-sm text-neutral-600">Uploaded by distributor/admin or attached through email.</p>
+                <button className="mt-4 rounded bg-green-800 px-4 py-2 text-sm font-bold text-white hover:bg-green-900" type="button">Download Original BOL</button>
               </div>
               <div className="rounded-xl bg-neutral-50 p-4 ring-1 ring-neutral-200">
                 <p className="font-bold text-neutral-950">Signed BOL</p>
                 <p className="mt-2 text-sm text-neutral-600">Returned by manufacturer after shipment and stored back on the order.</p>
+                <label className="mt-4 inline-flex cursor-pointer rounded border border-green-800 px-4 py-2 text-sm font-bold text-green-900 hover:bg-green-50">
+                  Upload Signed BOL
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="sr-only" />
+                </label>
               </div>
             </div>
           </div>
           <aside className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
             <p className="text-sm font-bold uppercase tracking-[0.22em]">Backend requirement</p>
-            <h3 className="mt-2 text-2xl font-black">Order file attachment layer</h3>
-            <p className="mt-4 text-sm leading-6">Needed fields: order_id, file_type, file_name, storage_path, uploaded_by_role, uploaded_at, source_email_id, and visibility flags for admin/distributor/manufacturer.</p>
+            <h3 className="mt-2 text-2xl font-black">Shared order-file bucket</h3>
+            <p className="mt-4 text-sm leading-6">Needed: one order file attachment layer for original BOLs and signed BOLs, whether uploaded in portal or received as email attachments.</p>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6">
+              <li>original_bol: distributor/admin upload or email attachment</li>
+              <li>signed_bol: manufacturer portal upload or email reply attachment</li>
+              <li>Visibility: admin, distributor, manufacturer</li>
+              <li>Link files by order_id and preserve source_email_id when received by email</li>
+            </ul>
           </aside>
         </div>
       </section>
@@ -202,11 +218,19 @@ export default function ManufacturerPortalPage() {
               <dl className="mt-5 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
                 <div><dt className="font-bold text-neutral-950">Customer</dt><dd>{order.customer}</dd></div>
                 <div><dt className="font-bold text-neutral-950">Quantity</dt><dd>{order.quantity}</dd></div>
-                <div><dt className="font-bold text-neutral-950">BOL</dt><dd>{order.bolStatus}</dd></div>
+                <div><dt className="font-bold text-neutral-950">Original BOL</dt><dd>{order.bolStatus}</dd></div>
                 <div><dt className="font-bold text-neutral-950">Distributor Notice</dt><dd>{order.notificationStatus}</dd></div>
               </dl>
-              <div className="mt-6 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-sm text-neutral-700">
-                Signed BOL upload/drop zone placeholder. Next pass should accept PDF/image upload or attach inbound email attachment from orders@cattleguardforms.com.
+              <div className="mt-6 grid gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-sm text-neutral-700">
+                <p className="font-bold text-neutral-950">Signed BOL return</p>
+                <p>Upload the signed BOL here if it is not being sent back by email. If the manufacturer replies to orders@cattleguardforms.com with the signed BOL attached, it should land in this same order bucket.</p>
+                <div className="flex flex-wrap gap-3">
+                  <label className="inline-flex cursor-pointer rounded bg-green-800 px-4 py-2 text-sm font-bold text-white hover:bg-green-900">
+                    Upload Signed BOL
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="sr-only" />
+                  </label>
+                  <button type="button" className="rounded border border-neutral-300 px-4 py-2 text-sm font-bold text-neutral-900 hover:border-green-800 hover:bg-white">Download Original BOL</button>
+                </div>
               </div>
             </article>
           ))}
@@ -252,7 +276,7 @@ Manufacturer Notes:`}
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Distributor notification</p>
           <h2 className="mt-2 text-3xl font-black tracking-tight">Notify distributor after shipment is complete.</h2>
           <p className="mt-4 max-w-4xl leading-7 text-neutral-700">
-            Distributor notification should only send when the order has a shipping block, carrier/PRO information, and signed BOL status. The notification should tell the distributor that the order has shipped and include tracking details, BOL download link, estimated delivery, and any manufacturer notes.
+            Distributor notification should only send when the order has a shipping block, carrier/PRO information, and signed BOL status. The notification should tell the distributor that the order has shipped and include tracking details, BOL download link, estimated delivery, manufacturer notes, and signed BOL when available.
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-4">
             {[
