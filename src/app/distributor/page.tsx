@@ -37,9 +37,10 @@ const hasSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey);
 const workflow = [
   "Distributor places the CowStop order at the approved $750 distributor rate",
   "Distributor chooses Cattle Guard Forms/Echo shipping rates or selects Ship on My Own",
-  "If shipping independently, distributor uploads the BOL before fulfillment",
-  "After payment and shipping/BOL are complete, the order is sent to the manufacturer and support@cattleguardforms.com",
-  "Manufacturer replies with the expected ship date, and the distributor receives email updates",
+  "If shipping independently, distributor uploads the original BOL before fulfillment",
+  "The uploaded original BOL is sent to the manufacturer and becomes downloadable in the Manufacturer Portal",
+  "Manufacturer uploads or emails back the signed BOL after shipment",
+  "Distributor receives shipment updates and can download final paperwork after fulfillment",
 ];
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -74,6 +75,9 @@ function DistributorNav() {
       </Link>
       <a href="#distributor-order" className="hover:text-green-800">
         Distributor Order
+      </a>
+      <a href="#distributor-bol" className="hover:text-green-800">
+        Upload BOL
       </a>
       <Link href="/installations" className="hover:text-green-800">
         Installations
@@ -216,7 +220,7 @@ export default function DistributorPortalPage() {
       setError(
         shippingMethod === "echo"
           ? "Enter the ship-to name, address, and select an Echo shipping option before payment."
-          : "Upload the BOL before payment when shipping on your own.",
+          : "Upload the original BOL before payment when using your own shipper account.",
       );
       return;
     }
@@ -377,7 +381,7 @@ export default function DistributorPortalPage() {
                 Hello, {distributorAccountName || "Distributor"}
               </h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-                Place CowStop orders online at the $750 distributor rate, choose Cattle Guard Forms shipping through Echo, or upload your own BOL when shipping independently.
+                Place CowStop orders online at the $750 distributor rate, choose Cattle Guard Forms shipping through Echo, or upload your original BOL when using your own shipper account.
               </p>
             </div>
             <button
@@ -459,7 +463,7 @@ export default function DistributorPortalPage() {
                   >
                     <span className="font-semibold">Ship on My Own</span>
                     <span className="mt-1 block text-sm leading-6 text-neutral-600">
-                      Upload your BOL and we will attach it to the manufacturer order.
+                      Upload your original BOL. It should be sent to the manufacturer and available for manufacturer download.
                     </span>
                   </button>
                 </div>
@@ -521,9 +525,12 @@ export default function DistributorPortalPage() {
                     </label>
                   </div>
                 ) : (
-                  <div className="mt-5 grid gap-4">
+                  <div className="mt-5 grid gap-4" id="distributor-bol">
+                    <div className="rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
+                      Upload the original BOL for your shipper account before payment. This file should attach to the order, travel with the manufacturer order email, and appear as a downloadable BOL in the Manufacturer Portal.
+                    </div>
                     <label className="grid gap-2 text-sm font-medium text-neutral-700">
-                      Upload BOL
+                      Upload Original BOL
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
@@ -533,7 +540,7 @@ export default function DistributorPortalPage() {
                     </label>
                     {bolFileName ? (
                       <p className="rounded bg-green-50 px-3 py-2 text-sm font-medium text-green-800 ring-1 ring-green-200">
-                        BOL selected: {bolFileName}
+                        Original BOL selected: {bolFileName}
                       </p>
                     ) : null}
                   </div>
@@ -551,7 +558,7 @@ export default function DistributorPortalPage() {
                 </div>
                 <div className="mt-2 flex justify-between text-sm text-neutral-600">
                   <span>Shipping</span>
-                  <span>{shippingMethod === "echo" ? "Selected Echo rate will be added after live API wiring" : "Own BOL"}</span>
+                  <span>{shippingMethod === "echo" ? "Selected Echo rate will be added after live API wiring" : "Own shipper account + original BOL"}</span>
                 </div>
                 <div className="mt-4 flex justify-between border-t border-neutral-200 pt-4 text-xl font-bold text-neutral-950">
                   <span>Product Total</span>
@@ -568,7 +575,7 @@ export default function DistributorPortalPage() {
               </button>
 
               <p className="text-sm leading-6 text-neutral-500">
-                Once the order is paid and shipping/BOL is complete, the order will be sent to the manufacturer. support@cattleguardforms.com will receive a copy. The distributor receives order confirmation by email, and the manufacturer later replies with the expected ship date.
+                Once the order is paid and shipping/BOL is complete, the order will be sent to the manufacturer. support@cattleguardforms.com will receive a copy. The original BOL should be available for manufacturer download, and the signed BOL should return by manufacturer upload or email reply.
               </p>
             </form>
           </div>
