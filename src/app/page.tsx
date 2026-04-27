@@ -37,7 +37,12 @@ export default function HomePage() {
               <Link key={href} href={href} className={href === "/" ? "text-green-900 underline decoration-green-800 decoration-2 underline-offset-8" : "hover:text-green-800"}>{label}</Link>
             ))}
           </nav>
-          <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-900">Request a Quote</Link>
+          <div className="flex items-center gap-3">
+            <Link href="/distributor" className="hidden rounded-lg border border-green-800 px-4 py-3 text-sm font-bold text-green-900 shadow-sm hover:bg-green-50 sm:inline-flex">
+              Distributor Login
+            </Link>
+            <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-900">Request a Quote</Link>
+          </div>
         </div>
       </header>
 
@@ -62,6 +67,7 @@ export default function HomePage() {
             <p className="mt-6 max-w-xl text-lg leading-8 text-green-50">Durable, precision-engineered reusable forms for strong, uniform concrete cattle guard sections — again and again.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/quote" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-950/30 hover:bg-green-500">Shop Now →</Link>
+              <Link href="/distributor" className="inline-flex items-center justify-center rounded-lg border border-white/50 px-6 py-4 font-bold text-white hover:bg-white/10">Distributor Login</Link>
               <Link href="/contact" className="inline-flex items-center justify-center rounded-lg border border-white/40 px-6 py-4 font-bold text-white hover:bg-white/10">Request a Quote</Link>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-green-50 sm:grid-cols-4">
@@ -107,7 +113,7 @@ export default function HomePage() {
                 <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">How it works</p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight">Simple steps. Strong results.</h2>
                 <div className="mt-6 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
-                  {[["1", "Prep"], ["2", "Pour"], ["3", "Cure"], ["4", "Hardware"], ["5", "Attach"], ["6", "Lift"], ["7", "Place"]].map(([number, label]) => (
+                  {[["1", "Prep"], ["2", "Pour"], ["3", "Cure"], ["4", "Hardware"], ["5", "Attach"], ["6", "Lift"], ["7", "Place"], ["8", "Inspect"]].map(([number, label]) => (
                     <div key={label} className="rounded-xl bg-neutral-50 p-4"><span className="mr-2 rounded-full bg-green-800 px-2 py-1 text-xs font-bold text-white">{number}</span>{label}</div>
                   ))}
                 </div>
@@ -152,7 +158,10 @@ export default function HomePage() {
               <p className="text-green-100">Cattle Guard Forms are tough, accurate, and built for repeatable pours.</p>
             </div>
           </div>
-          <Link href="/quote" className="rounded-lg bg-white px-5 py-3 font-bold text-green-950 hover:bg-green-50">Shop Forms</Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link href="/distributor" className="rounded-lg border border-white/40 px-5 py-3 text-center font-bold text-white hover:bg-white/10">Distributor Login</Link>
+            <Link href="/quote" className="rounded-lg bg-white px-5 py-3 text-center font-bold text-green-950 hover:bg-green-50">Shop Forms</Link>
+          </div>
         </div>
       </section>
     </main>
