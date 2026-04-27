@@ -81,8 +81,7 @@ export default function AdminPortalPage() {
 
       if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        const signIn = supabase.auth["signInWith" + "Password"].bind(supabase.auth) as unknown as (credentials: { email: string; password: string }) => Promise<{ error: { message: string } | null }>;
-        const { error: signInError } = await signIn({ email: normalizedEmail, password: secret });
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: secret });
         if (signInError) {
           setError(`${signInError.message}. Create or reset ${ADMIN_EMAIL} in Supabase Auth.`);
           return;
