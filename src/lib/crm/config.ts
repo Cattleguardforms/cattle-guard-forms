@@ -51,6 +51,8 @@ export type SocialChannelConfig = {
   label: string;
   status: "not_connected" | "planned" | "connected_later";
   description: string;
+  platformUrl: string;
+  workspaceUrl: string;
 };
 
 export const crmEntities: CrmEntityConfig[] = [
@@ -215,12 +217,12 @@ export const crmPipelines: CrmPipelineConfig[] = [
 ];
 
 export const socialChannels: SocialChannelConfig[] = [
-  { key: "facebook", label: "Facebook", status: "not_connected", description: "Page posts, ranch education, before/after photos, and distributor announcements." },
-  { key: "instagram", label: "Instagram", status: "not_connected", description: "Visual project posts, reels, installation steps, and product lifestyle content." },
-  { key: "x", label: "X / Twitter", status: "not_connected", description: "Short updates, product announcements, and industry commentary." },
-  { key: "linkedin", label: "LinkedIn", status: "not_connected", description: "B2B distributor updates, wholesale news, and company credibility posts." },
-  { key: "youtube", label: "YouTube", status: "not_connected", description: "Installation videos, product walkthroughs, and customer education." },
-  { key: "tiktok", label: "TikTok", status: "planned", description: "Short-form ranch and installation clips after the core system is stable." },
+  { key: "facebook", label: "Facebook", status: "not_connected", platformUrl: "https://www.facebook.com/", workspaceUrl: "/marketing/facebook", description: "Page posts, ranch education, before/after photos, and distributor announcements." },
+  { key: "instagram", label: "Instagram", status: "not_connected", platformUrl: "https://www.instagram.com/", workspaceUrl: "/marketing/instagram", description: "Visual project posts, reels, installation steps, and product lifestyle content." },
+  { key: "x", label: "X / Twitter", status: "not_connected", platformUrl: "https://x.com/", workspaceUrl: "/marketing/x", description: "Short updates, product announcements, and industry commentary." },
+  { key: "linkedin", label: "LinkedIn", status: "not_connected", platformUrl: "https://www.linkedin.com/company/", workspaceUrl: "/marketing/linkedin", description: "B2B distributor updates, wholesale news, and company credibility posts." },
+  { key: "youtube", label: "YouTube", status: "not_connected", platformUrl: "https://www.youtube.com/", workspaceUrl: "/marketing/youtube", description: "Installation videos, product walkthroughs, and customer education." },
+  { key: "tiktok", label: "TikTok", status: "planned", platformUrl: "https://www.tiktok.com/", workspaceUrl: "/marketing/tiktok", description: "Short-form ranch and installation clips after the core system is stable." },
 ];
 
 export const crmFieldTypes: { type: CrmFieldType; label: string }[] = [
