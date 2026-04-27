@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type EmailForm = {
   recipientEmail: string;
@@ -61,7 +61,7 @@ type SpeechRecognition = EventTarget & {
   stop: () => void;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event?: { error?: string }) => void) | null;
 };
 
 type SpeechRecognitionEvent = {
@@ -85,9 +85,11 @@ export default function EmailComposerClient() {
   const [error, setError] = useState("");
   const [listeningField, setListeningField] = useState<keyof EmailForm | null>(null);
   const [supportsMic, setSupportsMic] = useState(false);
+  const activeRecognition = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     setSupportsMic(Boolean(getSpeechRecognition()));
+    return () => activeRecognition.current?.stop();
   }, []);
 
   function updateField(field: keyof EmailForm, value: string) {
@@ -97,15 +99,26 @@ export default function EmailComposerClient() {
   function startDictation(field: keyof EmailForm) {
     const Recognition = getSpeechRecognition();
     if (!Recognition) {
-      setError("Speech dictation is not supported in this browser.");
+      setError("Microphone dictation is not supported in this browser. Use Chrome or Edge and allow microphone access.");
       return;
     }
 
+    if (activeRecognition.current && listeningField === field) {
+      activeRecognition.current.stop();
+      activeRecognition.current = null;
+      setListeningField(null);
+      return;
+    }
+
+    activeRecognition.current?.stop();
+
     const recognition = new Recognition();
+    activeRecognition.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = "en-US";
     setListeningField(field);
+    setMessage("Listening. Speak now, then pause to insert text.");
     setError("");
 
     recognition.onresult = (event) => {
@@ -119,16 +132,29 @@ export default function EmailComposerClient() {
           ...current,
           [field]: current[field] ? `${current[field]} ${transcript}` : transcript,
         }));
+        setMessage("Dictation inserted.");
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      activeRecognition.current = null;
       setListeningField(null);
-      setError("Could not capture microphone dictation. Check browser permission and try again.");
+      const reason = event?.error ? ` (${event.error})` : "";
+      setError(`Could not capture microphone dictation${reason}. Check browser microphone permission and try again.`);
     };
 
-    recognition.onend = () => setListeningField(null);
-    recognition.start();
+    recognition.onend = () => {
+      activeRecognition.current = null;
+      setListeningField(null);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      activeRecognition.current = null;
+      setListeningField(null);
+      setError("Microphone dictation could not start. Check browser permissions and try again.");
+    }
   }
 
   async function generateEmail(event: FormEvent<HTMLFormElement>) {
@@ -206,9 +232,10 @@ export default function EmailComposerClient() {
       <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
         <h2 className="text-xl font-semibold">AI Email Generator</h2>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Create distributor emails, price increase notices, customer follow-ups, quote replies, and campaign emails. The microphone button can dictate into major text fields when supported by your browser.
+          Create distributor emails, price increase notices, customer follow-ups, quote replies, and campaign emails. Use the microphone icon beside supported fields for browser dictation.
         </p>
 
+        {!supportsMic ? <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Microphone dictation requires a supported browser such as Chrome or Edge and microphone permission.</div> : null}
         {message ? <div className="mt-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">{message}</div> : null}
         {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
 
@@ -270,15 +297,28 @@ function Input({ label, value, onChange, type = "text" }: { label: string; value
   );
 }
 
+function MicButton({ onMic, listening, supportsMic }: { onMic: () => void; listening: boolean; supportsMic: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onMic}
+      disabled={!supportsMic}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-base font-semibold transition ${listening ? "border-red-300 bg-red-50 text-red-700" : "border-neutral-300 bg-white text-neutral-700 hover:border-green-800 hover:bg-green-50"} disabled:cursor-not-allowed disabled:opacity-40`}
+      title={supportsMic ? "Dictate with microphone" : "Microphone dictation not supported in this browser"}
+      aria-label={listening ? "Stop microphone dictation" : "Start microphone dictation"}
+    >
+      {listening ? "●" : "🎙"}
+    </button>
+  );
+}
+
 function VoiceInput({ label, value, onChange, onMic, listening, supportsMic }: { label: string; value: string; onChange: (value: string) => void; onMic: () => void; listening: boolean; supportsMic: boolean }) {
   return (
     <label className="grid gap-2 text-sm font-medium text-neutral-700">
       {label}
       <div className="flex gap-2">
         <input value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 rounded border border-neutral-300 px-3 py-2 font-normal" />
-        <button type="button" onClick={onMic} disabled={!supportsMic || listening} className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold hover:border-green-800 hover:bg-green-50 disabled:opacity-50" title="Dictate with microphone">
-          {listening ? "Listening" : "Mic"}
-        </button>
+        <MicButton onMic={onMic} listening={listening} supportsMic={supportsMic} />
       </div>
     </label>
   );
@@ -289,9 +329,7 @@ function VoiceTextarea({ label, value, onChange, onMic, listening, supportsMic, 
     <label className="grid gap-2 text-sm font-medium text-neutral-700">
       <span className="flex items-center justify-between gap-3">
         {label}
-        <button type="button" onClick={onMic} disabled={!supportsMic || listening} className="rounded border border-neutral-300 px-3 py-1 text-xs font-semibold hover:border-green-800 hover:bg-green-50 disabled:opacity-50" title="Dictate with microphone">
-          {listening ? "Listening" : "Mic"}
-        </button>
+        <MicButton onMic={onMic} listening={listening} supportsMic={supportsMic} />
       </span>
       <textarea value={value} onChange={(event) => onChange(event.target.value)} className={`${large ? "min-h-[28rem]" : "min-h-28"} rounded border border-neutral-300 px-3 py-2 font-normal`} />
     </label>
