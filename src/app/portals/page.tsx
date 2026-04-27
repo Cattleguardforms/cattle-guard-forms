@@ -12,6 +12,11 @@ const portals = [
     description: "Approved distributor access for CowStop ordering, shipping/BOL workflow, and distributor pricing.",
   },
   {
+    title: "Manufacturer Portal",
+    href: "/manufacturer",
+    description: "Manufacturer fulfillment workflow for reviewing CowStop orders and replying with structured shipping updates.",
+  },
+  {
     title: "Marketing Portal",
     href: "/marketing",
     description: "Marketing, CRM, email composer, AI content, blog planning, and campaign workspace.",
@@ -44,7 +49,7 @@ export default function PortalsPage() {
           Use this page as the canonical connection point between the public website and the active internal portals. Legacy distributor access should route to the Distributor Portal at /distributor.
         </p>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {portals.map((portal) => (
             <Link
               key={portal.href}
@@ -61,7 +66,7 @@ export default function PortalsPage() {
         </div>
 
         <div className="mt-8 rounded-2xl bg-amber-50 p-5 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
-          Canonical routes: Admin Portal = /admin, Distributor Portal = /distributor, Marketing Portal = /marketing. Old /reseller traffic redirects to /distributor.
+          Canonical routes: Admin Portal = /admin, Distributor Portal = /distributor, Manufacturer Portal = /manufacturer, Marketing Portal = /marketing. Old /reseller traffic redirects to /distributor.
         </div>
       </section>
     </main>
