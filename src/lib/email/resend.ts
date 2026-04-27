@@ -1,5 +1,10 @@
 import { Resend } from "resend";
 import {
+  buildSupportRequestReceivedTemplate,
+  buildSupportRequestTeamNotificationTemplate,
+  type SupportRequestPayload,
+} from "./templates/confirmation-workflow";
+import {
   buildDistributorOrderConfirmationTemplate,
   buildDistributorShipmentNotificationTemplate,
   buildManufacturerFulfillmentTemplate,
@@ -55,6 +60,15 @@ function getManufacturerEmails() {
   return emails;
 }
 
+function getEmailSettings() {
+  return {
+    resendApiKey: requireEnv("RESEND_API_KEY"),
+    fromEmail: optionalEnv("FROM_EMAIL") || "orders@cattleguardforms.com",
+    replyToEmail: optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL") || "orders@cattleguardforms.com",
+    supportEmail: requireEnv("SUPPORT_EMAIL"),
+  };
+}
+
 function buildOrderWorkflowPayload(payload: DistributorOrderEmailPayload): OrderWorkflowPayload {
   return {
     orderId: payload.orderId,
@@ -79,10 +93,7 @@ function buildOrderWorkflowPayload(payload: DistributorOrderEmailPayload): Order
 }
 
 export async function sendDistributorOrderEmails(payload: DistributorOrderEmailPayload) {
-  const resendApiKey = requireEnv("RESEND_API_KEY");
-  const fromEmail = optionalEnv("FROM_EMAIL") || "orders@cattleguardforms.com";
-  const replyToEmail = optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL") || "orders@cattleguardforms.com";
-  const supportEmail = requireEnv("SUPPORT_EMAIL");
+  const { resendApiKey, fromEmail, replyToEmail, supportEmail } = getEmailSettings();
   const manufacturerEmails = getManufacturerEmails();
 
   const resend = new Resend(resendApiKey);
@@ -123,9 +134,7 @@ export async function sendDistributorOrderEmails(payload: DistributorOrderEmailP
 }
 
 export async function sendDistributorShipmentNotification(payload: ShipmentUpdatePayload) {
-  const resendApiKey = requireEnv("RESEND_API_KEY");
-  const fromEmail = optionalEnv("FROM_EMAIL") || "orders@cattleguardforms.com";
-  const replyToEmail = optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL") || "orders@cattleguardforms.com";
+  const { resendApiKey, fromEmail, replyToEmail } = getEmailSettings();
 
   const resend = new Resend(resendApiKey);
   const template = buildDistributorShipmentNotificationTemplate(payload);
@@ -137,4 +146,30 @@ export async function sendDistributorShipmentNotification(payload: ShipmentUpdat
     subject: template.subject,
     text: template.text,
   });
+}
+
+export async function sendSupportRequestEmails(payload: SupportRequestPayload) {
+  const { resendApiKey, fromEmail, replyToEmail, supportEmail } = getEmailSettings();
+  const resend = new Resend(resendApiKey);
+  const customerTemplate = buildSupportRequestReceivedTemplate(payload);
+  const teamTemplate = buildSupportRequestTeamNotificationTemplate(payload);
+
+  const [customerEmail, supportCopyEmail] = await Promise.all([
+    resend.emails.send({
+      from: fromEmail,
+      to: payload.email,
+      replyTo: replyToEmail,
+      subject: customerTemplate.subject,
+      text: customerTemplate.text,
+    }),
+    resend.emails.send({
+      from: fromEmail,
+      to: supportEmail,
+      replyTo: replyToEmail,
+      subject: teamTemplate.subject,
+      text: teamTemplate.text,
+    }),
+  ]);
+
+  return { customerEmail, supportCopyEmail };
 }
