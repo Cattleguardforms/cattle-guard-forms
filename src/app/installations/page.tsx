@@ -59,6 +59,13 @@ const steps = [
     imageSrc: "/installations/step%20-%207.png",
     imageAlt: "Finished concrete cattle guard section ready for placement",
   },
+  {
+    title: "Backfill, Grade, and Inspect",
+    body:
+      "Backfill around the cattle guard, grade the approach so vehicles transition smoothly, and confirm the unit is level, stable, and clear of loose debris before opening the crossing to traffic.",
+    imageSrc: "/installations/step%20-%207.png",
+    imageAlt: "Finished cattle guard installed and ready for final grading and inspection",
+  },
 ];
 
 const materials = [
@@ -74,7 +81,7 @@ const materials = [
 const highlights = [
   ["4000 PSI", "Recommended concrete strength"],
   ["HS-20", "Engineering certification available"],
-  ["48–72 hrs", "Typical form removal window"],
+  ["48-72 hrs", "Typical form removal window"],
   ["28 days", "Heavy vehicle cure target"],
 ];
 
@@ -105,9 +112,9 @@ export default function InstallationsPage() {
         <div className="relative mx-auto max-w-7xl px-6 py-16 lg:py-24">
           <p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Installation guide</p>
           <h1 className="mt-5 max-w-3xl text-5xl font-black leading-tight tracking-tight md:text-7xl">Step-by-step cattle guard install.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">All seven steps are listed below. Click any step to open the full image and instruction details.</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">All eight steps are listed below. Click any step to open the full image and instruction details.</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="#steps" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">View All 7 Steps</a>
+            <a href="#steps" className="rounded-lg bg-white px-6 py-4 text-center font-bold text-green-950 hover:bg-green-50">View All 8 Steps</a>
             <a href="#video" className="rounded-lg border border-white/40 px-6 py-4 text-center font-bold text-white hover:bg-white/10">Watch Video</a>
           </div>
         </div>
@@ -142,7 +149,7 @@ export default function InstallationsPage() {
       <section id="steps" className="bg-neutral-50 py-16">
         <div className="mx-auto max-w-6xl px-6">
           <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Process</p>
-          <h2 className="mt-2 text-4xl font-black tracking-tight">All 7 installation steps.</h2>
+          <h2 className="mt-2 text-4xl font-black tracking-tight">All 8 installation steps.</h2>
           <div className="mt-10 space-y-5">
             {steps.map((step, index) => (
               <details key={step.title} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm open:shadow-xl">
@@ -174,7 +181,7 @@ export default function InstallationsPage() {
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Video guide</p>
             <h2 className="mt-2 text-4xl font-black tracking-tight">Watch the installation walkthrough.</h2>
-            <p className="mt-4 leading-8 text-neutral-700">Use the video with the step list above to plan the pour, lifting process, site preparation, and final placement.</p>
+            <p className="mt-4 leading-8 text-neutral-700">Use the video with the step list above to plan the pour, lifting process, site preparation, final placement, grading, and inspection.</p>
             <a href="https://www.youtube.com/watch?v=ineaalZN26o" target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-lg bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900">Open on YouTube</a>
           </div>
           <div className="aspect-video overflow-hidden rounded-3xl border border-neutral-200 bg-black shadow-xl">
