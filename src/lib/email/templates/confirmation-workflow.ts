@@ -42,6 +42,18 @@ export type AbandonedCheckoutPayload = {
   supportEmail?: string;
 };
 
+export type SupportRequestPayload = {
+  supportId?: string;
+  name?: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  topic?: string;
+  orderId?: string;
+  message?: string;
+  source?: string;
+};
+
 export type AdminTestEmailPayload = {
   recipientEmail: string;
   sentAt?: string;
@@ -187,6 +199,61 @@ export function buildAbandonedCheckoutRecoveryTemplate(payload: AbandonedCheckou
     ]
       .filter((line): line is string => line !== null)
       .join("\n"),
+  };
+}
+
+export function buildSupportRequestReceivedTemplate(payload: SupportRequestPayload): EmailTemplate {
+  const reference = valueOrBlank(payload.supportId || payload.orderId);
+
+  return {
+    subject: reference ? `We received your support request - ${reference}` : "We received your support request",
+    text: [
+      customerGreeting(payload.name),
+      "",
+      "Thank you for contacting Cattle Guard Forms support. We received your message and will review it as soon as possible.",
+      "",
+      reference ? `Reference ID: ${reference}` : null,
+      `Topic: ${valueOrNotProvided(payload.topic)}`,
+      `Order ID: ${valueOrNotProvided(payload.orderId)}`,
+      "",
+      "Message Received:",
+      valueOrNotProvided(payload.message),
+      "",
+      "If this is related to an active order, please reply with any BOL, tracking, quantity, shipping address, or order details that will help us route it correctly.",
+      "",
+      "Thank you,",
+      "Cattle Guard Forms Support",
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n"),
+  };
+}
+
+export function buildSupportRequestTeamNotificationTemplate(payload: SupportRequestPayload): EmailTemplate {
+  const reference = valueOrBlank(payload.supportId || payload.orderId) || "Pending";
+
+  return {
+    subject: `Support Request Received - ${reference}`,
+    text: [
+      "New support request received.",
+      "",
+      `Reference ID: ${reference}`,
+      `Source: ${valueOrNotProvided(payload.source || "Website support/contact form")}`,
+      `Name: ${valueOrNotProvided(payload.name)}`,
+      `Email: ${payload.email}`,
+      `Phone: ${valueOrNotProvided(payload.phone)}`,
+      `Company: ${valueOrNotProvided(payload.company)}`,
+      `Topic: ${valueOrNotProvided(payload.topic)}`,
+      `Order ID: ${valueOrNotProvided(payload.orderId)}`,
+      "",
+      "Message:",
+      valueOrNotProvided(payload.message),
+      "",
+      "Routing notes:",
+      "- If this references an order ID, attach this support request to the order record.",
+      "- If the customer includes BOL or tracking information, route it to the matching order/shipping workflow.",
+      "- If no order ID is included, search by email/company in CRM before replying.",
+    ].join("\n"),
   };
 }
 
