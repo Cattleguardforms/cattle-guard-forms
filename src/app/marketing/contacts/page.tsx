@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { formatContactName, formatDate, getCrmContacts } from "@/lib/crm/records";
+import { formatContactName, formatDate, getCrmContacts, type CrmContactRecord } from "@/lib/crm/records";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketingContactsPage() {
-  let contacts;
+  let contacts: CrmContactRecord[] = [];
   let count = 0;
   let errorMessage = "";
 
