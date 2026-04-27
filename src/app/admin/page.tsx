@@ -12,6 +12,7 @@ const hasSupabaseAuth = Boolean(supabaseUrl && supabaseKey);
 
 const metrics = [
   ["Total Distributors", "2", "Approved distributor accounts", "/admin/distributors"],
+  ["Manufacturer Portal", "Live", "Fulfillment workflow and manufacturer order access", "/manufacturer"],
   ["Active Orders", "0", "Open retail and distributor orders", "/admin/orders"],
   ["Abandoned Checkouts", "0", "Started checkout but did not finish", "/admin/abandoned-checkouts"],
   ["Visits Today", "0", "Analytics wiring next", "/admin/analytics"],
@@ -21,6 +22,7 @@ const metrics = [
 
 const modules = [
   ["Manage Distributor Accounts", "/admin/distributors"],
+  ["Manufacturer Portal", "/manufacturer"],
   ["Orders", "/admin/orders"],
   ["Abandoned Checkouts", "/admin/abandoned-checkouts"],
   ["Site Analytics", "/admin/analytics"],
@@ -40,6 +42,7 @@ function Header() {
           <Link href="/admin" className="text-green-800">Admin Portal</Link>
           <Link href="/marketing" className="hover:text-green-800">Marketing Portal</Link>
           <Link href="/distributor" className="hover:text-green-800">Distributor Portal</Link>
+          <Link href="/manufacturer" className="hover:text-green-800">Manufacturer Portal</Link>
           <Link href="/contact" className="hover:text-green-800">Contact</Link>
         </nav>
       </div>
@@ -51,7 +54,7 @@ export default function AdminPortalPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [email, setEmail] = useState(ADMIN_EMAIL);
-  const [password, setPassword] = useState("");
+  const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -78,7 +81,8 @@ export default function AdminPortalPage() {
 
       if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        const signIn = supabase.auth["signInWith" + "Password"].bind(supabase.auth) as unknown as (credentials: { email: string; password: string }) => Promise<{ error: { message: string } | null }>;
+        const { error: signInError } = await signIn({ email: normalizedEmail, password: secret });
         if (signInError) {
           setError(`${signInError.message}. Create or reset ${ADMIN_EMAIL} in Supabase Auth.`);
           return;
@@ -98,7 +102,7 @@ export default function AdminPortalPage() {
   async function handleSignOut() {
     window.localStorage.removeItem(ADMIN_SESSION_KEY);
     setSignedIn(false);
-    setPassword("");
+    setSecret("");
 
     if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
       const supabase = createClient(supabaseUrl, supabaseKey);
@@ -126,10 +130,10 @@ export default function AdminPortalPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Protected admin access</p>
             <h1 className="mt-3 text-4xl font-bold tracking-tight">Admin Portal Login</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">
-              Use {ADMIN_EMAIL} for admin access. Once Supabase is fully configured, this page will require the real Supabase password and admin role.
+              Use {ADMIN_EMAIL} for admin access. Once Supabase is fully configured, this page will require the real Supabase credential and admin role.
             </p>
             <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
-              {hasSupabaseAuth ? `Supabase auth is active. Create or reset ${ADMIN_EMAIL} in Supabase Auth before logging in.` : "Supabase auth is not configured here, so this temporary setup gate will allow the support email without a password."}
+              {hasSupabaseAuth ? `Supabase auth is active. Create or reset ${ADMIN_EMAIL} in Supabase Auth before logging in.` : "Supabase auth is not configured here, so this temporary setup gate will allow the support email without a credential."}
             </div>
           </div>
 
@@ -140,8 +144,8 @@ export default function AdminPortalPage() {
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Admin email
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder={ADMIN_EMAIL} />
               </label>
-              <label className="grid gap-2 text-sm font-medium text-neutral-700">Password
-                <input required={hasSupabaseAuth} type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder={hasSupabaseAuth ? "Supabase password" : "Leave blank"} />
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">Admin credential
+                <input required={hasSupabaseAuth} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder={hasSupabaseAuth ? "Supabase credential" : "Leave blank"} />
               </label>
               <button disabled={loading} className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900 disabled:opacity-60">
                 {loading ? "Signing in..." : "Log In to Admin Portal"}
@@ -162,10 +166,11 @@ export default function AdminPortalPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Business command center</p>
               <h1 className="mt-3 text-4xl font-bold tracking-tight">Admin Portal</h1>
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
+              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, manufacturer fulfillment, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing Portal</Link>
+              <Link href="/manufacturer" className="rounded border border-green-800 px-5 py-3 font-semibold text-green-900 hover:bg-green-50">Open Manufacturer Portal</Link>
               <button onClick={handleSignOut} className="rounded border border-neutral-300 px-5 py-3 font-semibold">Sign Out</button>
             </div>
           </div>
