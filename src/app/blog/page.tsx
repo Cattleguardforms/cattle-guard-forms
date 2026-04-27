@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { getMarketingBlogPosts, starterBlogPosts } from "@/lib/marketing/blog-posts";
+
+export const dynamic = "force-dynamic";
 
 const navItems = [
   ["Home", "/"],
@@ -7,36 +10,6 @@ const navItems = [
   ["FAQ", "/faq"],
   ["Blog", "/blog"],
   ["Contact", "/contact"],
-];
-
-const featuredPosts = [
-  {
-    title: "How Reusable Concrete Cattle Guard Forms Help Ranchers Save on Steel Freight",
-    category: "Cost savings",
-    date: "2026-04-26",
-    excerpt:
-      "Traditional steel cattle guards are expensive to fabricate, heavy to ship, and often slow to source. CowStop gives landowners a reusable form system for pouring durable concrete cattle guard sections on-site.",
-    image: "/products/cattle-guard-hero.png",
-    slug: "reusable-concrete-cattle-guard-forms-save-on-steel-freight",
-  },
-  {
-    title: "CowStop Pour Planning: How Many Sections You Need for 12, 16, and 18 Foot Openings",
-    category: "Installation planning",
-    date: "2026-04-26",
-    excerpt:
-      "A practical guide to opening size, pour count, layout planning, and when to consider CowStop sections, custom dividers, or Texan forms.",
-    image: "/installations/step%20-%202.jpg",
-    slug: "cowstop-pour-planning-12-16-18-foot-openings",
-  },
-  {
-    title: "Why Above-Grade Cattle Guards Drain Better and Help Discourage Cattle Crossing",
-    category: "Installation tips",
-    date: "2026-04-26",
-    excerpt:
-      "Elevation, drainage, open gaps, and fencing wings all matter. Here is why a cattle guard should sit slightly above grade and how to improve long-term performance.",
-    image: "/installations/step%20-%208.png",
-    slug: "why-above-grade-cattle-guards-drain-better",
-  },
 ];
 
 const blogTopics = [
@@ -48,7 +21,17 @@ const blogTopics = [
   "Livestock control and drainage",
 ];
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  let featuredPosts = starterBlogPosts;
+  let blogError = "";
+
+  try {
+    const posts = await getMarketingBlogPosts({ publishedOnly: true });
+    if (posts.length > 0) featuredPosts = posts;
+  } catch (error) {
+    blogError = error instanceof Error ? error.message : "Unable to load Supabase blog posts.";
+  }
+
   return (
     <main className="min-h-screen bg-white text-neutral-950">
       <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur">
@@ -118,18 +101,31 @@ export default function BlogPage() {
           </Link>
         </div>
 
+        {blogError ? (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Supabase blog posts are not available yet, so starter articles are shown. {blogError}
+          </div>
+        ) : null}
+
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {featuredPosts.map((post) => (
-            <article key={post.slug} id={post.slug} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-              <img src={post.image} alt={post.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105" />
+            <article key={post.id} id={post.slug} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+              <div className="h-56 w-full bg-green-950/10">
+                <img src="/products/cattle-guard-hero.png" alt={post.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              </div>
               <div className="p-6">
                 <div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wide text-green-800">
                   <span>{post.category}</span>
-                  <span className="text-neutral-400">•</span>
-                  <time dateTime={post.date}>{post.date}</time>
+                  {post.publish_date ? (
+                    <>
+                      <span className="text-neutral-400">•</span>
+                      <time dateTime={post.publish_date}>{post.publish_date}</time>
+                    </>
+                  ) : null}
                 </div>
                 <h3 className="mt-3 text-xl font-black leading-7 text-green-950">{post.title}</h3>
-                <p className="mt-3 leading-7 text-neutral-700">{post.excerpt}</p>
+                <p className="mt-3 leading-7 text-neutral-700">{post.excerpt || post.meta_description || "Read the latest Cattle Guard Forms article."}</p>
+                {post.body ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600">{post.body}</p> : null}
                 <Link href={`/blog#${post.slug}`} className="mt-5 inline-flex rounded-lg bg-green-800 px-4 py-3 text-sm font-bold text-white hover:bg-green-900">Read article →</Link>
               </div>
             </article>
