@@ -1,3 +1,4 @@
+// Email confirmation and support workflow templates.
 export type EmailTemplate = {
   subject: string;
   text: string;
