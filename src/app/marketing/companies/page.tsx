@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { getCrmCompanies } from "@/lib/crm/records";
+import { getCrmCompanies, type CrmCompanyRecord } from "@/lib/crm/records";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketingCompaniesPage() {
-  let companies;
+  let companies: CrmCompanyRecord[] = [];
   let errorMessage = "";
 
   try {
