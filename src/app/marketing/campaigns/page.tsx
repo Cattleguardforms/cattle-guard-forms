@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { formatDate, getCrmCampaigns } from "@/lib/crm/records";
+import { formatDate, getCrmCampaigns, type CrmCampaignRecord } from "@/lib/crm/records";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketingCampaignsPage() {
-  let campaigns;
+  let campaigns: CrmCampaignRecord[] = [];
   let count = 0;
   let errorMessage = "";
 
