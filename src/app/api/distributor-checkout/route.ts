@@ -33,6 +33,12 @@ type CheckoutBody = {
   shipToState?: string;
   shipToZip?: string;
   selectedRate?: string;
+  freightCharge?: number;
+  contactPhone?: string;
+  deliveryType?: string;
+  liftgateRequired?: string;
+  appointmentRequired?: string;
+  limitedAccess?: string;
   bolFileName?: string;
 };
 
@@ -83,6 +89,12 @@ async function requireDistributor(request: NextRequest) {
   return { supabase, user: userData.user, profile, distributor };
 }
 
+function getFreightCharge(body: CheckoutBody) {
+  const freightCharge = Number(body.freightCharge ?? 0);
+  if (!Number.isFinite(freightCharge) || freightCharge < 0) return 0;
+  return Math.round(freightCharge * 100) / 100;
+}
+
 function validateBody(body: CheckoutBody) {
   const quantity = Number(body.quantity);
 
@@ -107,6 +119,10 @@ function validateBody(body: CheckoutBody) {
     if (missingShipTo) {
       throw new Error("Ship-to name, address, and freight option are required for Cattle Guard Forms shipping.");
     }
+
+    if (getFreightCharge(body) <= 0) {
+      throw new Error("Selected freight charge is required before checkout.");
+    }
   }
 
   if (body.shippingMethod === "own" && !body.bolFileName?.trim()) {
@@ -123,7 +139,8 @@ async function createPendingOrder(input: {
   body: CheckoutBody;
   quantity: number;
 }) {
-  const total = input.quantity * DISTRIBUTOR_UNIT_PRICE;
+  const freightCharge = getFreightCharge(input.body);
+  const total = input.quantity * DISTRIBUTOR_UNIT_PRICE + freightCharge;
   const now = new Date().toISOString();
 
   const { data, error } = await input.supabase
@@ -241,6 +258,21 @@ export async function POST(request: NextRequest) {
             },
           },
         },
+        ...(getFreightCharge(body) > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "usd",
+                  unit_amount: Math.round(getFreightCharge(body) * 100),
+                  product_data: {
+                    name: "Freight & Handling",
+                    description: clean(body.selectedRate) || "Selected freight option.",
+                  },
+                },
+              },
+            ]
+          : []),
       ],
       metadata: {
         orderId,
@@ -256,7 +288,13 @@ export async function POST(request: NextRequest) {
         ship_to_city: body.shipToCity ?? "",
         ship_to_state: body.shipToState ?? "",
         ship_to_zip: body.shipToZip ?? "",
+        contact_phone: body.contactPhone ?? "",
+        delivery_type: body.deliveryType ?? "",
+        liftgate_required: body.liftgateRequired ?? "",
+        appointment_required: body.appointmentRequired ?? "",
+        limited_access: body.limitedAccess ?? "",
         selected_rate: body.selectedRate ?? "",
+        freight_charge: String(getFreightCharge(body)),
         bol_file_name: body.bolFileName ?? "",
       },
       success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,

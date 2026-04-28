@@ -45,6 +45,11 @@ export default function DistributorPortalAuthPage() {
   const [shipToCity, setShipToCity] = useState("");
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [deliveryType, setDeliveryType] = useState("commercial");
+  const [liftgateRequired, setLiftgateRequired] = useState("no");
+  const [appointmentRequired, setAppointmentRequired] = useState("no");
+  const [limitedAccess, setLimitedAccess] = useState("no");
   const [hasFreightQuote, setHasFreightQuote] = useState(false);
   const [selectedFreightRate, setSelectedFreightRate] = useState("");
   const [selectedFreightCharge, setSelectedFreightCharge] = useState(0);
@@ -185,6 +190,11 @@ export default function DistributorPortalAuthPage() {
           shipToCity,
           shipToState,
           shipToZip,
+          contactPhone,
+          deliveryType,
+          liftgateRequired,
+          appointmentRequired,
+          limitedAccess,
           selectedRate: selectedFreightRate,
           freightCharge: selectedFreightCharge,
         }),
@@ -331,10 +341,17 @@ export default function DistributorPortalAuthPage() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Quantity
-                <input required type="number" min={1} max={50} value={quantity} onChange={(event) => { setQuantity(Number(event.target.value)); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <select required value={quantity} onChange={(event) => { setQuantity(Number(event.target.value)); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal">
+                  {Array.from({ length: 30 }, (_, index) => index + 1).map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
               </label>
-              <label className="grid gap-2 text-sm font-medium text-neutral-700">Receipt email
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">Order contact email
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">Delivery contact phone
+                <input required type="tel" value={contactPhone} onChange={(event) => { setContactPhone(event.target.value); resetFreightSelection(); }} placeholder="555-555-5555" className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Ship-to name
                 <input required value={shipToName} onChange={(event) => { setShipToName(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
@@ -353,6 +370,41 @@ export default function DistributorPortalAuthPage() {
               </label>
             </div>
 
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="font-semibold text-amber-950">Delivery details</p>
+              <p className="mt-1 text-sm leading-6 text-amber-900">These details affect the freight quote. Incorrect delivery information may cause carrier back charges.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-medium text-amber-950">Delivery location type
+                  <select required value={deliveryType} onChange={(event) => { setDeliveryType(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
+                    <option value="commercial">Commercial / business</option>
+                    <option value="residential">Residential / farm / home</option>
+                    <option value="job_site">Job site / construction site</option>
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-amber-950">Liftgate required?
+                  <select required value={liftgateRequired} onChange={(event) => { setLiftgateRequired(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                    <option value="not_sure">Not sure</option>
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-amber-950">Appointment required?
+                  <select required value={appointmentRequired} onChange={(event) => { setAppointmentRequired(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                    <option value="not_sure">Not sure</option>
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm font-medium text-amber-950">Limited access?
+                  <select required value={limitedAccess} onChange={(event) => { setLimitedAccess(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                    <option value="not_sure">Not sure</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
             <div className="mt-6 rounded-xl bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 ring-1 ring-neutral-200">
               <p className="font-semibold text-neutral-950">Order summary</p>
               <p>{safeQuantity} CowStop form{safeQuantity === 1 ? "" : "s"} at ${unitPrice} each: ${productTotal.toLocaleString()}</p>
@@ -369,6 +421,12 @@ export default function DistributorPortalAuthPage() {
               shipToCity={shipToCity}
               shipToState={shipToState}
               shipToZip={shipToZip}
+              contactPhone={contactPhone}
+              deliveryType={deliveryType}
+              liftgateRequired={liftgateRequired}
+              appointmentRequired={appointmentRequired}
+              limitedAccess={limitedAccess}
+              orderContactEmail={email}
               onQuoteStatusChange={setHasFreightQuote}
               onFreightOptionSelect={(rate, charge) => {
                 setSelectedFreightRate(rate);

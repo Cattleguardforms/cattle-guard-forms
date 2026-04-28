@@ -27,6 +27,11 @@ type EchoRatesBody = {
   shipToZip?: string;
   contactName?: string;
   contactPhone?: string;
+  deliveryType?: string;
+  liftgateRequired?: string;
+  appointmentRequired?: string;
+  limitedAccess?: string;
+  orderContactEmail?: string;
 };
 
 function clean(value: unknown) {
@@ -86,14 +91,43 @@ function formatEchoDate(date: Date) {
   ).padStart(2, "0")}/${date.getFullYear()}`;
 }
 
+function buildAccessorials(body: EchoRatesBody) {
+  const accessorials: { Type: string }[] = [];
+  const deliveryType = clean(body.deliveryType).toLowerCase();
+
+  if (deliveryType === "residential" || deliveryType === "job_site") {
+    accessorials.push({ Type: "RESIDENTIALDELIVERY" });
+  }
+
+  if (deliveryType === "job_site") {
+    accessorials.push({ Type: "LIMITEDACCESSDELIVERY" });
+  }
+
+  if (clean(body.liftgateRequired) === "yes" || clean(body.liftgateRequired) === "not_sure") {
+    accessorials.push({ Type: "LIFTGATEDELIVERY" });
+  }
+
+  if (clean(body.appointmentRequired) === "yes" || clean(body.appointmentRequired) === "not_sure") {
+    accessorials.push({ Type: "APPOINTMENTDELIVERY" });
+  }
+
+  if (clean(body.limitedAccess) === "yes" || clean(body.limitedAccess) === "not_sure") {
+    accessorials.push({ Type: "LIMITEDACCESSDELIVERY" });
+  }
+
+  return accessorials;
+}
+
 function buildRatesRequest(body: EchoRatesBody, quantity: number) {
   const palletPlan = getPalletPlan(quantity);
+  const accessorials = buildAccessorials(body);
   const pickUpDate = formatEchoDate(addBusinessDays(new Date(), 3));
 
   return {
     PickUpDate: pickUpDate,
     PalletQuantity: palletPlan.palletCount,
     UnitOfWeight: "LB",
+    Accessorials: accessorials,
 
     OriginLocationName: ORIGIN.locationName,
     OriginAddressLine1: ORIGIN.addressLine1,
