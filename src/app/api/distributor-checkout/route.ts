@@ -259,8 +259,8 @@ export async function POST(request: NextRequest) {
         selected_rate: body.selectedRate ?? "",
         bol_file_name: body.bolFileName ?? "",
       },
-      success_url: `${baseUrl}/distributor?checkout=success&order=${orderId}`,
-      cancel_url: `${baseUrl}/distributor?checkout=cancelled&order=${orderId}`,
+      success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,
+      cancel_url: `${baseUrl}/distributor/portal?checkout=cancelled&order=${orderId}`,
     });
 
     await attachStripeSession({ supabase, orderId, sessionId: session.id });
