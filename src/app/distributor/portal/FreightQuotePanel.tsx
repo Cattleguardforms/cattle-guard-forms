@@ -27,6 +27,24 @@ type FreightQuoteResponse = {
   echoResponse?: unknown;
 };
 
+const stateAbbreviations: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA", colorado: "CO",
+  connecticut: "CT", delaware: "DE", florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID",
+  illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA",
+  maine: "ME", maryland: "MD", massachusetts: "MA", michigan: "MI", minnesota: "MN", mississippi: "MS",
+  missouri: "MO", montana: "MT", nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
+  "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK",
+  oregon: "OR", pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+  tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT", virginia: "VA", washington: "WA",
+  "west virginia": "WV", wisconsin: "WI", wyoming: "WY",
+};
+
+function normalizeState(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length === 2) return trimmed.toUpperCase();
+  return stateAbbreviations[trimmed.toLowerCase()] ?? trimmed.toUpperCase();
+}
+
 function getReadableRateSummary(echoResponse: unknown) {
   if (!echoResponse || typeof echoResponse !== "object") return "Echo response received.";
 
@@ -70,12 +88,12 @@ export default function FreightQuotePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quantity,
-          shipToName,
-          shipToAddress,
-          shipToCity,
-          shipToState,
-          shipToZip,
-          contactName: shipToName,
+          shipToName: shipToName.trim(),
+          shipToAddress: shipToAddress.trim(),
+          shipToCity: shipToCity.trim(),
+          shipToState: normalizeState(shipToState),
+          shipToZip: shipToZip.trim(),
+          contactName: shipToName.trim(),
         }),
       });
 
@@ -103,7 +121,7 @@ export default function FreightQuotePanel({
         <div>
           <p className="font-semibold text-blue-950">Freight quote</p>
           <p className="mt-1 text-sm leading-6 text-blue-900">
-            Get an Echo LTL freight quote before checkout. Stripe remains product-only for now.
+            Get an Echo LTL freight quote before checkout. Payment is locked until a quote is received.
           </p>
         </div>
         <button
@@ -120,7 +138,7 @@ export default function FreightQuotePanel({
 
       {quote?.ok ? (
         <div className="mt-4 rounded border border-green-200 bg-white p-4 text-sm text-neutral-800">
-          <p className="font-semibold text-green-950">Freight quote received.</p>
+          <p className="font-semibold text-green-950">Freight quote received. Checkout is now unlocked.</p>
           <p className="mt-1">{getReadableRateSummary(quote.echoResponse)}</p>
           <p className="mt-2 text-neutral-700">
             Quantity: {quote.quantity} | Freight class: {quote.freightClass} | Planned pallets: {quote.palletPlan?.palletCount}
