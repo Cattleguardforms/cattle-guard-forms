@@ -173,6 +173,37 @@ async function createPendingOrder(input: {
   return orderId;
 }
 
+async function attachStripeSession(input: {
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  orderId: string;
+  sessionId: string;
+}) {
+  const now = new Date().toISOString();
+
+  const { error } = await input.supabase
+    .from("orders")
+    .update({ stripe_checkout_session_id: input.sessionId, checkout_status: "created", updated_at: now })
+    .eq("id", input.orderId);
+
+  if (!error) return;
+
+  const message = error.message || "";
+  if (!message.includes("checkout_status")) {
+    throw new Error(`Unable to attach Stripe session to order: ${message}`);
+  }
+
+  const { error: fallbackError } = await input.supabase
+    .from("orders")
+    .update({ stripe_checkout_session_id: input.sessionId, updated_at: now })
+    .eq("id", input.orderId);
+
+  if (fallbackError) {
+    throw new Error(`Unable to attach Stripe session to order: ${fallbackError.message}`);
+  }
+
+  console.warn("orders.checkout_status is missing; attached Stripe session without checkout_status.");
+}
+
 export async function POST(request: NextRequest) {
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "Checkout is not available right now." }, { status: 500 });
@@ -232,14 +263,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${baseUrl}/distributor?checkout=cancelled&order=${orderId}`,
     });
 
-    const { error: updateError } = await supabase
-      .from("orders")
-      .update({ stripe_checkout_session_id: session.id, checkout_status: "created", updated_at: new Date().toISOString() })
-      .eq("id", orderId);
-
-    if (updateError) {
-      throw new Error(`Unable to attach Stripe session to order: ${updateError.message}`);
-    }
+    await attachStripeSession({ supabase, orderId, sessionId: session.id });
 
     return NextResponse.json({ url: session.url, orderId });
   } catch (error) {
