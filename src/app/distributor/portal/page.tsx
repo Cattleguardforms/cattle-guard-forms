@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import FreightQuotePanel from "./FreightQuotePanel";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -44,6 +45,7 @@ export default function DistributorPortalAuthPage() {
   const [shipToCity, setShipToCity] = useState("");
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
+  const [hasFreightQuote, setHasFreightQuote] = useState(false);
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
   const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +170,7 @@ export default function DistributorPortalAuthPage() {
           shipToCity,
           shipToState,
           shipToZip,
-          selectedRate: "Freight review after order",
+          selectedRate: hasFreightQuote ? "Echo freight quote requested" : "Freight review after order",
         }),
       });
 
@@ -301,7 +303,7 @@ export default function DistributorPortalAuthPage() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Distributor order</p>
                 <h2 className="mt-2 text-3xl font-bold">Buy CowStop forms</h2>
-                <p className="mt-3 text-sm leading-6 text-neutral-600">Enter the quantity and ship-to details, then continue to Stripe checkout.</p>
+                <p className="mt-3 text-sm leading-6 text-neutral-600">Enter the quantity and ship-to details, get a freight quote, then continue to Stripe checkout.</p>
               </div>
               <div className="rounded-xl bg-green-50 px-4 py-3 text-right ring-1 ring-green-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-green-800">Product total</p>
@@ -313,25 +315,25 @@ export default function DistributorPortalAuthPage() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Quantity
-                <input required type="number" min={1} max={50} value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required type="number" min={1} max={50} value={quantity} onChange={(event) => { setQuantity(Number(event.target.value)); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Receipt email
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Ship-to name
-                <input required value={shipToName} onChange={(event) => setShipToName(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToName} onChange={(event) => { setShipToName(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Address
-                <input required value={shipToAddress} onChange={(event) => setShipToAddress(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToAddress} onChange={(event) => { setShipToAddress(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">City
-                <input required value={shipToCity} onChange={(event) => setShipToCity(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToCity} onChange={(event) => { setShipToCity(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">State
-                <input required value={shipToState} onChange={(event) => setShipToState(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToState} onChange={(event) => { setShipToState(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">ZIP
-                <input required value={shipToZip} onChange={(event) => setShipToZip(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToZip} onChange={(event) => { setShipToZip(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
             </div>
 
@@ -339,7 +341,18 @@ export default function DistributorPortalAuthPage() {
               <p className="font-semibold text-neutral-950">Order summary</p>
               <p>{safeQuantity} CowStop form{safeQuantity === 1 ? "" : "s"} at ${unitPrice} each.</p>
               <p>{pallets} pallet{pallets === 1 ? "" : "s"} planned. Maximum six CowStops per pallet.</p>
+              <p className="mt-2 font-medium text-neutral-950">Freight status: {hasFreightQuote ? "Echo quote received" : "Not quoted yet"}</p>
             </div>
+
+            <FreightQuotePanel
+              quantity={safeQuantity}
+              shipToName={shipToName}
+              shipToAddress={shipToAddress}
+              shipToCity={shipToCity}
+              shipToState={shipToState}
+              shipToZip={shipToZip}
+              onQuoteStatusChange={setHasFreightQuote}
+            />
 
             <button disabled={checkoutLoading} className="mt-6 w-full rounded bg-green-800 px-5 py-4 font-semibold text-white hover:bg-green-900 disabled:opacity-60">
               {checkoutLoading ? "Starting checkout..." : "Continue to Stripe Checkout"}
