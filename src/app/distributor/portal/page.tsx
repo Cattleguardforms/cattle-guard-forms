@@ -44,6 +44,8 @@ export default function DistributorPortalAuthPage() {
   const [shipToCity, setShipToCity] = useState("");
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
+  const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
+  const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -90,6 +92,12 @@ export default function DistributorPortalAuthPage() {
 
   useEffect(() => {
     async function init() {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        setCheckoutStatus(params.get("checkout"));
+        setReturnedOrderId(params.get("order"));
+      }
+
       if (supabase) await verifyAccess();
       setReady(true);
     }
@@ -232,6 +240,22 @@ export default function DistributorPortalAuthPage() {
           </div>
           <button onClick={handleSignOut} className="rounded border border-neutral-300 bg-white px-5 py-3 font-semibold hover:bg-neutral-50">Sign Out</button>
         </div>
+
+        {checkoutStatus === "success" ? (
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-950">
+            <p className="font-bold">Payment successful. Your CowStop order was submitted.</p>
+            <p className="mt-1 text-sm leading-6">
+              Freight will be reviewed after order submission. {returnedOrderId ? `Order ID: ${returnedOrderId}` : ""}
+            </p>
+          </div>
+        ) : null}
+
+        {checkoutStatus === "cancelled" ? (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950">
+            <p className="font-bold">Checkout was cancelled.</p>
+            <p className="mt-1 text-sm leading-6">No payment was completed. You can review the order details and try again.</p>
+          </div>
+        ) : null}
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <aside className="space-y-6">
