@@ -13,6 +13,11 @@ type CheckoutInput = {
 export async function startCheckoutSession(input: CheckoutInput) {
   const quantity = Math.min(20, Math.max(1, Math.floor(input.quantity || 1)));
   const amount = getCowStopCheckoutAmountCents(quantity);
+  const metadata = {
+    orderId: input.orderId,
+    productId: input.productId || "cowstop",
+    quantity: String(quantity),
+  };
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: "embedded",
@@ -32,10 +37,9 @@ export async function startCheckoutSession(input: CheckoutInput) {
       },
     ],
     mode: "payment",
-    metadata: {
-      orderId: input.orderId,
-      productId: input.productId || "cowstop",
-      quantity: String(quantity),
+    metadata,
+    payment_intent_data: {
+      metadata,
     },
   });
 
