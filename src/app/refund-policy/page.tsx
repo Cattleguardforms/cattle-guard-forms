@@ -10,7 +10,7 @@ const policySections = [
   {
     title: "Return Shipping Responsibility",
     body:
-      "Customers are responsible for arranging and paying return shipping back to the factory in Indiana unless Cattle Guard Forms confirms in writing that a different return arrangement applies. Return freight must be properly packaged and shipped in a way that protects the returned form during transit.",
+      "Customers are responsible for arranging and paying return shipping to the approved return location provided by Cattle Guard Forms after return authorization unless Cattle Guard Forms confirms in writing that a different return arrangement applies. Return freight must be properly packaged and shipped in a way that protects the returned form during transit.",
   },
   {
     title: "Return Condition",
@@ -30,7 +30,7 @@ const policySections = [
   {
     title: "How to Start a Return",
     body:
-      `Email ${companyBusinessProfile.supportEmail} or use the contact form before shipping any item back. We will provide the correct return instructions, return destination, and order reference information so the return can be matched to your purchase.`,
+      `Email ${companyBusinessProfile.supportEmail} or use the contact form before shipping any item back. We will provide the correct return instructions, approved return location, and order reference information so the return can be matched to your purchase.`,
   },
 ];
 
@@ -57,7 +57,7 @@ export default function RefundPolicyPage() {
         <h1 className="mt-3 text-4xl font-bold tracking-tight">Refund and Return Policy</h1>
         <p className="mt-4 text-sm text-neutral-500">Last updated: April 27, 2026</p>
         <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
-          Cattle Guard Forms offers a full refund within 30 days of purchase for eligible returned products. Customers are responsible for return shipping back to the factory in Indiana.
+          Cattle Guard Forms offers a full refund within 30 days of purchase for eligible returned products. Customers are responsible for return shipping to the approved return location provided after return authorization.
         </div>
 
         <div className="mt-10 space-y-8">
