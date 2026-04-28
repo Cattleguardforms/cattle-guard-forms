@@ -123,7 +123,22 @@ function buildRatesRequest(body: EchoRatesBody, quantity: number) {
     },
   };
 }
-
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message:
+      "Echo rates endpoint is live. Submit a POST request from the distributor portal to request freight rates.",
+    method: "POST",
+    requiredFields: [
+      "quantity",
+      "shipToName",
+      "shipToAddress",
+      "shipToCity",
+      "shipToState",
+      "shipToZip",
+    ],
+  });
+}
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as EchoRatesBody;
@@ -144,7 +159,6 @@ export async function POST(request: NextRequest) {
           error: "Echo rates request failed.",
           status: response.status,
           statusText: response.statusText,
-          echoRequest,
           echoResponse,
         },
         { status: 502 },
@@ -155,9 +169,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       quantity,
       freightClass: FREIGHT_CLASS,
-      origin: ORIGIN,
       palletPlan: getPalletPlan(quantity),
-      echoRequest,
       echoResponse,
     });
   } catch (error) {
