@@ -65,12 +65,30 @@ function validateBody(body: EchoRatesBody) {
 }
 
 
+function addBusinessDays(startDate: Date, businessDays: number) {
+  const date = new Date(startDate);
+
+  while (businessDays > 0) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+
+    if (day !== 0 && day !== 6) {
+      businessDays -= 1;
+    }
+  }
+
+  return date;
+}
+
+function formatEchoDate(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(
+    date.getDate(),
+  ).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
 function buildRatesRequest(body: EchoRatesBody, quantity: number) {
   const palletPlan = getPalletPlan(quantity);
-  const today = new Date();
-  const pickUpDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const pickUpDate = formatEchoDate(addBusinessDays(new Date(), 3));
 
   return {
     PickUpDate: pickUpDate,
@@ -99,6 +117,7 @@ function buildRatesRequest(body: EchoRatesBody, quantity: number) {
     Items: [
       {
         Description: "CowStop reusable concrete cattle guard forms",
+        NmfcClass: FREIGHT_CLASS,
         FreightClass: FREIGHT_CLASS,
         Class: FREIGHT_CLASS,
         Weight: palletPlan.totalWeight,
