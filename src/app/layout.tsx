@@ -4,10 +4,35 @@ import Link from "next/link";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://cattleguardforms.com";
 
 export const metadata: Metadata = {
-  title: "Cattle Guard Forms",
-  description: "Reusable concrete cattle guard forms for ranches, farms, and rural entrances"
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "CowStop Reusable Concrete Cattle Guard Forms | Cattle Guard Forms",
+    template: "%s | Cattle Guard Forms",
+  },
+  description:
+    "Cattle Guard Forms sells CowStop reusable concrete cattle guard forms for ranches, farms, rural driveways, contractors, concrete companies, distributors, and landowners.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Cattle Guard Forms",
+    title: "CowStop Reusable Concrete Cattle Guard Forms",
+    description:
+      "Reusable concrete cattle guard forms for ranch entrances, farm roads, contractors, concrete producers, and distributors.",
+    url: siteUrl,
+    images: ["/products/cattle-guard-hero.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CowStop Reusable Concrete Cattle Guard Forms",
+    description:
+      "Reusable concrete cattle guard forms for ranch, farm, contractor, and distributor projects.",
+    images: ["/products/cattle-guard-hero.png"],
+  },
 };
 
 export default function RootLayout({
