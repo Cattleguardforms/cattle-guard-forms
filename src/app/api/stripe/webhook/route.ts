@@ -82,7 +82,9 @@ async function createCrmActivity(input: {
     status: input.status ?? "closed",
   });
 
-  if (error) throw new Error(`CRM activity create failed: ${error.message}`);
+  if (error) {
+    console.warn("Stripe webhook CRM activity skipped", error.message);
+  }
 }
 
 async function safeUpdateOrder(orderId: string, fullUpdate: LooseRecord, fallbackUpdate: LooseRecord) {
@@ -95,6 +97,7 @@ async function safeUpdateOrder(orderId: string, fullUpdate: LooseRecord, fallbac
     throw new Error(`Order update failed: ${error.message}`);
   }
 
+  console.warn("Stripe webhook full order update skipped; using fallback update", error.message);
   const { error: fallbackError } = await supabase.from("orders").update(fallbackUpdate).eq("id", orderId);
   if (fallbackError) throw new Error(`Order fallback update failed: ${fallbackError.message}`);
 }
@@ -122,8 +125,6 @@ async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) 
     {
       status: "ready_for_fulfillment",
       payment_status: "paid",
-      shipment_status: "ready_for_fulfillment",
-      stripe_checkout_session_id: session.id,
       updated_at: now,
     },
   );
@@ -240,6 +241,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   try {
     await sendPaymentWorkflowEmails(session, order);
   } catch (error) {
+    console.warn("Stripe webhook payment email workflow skipped", error);
     await createCrmActivity({
       title: `Payment email workflow needs review for order ${orderId}`,
       description: error instanceof Error ? error.message : "Unable to send payment workflow emails.",
@@ -286,7 +288,7 @@ export async function POST(request: NextRequest) {
       if (orderId) await markOrderPaymentFailed(paymentIntent, orderId);
     }
 
-    return NextResponse.json({ ok: true, received: true });
+    return NextResponse.json({ ok: true, received: true, eventType: event.type });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Stripe webhook handler failed." },
