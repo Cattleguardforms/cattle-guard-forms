@@ -138,6 +138,12 @@ export default function DistributorPortalAuthPage() {
   async function handleCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCheckoutError(null);
+
+    if (!hasFreightQuote) {
+      setCheckoutError("A freight quote is required before payment. Please click Get Freight Quote and wait for a successful quote before continuing.");
+      return;
+    }
+
     setCheckoutLoading(true);
 
     try {
@@ -170,7 +176,7 @@ export default function DistributorPortalAuthPage() {
           shipToCity,
           shipToState,
           shipToZip,
-          selectedRate: hasFreightQuote ? "Echo freight quote requested" : "Freight review after order",
+          selectedRate: "Echo freight quote received",
         }),
       });
 
@@ -341,7 +347,7 @@ export default function DistributorPortalAuthPage() {
               <p className="font-semibold text-neutral-950">Order summary</p>
               <p>{safeQuantity} CowStop form{safeQuantity === 1 ? "" : "s"} at ${unitPrice} each.</p>
               <p>{pallets} pallet{pallets === 1 ? "" : "s"} planned. Maximum six CowStops per pallet.</p>
-              <p className="mt-2 font-medium text-neutral-950">Freight status: {hasFreightQuote ? "Echo quote received" : "Not quoted yet"}</p>
+              <p className="mt-2 font-medium text-neutral-950">Freight status: {hasFreightQuote ? "Echo quote received" : "Required before payment"}</p>
             </div>
 
             <FreightQuotePanel
@@ -354,8 +360,8 @@ export default function DistributorPortalAuthPage() {
               onQuoteStatusChange={setHasFreightQuote}
             />
 
-            <button disabled={checkoutLoading} className="mt-6 w-full rounded bg-green-800 px-5 py-4 font-semibold text-white hover:bg-green-900 disabled:opacity-60">
-              {checkoutLoading ? "Starting checkout..." : "Continue to Stripe Checkout"}
+            <button disabled={checkoutLoading || !hasFreightQuote} className="mt-6 w-full rounded bg-green-800 px-5 py-4 font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60">
+              {checkoutLoading ? "Starting checkout..." : hasFreightQuote ? "Continue to Stripe Checkout" : "Get Freight Quote Before Payment"}
             </button>
           </form>
         </section>
