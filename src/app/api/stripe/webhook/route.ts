@@ -21,6 +21,11 @@ function stripeId(value: string | Stripe.PaymentIntent | Stripe.Customer | null 
   return typeof value === "string" ? value : value.id;
 }
 
+function isMissingColumnError(error: { message?: string } | null | undefined) {
+  const message = error?.message || "";
+  return message.includes("schema cache") || message.includes("column") || message.includes("Could not find");
+}
+
 async function findOrder(orderId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
@@ -80,14 +85,28 @@ async function createCrmActivity(input: {
   if (error) throw new Error(`CRM activity create failed: ${error.message}`);
 }
 
-async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) {
+async function safeUpdateOrder(orderId: string, fullUpdate: LooseRecord, fallbackUpdate: LooseRecord) {
   const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("orders").update(fullUpdate).eq("id", orderId);
+
+  if (!error) return;
+
+  if (!isMissingColumnError(error)) {
+    throw new Error(`Order update failed: ${error.message}`);
+  }
+
+  const { error: fallbackError } = await supabase.from("orders").update(fallbackUpdate).eq("id", orderId);
+  if (fallbackError) throw new Error(`Order fallback update failed: ${fallbackError.message}`);
+}
+
+async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) {
   const paymentIntentId = stripeId(session.payment_intent as string | Stripe.PaymentIntent | null | undefined);
   const amountPaid = centsToDollars(session.amount_total ?? session.amount_subtotal ?? null);
+  const now = new Date().toISOString();
 
-  const { error } = await supabase
-    .from("orders")
-    .update({
+  await safeUpdateOrder(
+    orderId,
+    {
       status: "ready_for_fulfillment",
       payment_status: "paid",
       shipment_status: "ready_for_fulfillment",
@@ -95,36 +114,42 @@ async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) 
       stripe_payment_intent_id: paymentIntentId,
       amount_paid: amountPaid,
       currency: session.currency ?? "usd",
-      paid_at: new Date().toISOString(),
+      paid_at: now,
       checkout_status: session.status ?? "complete",
       payment_failure_message: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
-
-  if (error) throw new Error(`Order payment update failed: ${error.message}`);
+      updated_at: now,
+    },
+    {
+      status: "ready_for_fulfillment",
+      payment_status: "paid",
+      shipment_status: "ready_for_fulfillment",
+      stripe_checkout_session_id: session.id,
+      updated_at: now,
+    },
+  );
 }
 
 async function markOrderPaymentFailed(paymentIntent: Stripe.PaymentIntent, orderId: string) {
-  const supabase = createSupabaseAdminClient();
   const failureMessage =
     paymentIntent.last_payment_error?.message ||
     paymentIntent.last_payment_error?.decline_code ||
     paymentIntent.last_payment_error?.code ||
     "Stripe payment failed.";
 
-  const { error } = await supabase
-    .from("orders")
-    .update({
+  await safeUpdateOrder(
+    orderId,
+    {
       payment_status: "failed",
       checkout_status: paymentIntent.status,
       stripe_payment_intent_id: paymentIntent.id,
       payment_failure_message: failureMessage,
       updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
-
-  if (error) throw new Error(`Order payment failure update failed: ${error.message}`);
+    },
+    {
+      payment_status: "failed",
+      updated_at: new Date().toISOString(),
+    },
+  );
 
   await createCrmActivity({
     title: `Stripe payment failed for order ${orderId}`,
