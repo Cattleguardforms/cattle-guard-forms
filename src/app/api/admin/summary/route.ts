@@ -44,11 +44,32 @@ async function countTable(supabase: ReturnType<typeof createSupabaseAdminClient>
   return count ?? 0;
 }
 
-async function countOrdersByStatus(supabase: ReturnType<typeof createSupabaseAdminClient>, status: string): Promise<number> {
+async function countActiveDistributors(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<number> {
+  const { count, error } = await supabase
+    .from("distributor_profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+async function countOpenOrders(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<number> {
   const { count, error } = await supabase
     .from("orders")
     .select("id", { count: "exact", head: true })
-    .or(`status.eq.${status},payment_status.eq.${status},shipment_status.eq.${status}`);
+    .not("payment_status", "eq", "paid")
+    .not("shipment_status", "eq", "delivered");
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+async function countPaidOrders(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<number> {
+  const { count, error } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("payment_status", "paid");
 
   if (error) return 0;
   return count ?? 0;
@@ -58,10 +79,11 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
 
-    const [distributors, orders, paidOrders, abandonedCheckouts, leads, supportRequests, campaigns, posts] = await Promise.all([
-      countTable(supabase, "distributor_profiles"),
+    const [activeDistributors, allOrders, openOrders, paidOrders, abandonedCheckouts, leads, supportRequests, campaigns, posts] = await Promise.all([
+      countActiveDistributors(supabase),
       countTable(supabase, "orders"),
-      countOrdersByStatus(supabase, "paid"),
+      countOpenOrders(supabase),
+      countPaidOrders(supabase),
       countTable(supabase, "abandoned_checkouts"),
       countTable(supabase, "customers"),
       countTable(supabase, "support_requests"),
@@ -70,8 +92,9 @@ export async function GET(request: NextRequest) {
     ]);
 
     const summary: CountResult[] = [
-      { label: "Total Distributors", count: distributors },
-      { label: "Active Orders", count: orders },
+      { label: "Active Distributors", count: activeDistributors },
+      { label: "All Orders", count: allOrders },
+      { label: "Open Orders", count: openOrders },
       { label: "Paid Orders", count: paidOrders },
       { label: "Abandoned Checkouts", count: abandonedCheckouts },
       { label: "CRM Leads", count: leads },
