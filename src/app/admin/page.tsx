@@ -22,6 +22,7 @@ type SummaryResponse = {
 
 const modules = [
   ["Manage Distributor Accounts", "/admin/distributors"],
+  ["Stripe Sandbox Test", "/admin/stripe-test"],
   ["Manufacturer Portal", "/manufacturer"],
   ["Orders", "/admin/orders"],
   ["Abandoned Checkouts", "/admin/abandoned-checkouts"],
