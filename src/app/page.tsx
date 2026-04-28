@@ -21,6 +21,7 @@ const navItems = [
   ["Installations", "/installations"],
   ["FAQ", "/faq"],
   ["Blog", "/blog"],
+  ["Distributor", "/distributor"],
   ["Contact", "/contact"],
 ];
 
@@ -54,14 +55,14 @@ export default function HomePage() {
             <img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-14 w-auto object-contain" />
             <span className="hidden text-xl font-black uppercase leading-5 tracking-wide text-green-900 sm:block">Cattle Guard<br />Forms</span>
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-semibold text-neutral-700 md:flex">
+          <nav className="hidden items-center gap-5 text-sm font-semibold text-neutral-700 md:flex">
             {navItems.map(([label, href]) => (
               <Link key={href} href={href} className={href === "/" ? "text-green-900 underline decoration-green-800 decoration-2 underline-offset-8" : "hover:text-green-800"}>{label}</Link>
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/contact" className="hidden rounded-lg border border-green-800 px-4 py-3 text-sm font-bold text-green-900 shadow-sm hover:bg-green-50 sm:inline-flex">
-              Distributor Questions
+            <Link href="/distributor" className="hidden rounded-lg border border-green-800 px-4 py-3 text-sm font-bold text-green-900 shadow-sm hover:bg-green-50 sm:inline-flex">
+              Distributor Portal
             </Link>
             <Link href="/quote" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-900">Request a Quote</Link>
           </div>
@@ -92,7 +93,7 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/quote" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-950/30 hover:bg-green-500">Request a Quote →</Link>
               <Link href="/installations" className="inline-flex items-center justify-center rounded-lg border border-white/50 px-6 py-4 font-bold text-white hover:bg-white/10">View Installations</Link>
-              <Link href="/contact" className="inline-flex items-center justify-center rounded-lg border border-white/40 px-6 py-4 font-bold text-white hover:bg-white/10">Distributor Questions</Link>
+              <Link href="/distributor" className="inline-flex items-center justify-center rounded-lg border border-white/40 px-6 py-4 font-bold text-white hover:bg-white/10">Distributor Portal</Link>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-green-50 sm:grid-cols-4">
               <span>Heavy-Duty</span>
@@ -160,7 +161,10 @@ export default function HomePage() {
               <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Explore</p>
               <h2 className="mt-2 text-4xl font-black tracking-tight">Shop, learn, and install with confidence.</h2>
             </div>
-            <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900">Talk to Support</Link>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link href="/distributor" className="rounded-lg border border-green-800 bg-white px-5 py-3 font-bold text-green-900 hover:bg-green-50">Distributor Portal</Link>
+              <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900">Talk to Support</Link>
+            </div>
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {cards.map(([title, body, href, image, cta]) => (
@@ -187,7 +191,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/contact" className="rounded-lg border border-white/40 px-5 py-3 text-center font-bold text-white hover:bg-white/10">Ask a Question</Link>
+            <Link href="/distributor" className="rounded-lg border border-white/40 px-5 py-3 text-center font-bold text-white hover:bg-white/10">Distributor Portal</Link>
             <Link href="/quote" className="rounded-lg bg-white px-5 py-3 text-center font-bold text-green-950 hover:bg-green-50">Request a Quote</Link>
           </div>
         </div>
