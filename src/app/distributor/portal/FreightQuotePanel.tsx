@@ -45,6 +45,20 @@ function normalizeState(value: string) {
   return stateAbbreviations[trimmed.toLowerCase()] ?? trimmed.toUpperCase();
 }
 
+function normalizePhone(value: string) {
+  return value.replace(/[^0-9]/g, "");
+}
+
+function getEchoFailureDetails(quote: FreightQuoteResponse | null) {
+  if (!quote) return null;
+  const details = {
+    status: quote.status,
+    statusText: quote.statusText,
+    echoResponse: quote.echoResponse,
+  };
+  return JSON.stringify(details, null, 2);
+}
+
 function getReadableRateSummary(echoResponse: unknown) {
   if (!echoResponse || typeof echoResponse !== "object") return "Echo response received.";
 
@@ -69,6 +83,7 @@ export default function FreightQuotePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<FreightQuoteResponse | null>(null);
+  const [contactPhone, setContactPhone] = useState("");
 
   async function handleGetQuote() {
     setError(null);
@@ -77,6 +92,12 @@ export default function FreightQuotePanel({
 
     if (!shipToName.trim() || !shipToAddress.trim() || !shipToCity.trim() || !shipToState.trim() || !shipToZip.trim()) {
       setError("Enter the ship-to name, address, city, state, and ZIP before requesting freight.");
+      return;
+    }
+
+    const normalizedContactPhone = normalizePhone(contactPhone);
+    if (normalizedContactPhone.length < 10) {
+      setError("Enter a valid delivery contact phone number before requesting freight.");
       return;
     }
 
@@ -94,6 +115,7 @@ export default function FreightQuotePanel({
           shipToState: normalizeState(shipToState),
           shipToZip: shipToZip.trim(),
           contactName: shipToName.trim(),
+          contactPhone: normalizedContactPhone,
         }),
       });
 
@@ -134,7 +156,28 @@ export default function FreightQuotePanel({
         </button>
       </div>
 
+      <label className="mt-4 grid gap-2 text-sm font-medium text-blue-950 md:max-w-sm">
+        Delivery contact phone
+        <input
+          required
+          type="tel"
+          value={contactPhone}
+          onChange={(event) => { setContactPhone(event.target.value); onQuoteStatusChange?.(false); }}
+          placeholder="555-555-5555"
+          className="rounded border border-blue-200 bg-white px-3 py-2 font-normal text-neutral-950"
+        />
+      </label>
+
       {error ? <div className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
+
+      {quote && !quote.ok ? (
+        <details className="mt-4 rounded border border-red-200 bg-white p-4 text-sm text-red-900">
+          <summary className="cursor-pointer font-semibold">View Echo failure details</summary>
+          <pre className="mt-3 max-h-72 overflow-auto rounded bg-neutral-950 p-3 text-xs text-neutral-50">
+            {getEchoFailureDetails(quote)}
+          </pre>
+        </details>
+      ) : null}
 
       {quote?.ok ? (
         <div className="mt-4 rounded border border-green-200 bg-white p-4 text-sm text-neutral-800">
