@@ -21,11 +21,6 @@ function stripeId(value: string | Stripe.PaymentIntent | Stripe.Customer | null 
   return typeof value === "string" ? value : value.id;
 }
 
-function isMissingColumnError(error: { message?: string } | null | undefined) {
-  const message = error?.message || "";
-  return message.includes("schema cache") || message.includes("column") || message.includes("Could not find");
-}
-
 async function findOrder(orderId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
@@ -70,48 +65,47 @@ async function createCrmActivity(input: {
   distributorProfileId?: string | null;
   status?: string;
 }) {
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("crm_activity").insert({
-    activity_type: "stripe_payment",
-    title: input.title,
-    description: input.description,
-    order_id: input.orderId ?? null,
-    customer_id: input.customerId ?? null,
-    distributor_profile_id: input.distributorProfileId ?? null,
-    source: "stripe_webhook",
-    status: input.status ?? "closed",
-  });
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase.from("crm_activity").insert({
+      activity_type: "stripe_payment",
+      title: input.title,
+      description: input.description,
+      order_id: input.orderId ?? null,
+      customer_id: input.customerId ?? null,
+      distributor_profile_id: input.distributorProfileId ?? null,
+      source: "stripe_webhook",
+      status: input.status ?? "closed",
+    });
 
-  if (error) {
-    console.warn("Stripe webhook CRM activity skipped", error.message);
+    if (error) console.warn("Stripe webhook CRM activity skipped", error.message);
+  } catch (error) {
+    console.warn("Stripe webhook CRM activity skipped", error);
   }
-}
-
-async function safeUpdateOrder(orderId: string, fullUpdate: LooseRecord, fallbackUpdate: LooseRecord) {
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("orders").update(fullUpdate).eq("id", orderId);
-
-  if (!error) return;
-
-  if (!isMissingColumnError(error)) {
-    throw new Error(`Order update failed: ${error.message}`);
-  }
-
-  console.warn("Stripe webhook full order update skipped; using fallback update", error.message);
-  const { error: fallbackError } = await supabase.from("orders").update(fallbackUpdate).eq("id", orderId);
-  if (fallbackError) throw new Error(`Order fallback update failed: ${fallbackError.message}`);
 }
 
 async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) {
+  const supabase = createSupabaseAdminClient();
+  const now = new Date().toISOString();
   const paymentIntentId = stripeId(session.payment_intent as string | Stripe.PaymentIntent | null | undefined);
   const amountPaid = centsToDollars(session.amount_total ?? session.amount_subtotal ?? null);
-  const now = new Date().toISOString();
 
-  await safeUpdateOrder(
-    orderId,
-    {
+  const { error: requiredError } = await supabase
+    .from("orders")
+    .update({
       status: "ready_for_fulfillment",
       payment_status: "paid",
+      updated_at: now,
+    })
+    .eq("id", orderId);
+
+  if (requiredError) {
+    throw new Error(`Required paid order update failed: ${requiredError.message}`);
+  }
+
+  const { error: optionalError } = await supabase
+    .from("orders")
+    .update({
       shipment_status: "ready_for_fulfillment",
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId,
@@ -121,43 +115,22 @@ async function markOrderPaid(session: Stripe.Checkout.Session, orderId: string) 
       checkout_status: session.status ?? "complete",
       payment_failure_message: null,
       updated_at: now,
-    },
-    {
-      status: "ready_for_fulfillment",
-      payment_status: "paid",
-      updated_at: now,
-    },
-  );
+    })
+    .eq("id", orderId);
+
+  if (optionalError) {
+    console.warn("Optional Stripe paid order fields skipped", optionalError.message);
+  }
 }
 
 async function markOrderPaymentFailed(paymentIntent: Stripe.PaymentIntent, orderId: string) {
-  const failureMessage =
-    paymentIntent.last_payment_error?.message ||
-    paymentIntent.last_payment_error?.decline_code ||
-    paymentIntent.last_payment_error?.code ||
-    "Stripe payment failed.";
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({ payment_status: "failed", updated_at: new Date().toISOString() })
+    .eq("id", orderId);
 
-  await safeUpdateOrder(
-    orderId,
-    {
-      payment_status: "failed",
-      checkout_status: paymentIntent.status,
-      stripe_payment_intent_id: paymentIntent.id,
-      payment_failure_message: failureMessage,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      payment_status: "failed",
-      updated_at: new Date().toISOString(),
-    },
-  );
-
-  await createCrmActivity({
-    title: `Stripe payment failed for order ${orderId}`,
-    description: failureMessage,
-    orderId,
-    status: "open",
-  });
+  if (error) throw new Error(`Required failed-payment order update failed: ${error.message}`);
 }
 
 function buildShipTo(order: LooseRecord, customer: LooseRecord | null) {
@@ -228,28 +201,32 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (!orderId) throw new Error("Stripe checkout.session.completed is missing metadata.orderId.");
 
   await markOrderPaid(session, orderId);
-  const order = await findOrder(orderId);
-
-  await createCrmActivity({
-    title: `Stripe payment completed for order ${orderId}`,
-    description: `Checkout session ${session.id} completed. Payment intent: ${stripeId(session.payment_intent as string | Stripe.PaymentIntent | null | undefined) ?? "not provided"}.`,
-    orderId,
-    customerId: clean(order.customer_id) || null,
-    distributorProfileId: clean(order.distributor_profile_id) || null,
-  });
 
   try {
-    await sendPaymentWorkflowEmails(session, order);
-  } catch (error) {
-    console.warn("Stripe webhook payment email workflow skipped", error);
+    const order = await findOrder(orderId);
     await createCrmActivity({
-      title: `Payment email workflow needs review for order ${orderId}`,
-      description: error instanceof Error ? error.message : "Unable to send payment workflow emails.",
+      title: `Stripe payment completed for order ${orderId}`,
+      description: `Checkout session ${session.id} completed. Payment intent: ${stripeId(session.payment_intent as string | Stripe.PaymentIntent | null | undefined) ?? "not provided"}.`,
       orderId,
       customerId: clean(order.customer_id) || null,
       distributorProfileId: clean(order.distributor_profile_id) || null,
-      status: "open",
     });
+
+    try {
+      await sendPaymentWorkflowEmails(session, order);
+    } catch (error) {
+      console.warn("Stripe webhook payment email workflow skipped", error);
+      await createCrmActivity({
+        title: `Payment email workflow needs review for order ${orderId}`,
+        description: error instanceof Error ? error.message : "Unable to send payment workflow emails.",
+        orderId,
+        customerId: clean(order.customer_id) || null,
+        distributorProfileId: clean(order.distributor_profile_id) || null,
+        status: "open",
+      });
+    }
+  } catch (error) {
+    console.warn("Stripe webhook optional post-payment workflow skipped", error);
   }
 }
 
