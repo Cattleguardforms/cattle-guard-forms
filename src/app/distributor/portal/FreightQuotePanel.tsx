@@ -10,6 +10,19 @@ type FreightQuotePanelProps = {
   shipToState: string;
   shipToZip: string;
   onQuoteStatusChange?: (hasQuote: boolean) => void;
+  onFreightOptionSelect?: (selectedRate: string, freightCharge: number) => void;
+};
+
+type EchoRate = {
+  CarrierName?: string;
+  CarrierSCAC?: string;
+  CarrierTransitDays?: number;
+  TotalCharge?: number;
+  CarrierGuarantee?: string;
+  PointType?: string;
+  ExpirationDate?: string;
+  AccessorialCharge?: number;
+  Accessorials?: { Type?: string; Charge?: number }[];
 };
 
 type FreightQuoteResponse = {
@@ -26,6 +39,10 @@ type FreightQuoteResponse = {
   };
   echoResponse?: unknown;
 };
+
+const MARKUP_RATE = 0.15;
+const MAX_DISPLAYED_RATES = 4;
+const MAX_REASONABLE_RATE = 5000;
 
 const stateAbbreviations: Record<string, string> = {
   alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA", colorado: "CO",
@@ -49,6 +66,14 @@ function normalizePhone(value: string) {
   return value.replace(/[^0-9]/g, "");
 }
 
+function money(value: number) {
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function customerFreightCharge(carrierCost: number) {
+  return Math.ceil(carrierCost * (1 + MARKUP_RATE) * 100) / 100;
+}
+
 function getEchoFailureDetails(quote: FreightQuoteResponse | null) {
   if (!quote) return null;
   const details = {
@@ -59,16 +84,40 @@ function getEchoFailureDetails(quote: FreightQuoteResponse | null) {
   return JSON.stringify(details, null, 2);
 }
 
-function getReadableRateSummary(echoResponse: unknown) {
-  if (!echoResponse || typeof echoResponse !== "object") return "Echo response received.";
-
+function getRates(echoResponse: unknown): EchoRate[] {
+  if (!echoResponse || typeof echoResponse !== "object") return [];
   const response = echoResponse as Record<string, unknown>;
-  const candidates = [response.Rates, response.RateQuotes, response.CarrierRates, response.Quotes, response.Results];
-  const firstList = candidates.find(Array.isArray) as unknown[] | undefined;
+  return Array.isArray(response.Rates) ? (response.Rates as EchoRate[]) : [];
+}
 
-  if (!firstList?.length) return "Echo response received. Review the details below.";
+function isCustomerSafeRate(rate: EchoRate) {
+  const carrierName = (rate.CarrierName ?? "").toLowerCase();
+  const accessorials = rate.Accessorials ?? [];
+  const hasBadAccessorial = accessorials.some((item) => {
+    const type = (item.Type ?? "").toLowerCase();
+    return type.includes("tradeshow") || type.includes("carrierembargo") || type.includes("businessdelivery");
+  });
 
-  return `${firstList.length} freight option${firstList.length === 1 ? "" : "s"} returned by Echo.`;
+  return (
+    typeof rate.TotalCharge === "number" &&
+    rate.TotalCharge > 0 &&
+    rate.TotalCharge < MAX_REASONABLE_RATE &&
+    !carrierName.includes("trade show") &&
+    !hasBadAccessorial
+  );
+}
+
+function getBestRates(echoResponse: unknown) {
+  return getRates(echoResponse)
+    .filter(isCustomerSafeRate)
+    .sort((a, b) => (a.TotalCharge ?? 0) - (b.TotalCharge ?? 0))
+    .slice(0, MAX_DISPLAYED_RATES);
+}
+
+function describeRate(rate: EchoRate, charge: number) {
+  const carrier = rate.CarrierName ?? "Echo freight carrier";
+  const transit = typeof rate.CarrierTransitDays === "number" ? `${rate.CarrierTransitDays} transit day${rate.CarrierTransitDays === 1 ? "" : "s"}` : "Transit unavailable";
+  return `${carrier} | ${transit} | Freight & handling ${money(charge)}`;
 }
 
 export default function FreightQuotePanel({
@@ -79,16 +128,26 @@ export default function FreightQuotePanel({
   shipToState,
   shipToZip,
   onQuoteStatusChange,
+  onFreightOptionSelect,
 }: FreightQuotePanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<FreightQuoteResponse | null>(null);
   const [contactPhone, setContactPhone] = useState("");
+  const [selectedRateKey, setSelectedRateKey] = useState("");
+
+  const bestRates = quote?.ok ? getBestRates(quote.echoResponse) : [];
+
+  function resetSelectedRate() {
+    setSelectedRateKey("");
+    onQuoteStatusChange?.(false);
+    onFreightOptionSelect?.("", 0);
+  }
 
   async function handleGetQuote() {
     setError(null);
     setQuote(null);
-    onQuoteStatusChange?.(false);
+    resetSelectedRate();
 
     if (!shipToName.trim() || !shipToAddress.trim() || !shipToCity.trim() || !shipToState.trim() || !shipToZip.trim()) {
       setError("Enter the ship-to name, address, city, state, and ZIP before requesting freight.");
@@ -124,17 +183,22 @@ export default function FreightQuotePanel({
 
       if (!response.ok || !payload.ok) {
         setError(payload.error ?? "Unable to get a freight quote.");
-        onQuoteStatusChange?.(false);
         return;
       }
-
-      onQuoteStatusChange?.(true);
     } catch {
       setError("Unable to get a freight quote.");
-      onQuoteStatusChange?.(false);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSelectRate(rate: EchoRate, index: number) {
+    const carrierCost = rate.TotalCharge ?? 0;
+    const charge = customerFreightCharge(carrierCost);
+    const key = `${rate.CarrierSCAC ?? rate.CarrierName ?? "rate"}-${index}-${carrierCost}`;
+    setSelectedRateKey(key);
+    onFreightOptionSelect?.(describeRate(rate, charge), charge);
+    onQuoteStatusChange?.(true);
   }
 
   return (
@@ -143,7 +207,7 @@ export default function FreightQuotePanel({
         <div>
           <p className="font-semibold text-blue-950">Freight quote</p>
           <p className="mt-1 text-sm leading-6 text-blue-900">
-            Get an Echo LTL freight quote before checkout. Payment is locked until a quote is received.
+            Get an Echo LTL freight quote, choose one option, then checkout unlocks.
           </p>
         </div>
         <button
@@ -162,7 +226,7 @@ export default function FreightQuotePanel({
           required
           type="tel"
           value={contactPhone}
-          onChange={(event) => { setContactPhone(event.target.value); onQuoteStatusChange?.(false); }}
+          onChange={(event) => { setContactPhone(event.target.value); resetSelectedRate(); }}
           placeholder="555-555-5555"
           className="rounded border border-blue-200 bg-white px-3 py-2 font-normal text-neutral-950"
         />
@@ -181,13 +245,49 @@ export default function FreightQuotePanel({
 
       {quote?.ok ? (
         <div className="mt-4 rounded border border-green-200 bg-white p-4 text-sm text-neutral-800">
-          <p className="font-semibold text-green-950">Freight quote received. Checkout is now unlocked.</p>
-          <p className="mt-1">{getReadableRateSummary(quote.echoResponse)}</p>
+          <p className="font-semibold text-green-950">Freight quote received. Select one option to unlock checkout.</p>
+          <p className="mt-1 text-neutral-700">
+            Showing the lowest {bestRates.length} practical option{bestRates.length === 1 ? "" : "s"}. Prices include freight & handling.
+          </p>
           <p className="mt-2 text-neutral-700">
             Quantity: {quote.quantity} | Freight class: {quote.freightClass} | Planned pallets: {quote.palletPlan?.palletCount}
           </p>
+
+          {bestRates.length ? (
+            <div className="mt-4 grid gap-3">
+              {bestRates.map((rate, index) => {
+                const carrierCost = rate.TotalCharge ?? 0;
+                const charge = customerFreightCharge(carrierCost);
+                const key = `${rate.CarrierSCAC ?? rate.CarrierName ?? "rate"}-${index}-${carrierCost}`;
+                return (
+                  <label key={key} className="flex cursor-pointer gap-3 rounded border border-neutral-200 bg-neutral-50 p-3 hover:bg-white">
+                    <input
+                      type="radio"
+                      name="freightOption"
+                      checked={selectedRateKey === key}
+                      onChange={() => handleSelectRate(rate, index)}
+                      className="mt-1"
+                    />
+                    <span className="flex-1">
+                      <span className="block font-semibold text-neutral-950">{rate.CarrierName ?? "Echo freight carrier"}</span>
+                      <span className="mt-1 block text-neutral-700">
+                        {typeof rate.CarrierTransitDays === "number" ? `${rate.CarrierTransitDays} transit day${rate.CarrierTransitDays === 1 ? "" : "s"}` : "Transit unavailable"}
+                        {rate.CarrierGuarantee ? ` | Service: ${rate.CarrierGuarantee}` : ""}
+                      </span>
+                      <span className="mt-2 block text-base font-bold text-green-950">Freight & handling: {money(charge)}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              Echo returned rates, but none passed the customer-facing filter. Review the raw response below.
+            </div>
+          )}
+
           <details className="mt-3">
-            <summary className="cursor-pointer font-semibold text-neutral-950">View Echo response details</summary>
+            <summary className="cursor-pointer font-semibold text-neutral-950">View full Echo response details</summary>
             <pre className="mt-3 max-h-72 overflow-auto rounded bg-neutral-950 p-3 text-xs text-neutral-50">
               {JSON.stringify(quote.echoResponse ?? quote, null, 2)}
             </pre>
