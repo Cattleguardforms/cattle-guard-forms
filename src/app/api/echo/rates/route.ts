@@ -64,65 +64,55 @@ function validateBody(body: EchoRatesBody) {
   return quantity;
 }
 
+
 function buildRatesRequest(body: EchoRatesBody, quantity: number) {
   const palletPlan = getPalletPlan(quantity);
   const today = new Date();
-  const pickupDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const pickUpDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 
   return {
-    Shipment: {
-      ShipmentMode: "LTL",
-      UnitOfWeight: "LB",
-      PickupDate: pickupDate,
-      Stops: [
-        {
-          StopNumber: 1,
-          StopType: "Pickup",
-          LocationType: "BUSINESS",
-          LocationName: ORIGIN.locationName,
-          AddressLine1: ORIGIN.addressLine1,
-          City: ORIGIN.city,
-          StateProvince: ORIGIN.stateProvince,
-          PostalCode: ORIGIN.postalCode,
-          CountryCode: ORIGIN.countryCode,
-          ContactName: ORIGIN.contactName,
-          ContactPhone: ORIGIN.contactPhone,
-        },
-        {
-          StopNumber: 2,
-          StopType: "Delivery",
-          LocationType: "BUSINESS",
-          LocationName: clean(body.shipToName),
-          AddressLine1: clean(body.shipToAddress),
-          AddressLine2: clean(body.shipToAddress2),
-          City: clean(body.shipToCity),
-          StateProvince: clean(body.shipToState).toUpperCase(),
-          PostalCode: clean(body.shipToZip),
-          CountryCode: "US",
-          ContactName: clean(body.contactName) || clean(body.shipToName),
-          ContactPhone: normalizedPhone(body.contactPhone),
-        },
-      ],
-      Items: [
-        {
-          Description: "CowStop reusable concrete cattle guard forms",
-          NmfcClass: FREIGHT_CLASS,
-          Weight: palletPlan.totalWeight,
-          PackageType: "PALLETS",
-          PackageQuantity: palletPlan.palletCount,
-          HandlingUnitType: "PALLETS",
-          HandlingUnitQuantity: palletPlan.palletCount,
-          HazardousMaterial: false,
-        },
-      ],
-      References: [
-        {
-          ReferenceNumber: `CGF-${Date.now()}`,
-        },
-      ],
-    },
+    PickUpDate: pickUpDate,
+    PalletQuantity: palletPlan.palletCount,
+    UnitOfWeight: "LB",
+
+    OriginLocationName: ORIGIN.locationName,
+    OriginAddressLine1: ORIGIN.addressLine1,
+    OriginCity: ORIGIN.city,
+    OriginStateProvince: ORIGIN.stateProvince,
+    OriginPostalCode: ORIGIN.postalCode,
+    OriginCountryCode: ORIGIN.countryCode,
+    OriginContactName: ORIGIN.contactName,
+    OriginContactPhone: ORIGIN.contactPhone,
+
+    DestinationLocationName: clean(body.shipToName),
+    DestinationAddressLine1: clean(body.shipToAddress),
+    DestinationAddressLine2: clean(body.shipToAddress2),
+    DestinationCity: clean(body.shipToCity),
+    DestinationStateProvince: clean(body.shipToState).toUpperCase(),
+    DestinationPostalCode: clean(body.shipToZip),
+    DestinationCountryCode: "US",
+    DestinationContactName: clean(body.contactName) || clean(body.shipToName),
+    DestinationContactPhone: normalizedPhone(body.contactPhone),
+
+    Items: [
+      {
+        Description: "CowStop reusable concrete cattle guard forms",
+        FreightClass: FREIGHT_CLASS,
+        Class: FREIGHT_CLASS,
+        Weight: palletPlan.totalWeight,
+        Quantity: palletPlan.palletCount,
+        PackageType: "PALLETS",
+        PackageQuantity: palletPlan.palletCount,
+        HandlingUnitType: "PALLETS",
+        HandlingUnitQuantity: palletPlan.palletCount,
+        HazardousMaterial: false,
+      },
+    ],
   };
 }
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
