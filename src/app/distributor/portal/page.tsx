@@ -7,6 +7,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+const palletRows = [
+  { count: 1, dimensions: "72 x 48 x 20 in", weight: "105 lb" },
+  { count: 2, dimensions: "72 x 48 x 20 in", weight: "190 lb" },
+  { count: 3, dimensions: "72 x 48 x 36 in", weight: "270 lb" },
+  { count: 4, dimensions: "72 x 48 x 36 in", weight: "355 lb" },
+  { count: 5, dimensions: "72 x 48 x 52 in", weight: "440 lb" },
+  { count: 6, dimensions: "72 x 48 x 52 in", weight: "525 lb" },
+];
+
 type ProfileResponse = {
   ok?: boolean;
   error?: string;
@@ -235,10 +244,25 @@ export default function DistributorPortalAuthPage() {
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
               <h2 className="text-xl font-semibold">Pallet sheet</h2>
               <p className="mt-3 text-sm leading-6 text-neutral-700">Maximum six CowStops per pallet.</p>
-              <div className="mt-4 space-y-2 text-sm text-neutral-700">
-                <p>1-2 forms: 72 x 48 x 20 in</p>
-                <p>3-4 forms: 72 x 48 x 36 in</p>
-                <p>5-6 forms: 72 x 48 x 52 in</p>
+              <div className="mt-4 overflow-hidden rounded-xl border border-neutral-200">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-600">
+                    <tr>
+                      <th className="px-3 py-2">Qty</th>
+                      <th className="px-3 py-2">Dimensions</th>
+                      <th className="px-3 py-2">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {palletRows.map((row) => (
+                      <tr key={row.count}>
+                        <td className="px-3 py-2 font-semibold text-green-950">{row.count}</td>
+                        <td className="px-3 py-2 text-neutral-700">{row.dimensions}</td>
+                        <td className="px-3 py-2 text-neutral-700">{row.weight}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
