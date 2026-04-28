@@ -46,6 +46,8 @@ export default function DistributorPortalAuthPage() {
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
   const [hasFreightQuote, setHasFreightQuote] = useState(false);
+  const [selectedFreightRate, setSelectedFreightRate] = useState("");
+  const [selectedFreightCharge, setSelectedFreightCharge] = useState(0);
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
   const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +62,15 @@ export default function DistributorPortalAuthPage() {
 
   const unitPrice = pricePerUnit ?? 750;
   const safeQuantity = Math.min(50, Math.max(1, quantity));
-  const total = safeQuantity * unitPrice;
+  const productTotal = safeQuantity * unitPrice;
+  const orderTotal = productTotal + selectedFreightCharge;
   const pallets = Math.ceil(safeQuantity / 6);
+
+  function resetFreightSelection() {
+    setHasFreightQuote(false);
+    setSelectedFreightRate("");
+    setSelectedFreightCharge(0);
+  }
 
   async function verifyAccess() {
     if (!supabase) return;
@@ -139,8 +148,8 @@ export default function DistributorPortalAuthPage() {
     event.preventDefault();
     setCheckoutError(null);
 
-    if (!hasFreightQuote) {
-      setCheckoutError("A freight quote is required before payment. Please click Get Freight Quote and wait for a successful quote before continuing.");
+    if (!hasFreightQuote || !selectedFreightRate || selectedFreightCharge <= 0) {
+      setCheckoutError("Select a freight option before payment.");
       return;
     }
 
@@ -176,7 +185,8 @@ export default function DistributorPortalAuthPage() {
           shipToCity,
           shipToState,
           shipToZip,
-          selectedRate: "Echo freight quote received",
+          selectedRate: selectedFreightRate,
+          freightCharge: selectedFreightCharge,
         }),
       });
 
@@ -300,7 +310,7 @@ export default function DistributorPortalAuthPage() {
 
             <div className="rounded-2xl bg-amber-50 p-6 shadow-sm ring-1 ring-amber-200">
               <h2 className="text-xl font-semibold text-amber-950">Freight note</h2>
-              <p className="mt-3 text-sm leading-6 text-amber-900">Checkout charges product only. Freight is reviewed after order submission.</p>
+              <p className="mt-3 text-sm leading-6 text-amber-900">Checkout includes the selected freight & handling option.</p>
             </div>
           </aside>
 
@@ -309,11 +319,11 @@ export default function DistributorPortalAuthPage() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Distributor order</p>
                 <h2 className="mt-2 text-3xl font-bold">Buy CowStop forms</h2>
-                <p className="mt-3 text-sm leading-6 text-neutral-600">Enter the quantity and ship-to details, get a freight quote, then continue to Stripe checkout.</p>
+                <p className="mt-3 text-sm leading-6 text-neutral-600">Enter the quantity and ship-to details, choose a freight option, then continue to Stripe checkout.</p>
               </div>
               <div className="rounded-xl bg-green-50 px-4 py-3 text-right ring-1 ring-green-100">
-                <p className="text-xs font-semibold uppercase tracking-wide text-green-800">Product total</p>
-                <p className="text-2xl font-bold text-green-950">${total.toLocaleString()}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-green-800">Order total</p>
+                <p className="text-2xl font-bold text-green-950">${orderTotal.toLocaleString()}</p>
               </div>
             </div>
 
@@ -321,33 +331,35 @@ export default function DistributorPortalAuthPage() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Quantity
-                <input required type="number" min={1} max={50} value={quantity} onChange={(event) => { setQuantity(Number(event.target.value)); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required type="number" min={1} max={50} value={quantity} onChange={(event) => { setQuantity(Number(event.target.value)); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Receipt email
                 <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Ship-to name
-                <input required value={shipToName} onChange={(event) => { setShipToName(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToName} onChange={(event) => { setShipToName(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Address
-                <input required value={shipToAddress} onChange={(event) => { setShipToAddress(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToAddress} onChange={(event) => { setShipToAddress(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">City
-                <input required value={shipToCity} onChange={(event) => { setShipToCity(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToCity} onChange={(event) => { setShipToCity(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">State
-                <input required value={shipToState} onChange={(event) => { setShipToState(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToState} onChange={(event) => { setShipToState(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
               <label className="grid gap-2 text-sm font-medium text-neutral-700">ZIP
-                <input required value={shipToZip} onChange={(event) => { setShipToZip(event.target.value); setHasFreightQuote(false); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
+                <input required value={shipToZip} onChange={(event) => { setShipToZip(event.target.value); resetFreightSelection(); }} className="rounded border border-neutral-300 px-3 py-2 font-normal" />
               </label>
             </div>
 
             <div className="mt-6 rounded-xl bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 ring-1 ring-neutral-200">
               <p className="font-semibold text-neutral-950">Order summary</p>
-              <p>{safeQuantity} CowStop form{safeQuantity === 1 ? "" : "s"} at ${unitPrice} each.</p>
+              <p>{safeQuantity} CowStop form{safeQuantity === 1 ? "" : "s"} at ${unitPrice} each: ${productTotal.toLocaleString()}</p>
               <p>{pallets} pallet{pallets === 1 ? "" : "s"} planned. Maximum six CowStops per pallet.</p>
-              <p className="mt-2 font-medium text-neutral-950">Freight status: {hasFreightQuote ? "Echo quote received" : "Required before payment"}</p>
+              <p className="mt-2 font-medium text-neutral-950">Freight status: {hasFreightQuote ? selectedFreightRate : "Select a freight option before payment"}</p>
+              {selectedFreightCharge > 0 ? <p className="font-medium text-neutral-950">Freight & handling: ${selectedFreightCharge.toLocaleString()}</p> : null}
+              <p className="font-bold text-neutral-950">Total due today: ${orderTotal.toLocaleString()}</p>
             </div>
 
             <FreightQuotePanel
@@ -358,10 +370,14 @@ export default function DistributorPortalAuthPage() {
               shipToState={shipToState}
               shipToZip={shipToZip}
               onQuoteStatusChange={setHasFreightQuote}
+              onFreightOptionSelect={(rate, charge) => {
+                setSelectedFreightRate(rate);
+                setSelectedFreightCharge(charge);
+              }}
             />
 
             <button disabled={checkoutLoading || !hasFreightQuote} className="mt-6 w-full rounded bg-green-800 px-5 py-4 font-semibold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60">
-              {checkoutLoading ? "Starting checkout..." : hasFreightQuote ? "Continue to Stripe Checkout" : "Get Freight Quote Before Payment"}
+              {checkoutLoading ? "Starting checkout..." : hasFreightQuote ? "Continue to Stripe Checkout" : "Select Freight Option Before Payment"}
             </button>
           </form>
         </section>
