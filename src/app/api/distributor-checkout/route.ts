@@ -37,8 +37,6 @@ type CheckoutBody = {
   contactPhone?: string;
   deliveryType?: string;
   liftgateRequired?: string;
-  appointmentRequired?: string;
-  limitedAccess?: string;
   bolFileName?: string;
 };
 
@@ -291,8 +289,6 @@ export async function POST(request: NextRequest) {
         contact_phone: body.contactPhone ?? "",
         delivery_type: body.deliveryType ?? "",
         liftgate_required: body.liftgateRequired ?? "",
-        appointment_required: body.appointmentRequired ?? "",
-        limited_access: body.limitedAccess ?? "",
         selected_rate: body.selectedRate ?? "",
         freight_charge: String(getFreightCharge(body)),
         bol_file_name: body.bolFileName ?? "",

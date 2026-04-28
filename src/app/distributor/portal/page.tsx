@@ -46,10 +46,8 @@ export default function DistributorPortalAuthPage() {
   const [shipToState, setShipToState] = useState("");
   const [shipToZip, setShipToZip] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [deliveryType, setDeliveryType] = useState("commercial");
-  const [liftgateRequired, setLiftgateRequired] = useState("no");
-  const [appointmentRequired, setAppointmentRequired] = useState("no");
-  const [limitedAccess, setLimitedAccess] = useState("no");
+  const [deliveryType, setDeliveryType] = useState("residential");
+  const [liftgateRequired, setLiftgateRequired] = useState("yes");
   const [hasFreightQuote, setHasFreightQuote] = useState(false);
   const [selectedFreightRate, setSelectedFreightRate] = useState("");
   const [selectedFreightCharge, setSelectedFreightCharge] = useState(0);
@@ -193,8 +191,6 @@ export default function DistributorPortalAuthPage() {
           contactPhone,
           deliveryType,
           liftgateRequired,
-          appointmentRequired,
-          limitedAccess,
           selectedRate: selectedFreightRate,
           freightCharge: selectedFreightCharge,
         }),
@@ -376,30 +372,14 @@ export default function DistributorPortalAuthPage() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-2 text-sm font-medium text-amber-950">Delivery location type
                   <select required value={deliveryType} onChange={(event) => { setDeliveryType(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
-                    <option value="commercial">Commercial / business</option>
                     <option value="residential">Residential / farm / home</option>
-                    <option value="job_site">Job site / construction site</option>
+                    <option value="commercial">Commercial / business</option>
                   </select>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-amber-950">Liftgate required?
                   <select required value={liftgateRequired} onChange={(event) => { setLiftgateRequired(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
-                    <option value="no">No</option>
                     <option value="yes">Yes</option>
-                    <option value="not_sure">Not sure</option>
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-amber-950">Appointment required?
-                  <select required value={appointmentRequired} onChange={(event) => { setAppointmentRequired(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
                     <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                    <option value="not_sure">Not sure</option>
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-amber-950">Limited access?
-                  <select required value={limitedAccess} onChange={(event) => { setLimitedAccess(event.target.value); resetFreightSelection(); }} className="rounded border border-amber-200 bg-white px-3 py-2 font-normal text-neutral-950">
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                    <option value="not_sure">Not sure</option>
                   </select>
                 </label>
               </div>
@@ -424,8 +404,6 @@ export default function DistributorPortalAuthPage() {
               contactPhone={contactPhone}
               deliveryType={deliveryType}
               liftgateRequired={liftgateRequired}
-              appointmentRequired={appointmentRequired}
-              limitedAccess={limitedAccess}
               orderContactEmail={email}
               onQuoteStatusChange={setHasFreightQuote}
               onFreightOptionSelect={(rate, charge) => {

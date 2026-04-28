@@ -29,8 +29,6 @@ type EchoRatesBody = {
   contactPhone?: string;
   deliveryType?: string;
   liftgateRequired?: string;
-  appointmentRequired?: string;
-  limitedAccess?: string;
   orderContactEmail?: string;
 };
 
@@ -94,25 +92,14 @@ function formatEchoDate(date: Date) {
 function buildAccessorials(body: EchoRatesBody) {
   const accessorials: { Type: string }[] = [];
   const deliveryType = clean(body.deliveryType).toLowerCase();
+  const liftgateRequired = clean(body.liftgateRequired).toLowerCase();
 
-  if (deliveryType === "residential" || deliveryType === "job_site") {
+  if (deliveryType === "residential") {
     accessorials.push({ Type: "RESIDENTIALDELIVERY" });
   }
 
-  if (deliveryType === "job_site") {
-    accessorials.push({ Type: "LIMITEDACCESSDELIVERY" });
-  }
-
-  if (clean(body.liftgateRequired) === "yes" || clean(body.liftgateRequired) === "not_sure") {
+  if (liftgateRequired === "yes") {
     accessorials.push({ Type: "LIFTGATEDELIVERY" });
-  }
-
-  if (clean(body.appointmentRequired) === "yes" || clean(body.appointmentRequired) === "not_sure") {
-    accessorials.push({ Type: "APPOINTMENTDELIVERY" });
-  }
-
-  if (clean(body.limitedAccess) === "yes" || clean(body.limitedAccess) === "not_sure") {
-    accessorials.push({ Type: "LIMITEDACCESSDELIVERY" });
   }
 
   return accessorials;

@@ -12,8 +12,6 @@ type FreightQuotePanelProps = {
   contactPhone: string;
   deliveryType: string;
   liftgateRequired: string;
-  appointmentRequired: string;
-  limitedAccess: string;
   orderContactEmail: string;
   onQuoteStatusChange?: (hasQuote: boolean) => void;
   onFreightOptionSelect?: (selectedRate: string, freightCharge: number) => void;
@@ -136,8 +134,6 @@ export default function FreightQuotePanel({
   contactPhone,
   deliveryType,
   liftgateRequired,
-  appointmentRequired,
-  limitedAccess,
   orderContactEmail,
   onQuoteStatusChange,
   onFreightOptionSelect,
@@ -188,9 +184,7 @@ export default function FreightQuotePanel({
           contactPhone: normalizedContactPhone,
           deliveryType,
           liftgateRequired,
-          appointmentRequired,
-          limitedAccess,
-          orderContactEmail: orderContactEmail.trim(),
+                          orderContactEmail: orderContactEmail.trim(),
         }),
       });
 
