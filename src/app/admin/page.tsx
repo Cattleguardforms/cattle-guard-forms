@@ -2,23 +2,23 @@
 
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const ADMIN_EMAIL = "support@cattleguardforms.com";
-const ADMIN_SESSION_KEY = "cgf-admin-authenticated";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseKey);
 
-const metrics = [
-  ["Total Distributors", "2", "Approved distributor accounts", "/admin/distributors"],
-  ["Manufacturer Portal", "Live", "Fulfillment workflow and manufacturer order access", "/manufacturer"],
-  ["Active Orders", "0", "Open retail and distributor orders", "/admin/orders"],
-  ["Abandoned Checkouts", "0", "Started checkout but did not finish", "/admin/abandoned-checkouts"],
-  ["Visits Today", "0", "Analytics wiring next", "/admin/analytics"],
-  ["Visits This Month", "0", "Monthly site traffic", "/admin/analytics"],
-  ["New CRM Leads", "0", "Contact and quote submissions", "/admin/crm-activity"],
-];
+type SummaryItem = {
+  label: string;
+  count: number;
+};
+
+type SummaryResponse = {
+  ok?: boolean;
+  error?: string;
+  summary?: SummaryItem[];
+};
 
 const modules = [
   ["Manage Distributor Accounts", "/admin/distributors"],
@@ -39,11 +39,9 @@ function Header() {
           <img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-16 w-auto object-contain" />
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
-          <Link href="/admin" className="text-green-800">Admin Portal</Link>
-          <Link href="/marketing" className="hover:text-green-800">Marketing Portal</Link>
-          <Link href="/distributor" className="hover:text-green-800">Distributor Portal</Link>
-          <Link href="/manufacturer" className="hover:text-green-800">Manufacturer Portal</Link>
-          <Link href="/contact" className="hover:text-green-800">Contact</Link>
+          <Link href="/admin" className="text-green-800">Admin</Link>
+          <Link href="/marketing" className="hover:text-green-800">Marketing</Link>
+          <Link href="/contact" className="hover:text-green-800">Public Site</Link>
         </nav>
       </div>
     </header>
@@ -56,16 +54,66 @@ export default function AdminPortalPage() {
   const [email, setEmail] = useState(ADMIN_EMAIL);
   const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summary, setSummary] = useState<SummaryItem[]>([]);
+
+  const supabase = useMemo(() => {
+    if (!hasSupabaseAuth || !supabaseUrl || !supabaseKey) return null;
+    return createClient(supabaseUrl, supabaseKey);
+  }, []);
 
   useEffect(() => {
-    // Temporary browser persistence so admin navigation does not force the setup login.
-    // Replace with server-side Supabase session + app_profiles.role = admin checks before production.
-    if (window.localStorage.getItem(ADMIN_SESSION_KEY) === "true") {
-      setSignedIn(true);
+    async function checkSession() {
+      if (!supabase) {
+        setSessionChecked(true);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      setSignedIn(Boolean(data.session));
+      setSessionChecked(true);
     }
-    setSessionChecked(true);
-  }, []);
+
+    void checkSession();
+  }, [supabase]);
+
+  async function loadSummary() {
+    if (!supabase) return;
+    setSummaryLoading(true);
+    setSummaryError(null);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setSummaryError("Admin session expired. Please sign in again.");
+        setSignedIn(false);
+        return;
+      }
+
+      const response = await fetch("/api/admin/summary", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = (await response.json()) as SummaryResponse;
+
+      if (!response.ok || !payload.ok) {
+        setSummaryError(payload.error ?? "Unable to load admin summary.");
+        return;
+      }
+
+      setSummary(payload.summary ?? []);
+    } catch {
+      setSummaryError("Unable to load admin summary.");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (signedIn) void loadSummary();
+  }, [signedIn]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,23 +123,21 @@ export default function AdminPortalPage() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       if (normalizedEmail !== ADMIN_EMAIL) {
-        setError(`Use ${ADMIN_EMAIL} for admin access.`);
+        setError("Authorized admin account required.");
         return;
       }
 
-      if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: secret });
-        if (signInError) {
-          setError(`${signInError.message}. Create or reset ${ADMIN_EMAIL} in Supabase Auth.`);
-          return;
-        }
-        window.localStorage.setItem(ADMIN_SESSION_KEY, "true");
-        setSignedIn(true);
+      if (!supabase) {
+        setError("Admin authentication is not available in this environment.");
         return;
       }
 
-      window.localStorage.setItem(ADMIN_SESSION_KEY, "true");
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: secret });
+      if (signInError) {
+        setError("Invalid admin credentials.");
+        return;
+      }
+
       setSignedIn(true);
     } finally {
       setLoading(false);
@@ -99,14 +145,10 @@ export default function AdminPortalPage() {
   }
 
   async function handleSignOut() {
-    window.localStorage.removeItem(ADMIN_SESSION_KEY);
     setSignedIn(false);
     setSecret("");
-
-    if (hasSupabaseAuth && supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.auth.signOut();
-    }
+    setSummary([]);
+    if (supabase) await supabase.auth.signOut();
   }
 
   if (!sessionChecked) {
@@ -114,7 +156,7 @@ export default function AdminPortalPage() {
       <main className="min-h-screen bg-neutral-50 text-neutral-950">
         <Header />
         <section className="mx-auto max-w-7xl px-6 py-16">
-          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Loading admin session</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Loading secure admin session</p>
         </section>
       </main>
     );
@@ -129,10 +171,10 @@ export default function AdminPortalPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Protected admin access</p>
             <h1 className="mt-3 text-4xl font-bold tracking-tight">Admin Portal Login</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">
-              Use {ADMIN_EMAIL} for admin access. Once Supabase is fully configured, this page will require the real Supabase credential and admin role.
+              This area is restricted to authorized Cattle Guard Forms administrators.
             </p>
-            <div className="mt-6 rounded-lg bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
-              {hasSupabaseAuth ? `Supabase auth is active. Create or reset ${ADMIN_EMAIL} in Supabase Auth before logging in.` : "Supabase auth is not configured here, so this temporary setup gate will allow the support email without a credential."}
+            <div className="mt-6 rounded-lg bg-green-50 p-4 text-sm leading-6 text-green-900 ring-1 ring-green-200">
+              Sign in with an approved admin account to view orders, CRM activity, distributor records, marketing tools, and business operations.
             </div>
           </div>
 
@@ -141,10 +183,10 @@ export default function AdminPortalPage() {
             {error ? <div className="mt-5 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
             <div className="mt-6 grid gap-4">
               <label className="grid gap-2 text-sm font-medium text-neutral-700">Admin email
-                <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder={ADMIN_EMAIL} />
+                <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="admin@example.com" />
               </label>
-              <label className="grid gap-2 text-sm font-medium text-neutral-700">Admin credential
-                <input required={hasSupabaseAuth} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder={hasSupabaseAuth ? "Supabase credential" : "Leave blank"} />
+              <label className="grid gap-2 text-sm font-medium text-neutral-700">Password
+                <input required type="password" value={secret} onChange={(event) => setSecret(event.target.value)} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="Password" />
               </label>
               <button disabled={loading} className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900 disabled:opacity-60">
                 {loading ? "Signing in..." : "Log In to Admin Portal"}
@@ -165,23 +207,24 @@ export default function AdminPortalPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Business command center</p>
               <h1 className="mt-3 text-4xl font-bold tracking-tight">Admin Portal</h1>
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, manufacturer fulfillment, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
+              <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, fulfillment, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing Portal</Link>
-              <Link href="/manufacturer" className="rounded border border-green-800 px-5 py-3 font-semibold text-green-900 hover:bg-green-50">Open Manufacturer Portal</Link>
+              <button onClick={loadSummary} disabled={summaryLoading} className="rounded border border-green-800 px-5 py-3 font-semibold text-green-900 hover:bg-green-50 disabled:opacity-60">Refresh Summary</button>
+              <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing</Link>
               <button onClick={handleSignOut} className="rounded border border-neutral-300 px-5 py-3 font-semibold">Sign Out</button>
             </div>
           </div>
         </div>
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {metrics.map(([label, value, note, href]) => (
-            <Link key={label} href={href} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200 hover:ring-green-800">
-              <p className="text-sm font-medium text-neutral-500">{label}</p>
-              <p className="mt-2 text-3xl font-bold">{value}</p>
-              <p className="mt-2 text-sm text-neutral-500">{note}</p>
-            </Link>
+        {summaryError ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{summaryError}</div> : null}
+
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {(summary.length ? summary : [{ label: "Summary", count: 0 }]).map((item) => (
+            <div key={item.label} className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
+              <p className="text-sm font-medium text-neutral-500">{item.label}</p>
+              <p className="mt-2 text-3xl font-bold">{summaryLoading ? "..." : item.count}</p>
+            </div>
           ))}
         </section>
 
