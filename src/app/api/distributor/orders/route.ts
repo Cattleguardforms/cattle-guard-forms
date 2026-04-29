@@ -47,7 +47,7 @@ async function requireDistributor(request: NextRequest) {
   const { data: distributor, error: distributorError } = await supabase
     .from("distributor_profiles")
     .select("id, company_name, contact_email, status, price_per_unit")
-    .or(`contact_email.eq.${email},email.eq.${email}`)
+    .eq("contact_email", email)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { data: rows, error } = await supabase
       .from("orders")
       .select("*")
-      .or(`distributor_profile_id.eq.${distributorId},order_contact_email.eq.${email}`)
+      .or(`distributor_profile_id.eq.${distributorId},order_contact_email.eq.${email},distributor_email.eq.${email}`)
       .order("created_at", { ascending: false })
       .limit(50);
 
