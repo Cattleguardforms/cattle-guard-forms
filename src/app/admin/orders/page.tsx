@@ -82,6 +82,15 @@ export default function AdminOrdersPage() {
     return token;
   }
 
+  async function handleSignOut() {
+    if (supabase) await supabase.auth.signOut();
+    setOrders([]);
+    setSummary({ activeOrders: 0, paid: 0, pendingManufacturer: 0, readyToShip: 0 });
+    setActionResult(null);
+    setError(null);
+    window.location.href = "/admin";
+  }
+
   async function loadOrders() {
     setLoading(true);
     setError(null);
@@ -135,10 +144,11 @@ export default function AdminOrdersPage() {
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Link href="/admin" className="font-semibold text-green-800">Admin Portal</Link>
-          <nav className="flex gap-6 text-sm font-medium text-neutral-700">
+          <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
             <Link href="/admin" className="hover:text-green-800">Dashboard</Link>
             <Link href="/admin/distributors" className="hover:text-green-800">Distributors</Link>
             <Link href="/marketing" className="hover:text-green-800">Marketing Portal</Link>
+            <button onClick={() => void handleSignOut()} className="rounded border border-neutral-300 px-3 py-2 text-sm font-semibold hover:bg-neutral-50">Sign Out</button>
           </nav>
         </div>
       </header>
