@@ -74,6 +74,11 @@ function normalizeAddress(value: string) {
     .replace(/[^A-Z0-9]/g, "");
 }
 
+function shortReference(orderId: string) {
+  const compact = clean(orderId).replace(/[^a-zA-Z0-9]/g, "").slice(0, 20);
+  return `CGF${compact}`.slice(0, 30);
+}
+
 function tokenFrom(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
   return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -186,8 +191,9 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) throw new Error("Quantity must be between 1 and 50.");
   const plan = palletPlan(quantity);
   const orderId = clean(body.orderId || order?.id);
-  const poNumber = clean(body.poNumber) || orderId.slice(0, 40);
+  const poNumber = clean(body.poNumber) || shortReference(orderId);
   const bolNumber = clean(body.bolNumber) || makeBol(orderId);
+  const echoReference = shortReference(orderId);
   const deliveryType = val(body.deliveryType, order, ["delivery_type"], "residential");
   const liftgateRequired = val(body.liftgateRequired, order, ["liftgate_required"], "yes");
   const destType = locationType(deliveryType);
@@ -209,7 +215,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   const carrierName = clean(body.carrierName) || clean(order?.carrier) || selectedRate.split("|")[0]?.trim();
   const pickupDate = clean(body.pickupDate) || echoDate(addBusinessDays(new Date(), 3));
   const deliveryDate = clean(body.deliveryDate) || echoDate(addBusinessDays(new Date(), 8));
-  const specialInstructions = (clean(body.specialInstructions) || `Cattle Guard Forms order ${orderId || bolNumber}`).slice(0, 140);
+  const specialInstructions = (clean(body.specialInstructions) || `Cattle Guard Forms order ${echoReference}`).slice(0, 140);
 
   const origin = {
     LocationType: ORIGIN.locationType,
@@ -224,7 +230,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     AppointmentDate: pickupDate,
     AppointmentStart: "08:00",
     AppointmentEnd: "17:00",
-    ReferenceNumber: poNumber,
+    ReferenceNumber: echoReference,
     BolNumber: bolNumber,
     Accessorials: [],
   };
@@ -244,7 +250,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     AppointmentDate: deliveryDate,
     AppointmentStart: "08:00",
     AppointmentEnd: "17:00",
-    ReferenceNumber: poNumber,
+    ReferenceNumber: echoReference,
     BolNumber: bolNumber,
     Accessorials: accessorials(destType, liftgateRequired),
   };
@@ -274,10 +280,6 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
         HandlingUnitQuantity: plan.palletCount,
         HazardousMaterial: false,
       },
-    ],
-    References: [
-      { ReferenceNumberName: "BOL", ReferenceNumberValue: bolNumber },
-      { ReferenceNumberName: "PO", ReferenceNumberValue: poNumber },
     ],
   };
 
