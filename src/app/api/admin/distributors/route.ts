@@ -67,12 +67,13 @@ export async function GET(request: NextRequest) {
         .in("order_contact_email", emails);
 
       if (!orderError && orders) {
-        ordersByEmail = ((orders as Record<string, unknown>[]) ?? []).reduce((acc, order) => {
+        ordersByEmail = ((orders ?? []) as Record<string, unknown>[]).reduce<Record<string, Record<string, unknown>[]>>((acc, order) => {
           const email = clean(order.order_contact_email).toLowerCase();
+          if (!email) return acc;
           if (!acc[email]) acc[email] = [];
           acc[email].push(order);
           return acc;
-        }, {} as Record<string, Record<string, unknown>[]>);
+        }, {});
       }
     }
 
