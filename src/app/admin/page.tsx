@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const ADMIN_EMAIL = "support@cattleguardforms.com";
+const ADMIN_EMAIL = "orders@cattleguardforms.com";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseKey);
