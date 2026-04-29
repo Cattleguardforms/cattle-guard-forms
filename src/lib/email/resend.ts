@@ -29,6 +29,11 @@ export type DistributorOrderEmailPayload = {
   shipToZip?: string;
   selectedRate?: string;
   bolFileName?: string;
+  bolAttachment?: {
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  };
   orderNotes?: string;
   stripeSessionId?: string;
 };
@@ -92,6 +97,17 @@ function buildOrderWorkflowPayload(payload: DistributorOrderEmailPayload): Order
   };
 }
 
+function buildAttachments(payload: DistributorOrderEmailPayload) {
+  if (!payload.bolAttachment) return undefined;
+  return [
+    {
+      filename: payload.bolAttachment.filename,
+      content: payload.bolAttachment.content,
+      contentType: payload.bolAttachment.contentType,
+    },
+  ];
+}
+
 export async function sendDistributorOrderEmails(payload: DistributorOrderEmailPayload) {
   const { resendApiKey, fromEmail, replyToEmail, supportEmail } = getEmailSettings();
   const manufacturerEmails = getManufacturerEmails();
@@ -101,6 +117,7 @@ export async function sendDistributorOrderEmails(payload: DistributorOrderEmailP
   const distributorTemplate = buildDistributorOrderConfirmationTemplate(orderPayload);
   const manufacturerTemplate = buildManufacturerFulfillmentTemplate(orderPayload);
   const supportTemplate = buildSupportOrderCopyTemplate(orderPayload);
+  const attachments = buildAttachments(payload);
 
   const [distributorEmail, manufacturerFulfillmentEmail, supportCopyEmail] = await Promise.all([
     resend.emails.send({
@@ -116,6 +133,7 @@ export async function sendDistributorOrderEmails(payload: DistributorOrderEmailP
       replyTo: replyToEmail,
       subject: manufacturerTemplate.subject,
       text: manufacturerTemplate.text,
+      attachments,
     }),
     resend.emails.send({
       from: fromEmail,
@@ -123,6 +141,7 @@ export async function sendDistributorOrderEmails(payload: DistributorOrderEmailP
       replyTo: replyToEmail,
       subject: supportTemplate.subject,
       text: supportTemplate.text,
+      attachments,
     }),
   ]);
 
