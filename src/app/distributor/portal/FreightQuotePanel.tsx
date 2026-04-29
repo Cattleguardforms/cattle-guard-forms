@@ -157,7 +157,7 @@ export default function FreightQuotePanel({
     resetSelectedRate();
 
     if (!orderContactEmail.trim() || !orderContactEmail.includes("@") || !shipToName.trim() || !shipToAddress.trim() || !shipToCity.trim() || !shipToState.trim() || !shipToZip.trim()) {
-      setError("Enter the order contact email, ship-to name, address, city, state, and ZIP before requesting freight.");
+      setError("Enter the order contact email, delivery phone, ship-to name, address, city, state, and ZIP before requesting freight.");
       return;
     }
 
@@ -184,7 +184,7 @@ export default function FreightQuotePanel({
           contactPhone: normalizedContactPhone,
           deliveryType,
           liftgateRequired,
-                          orderContactEmail: orderContactEmail.trim(),
+          orderContactEmail: orderContactEmail.trim(),
         }),
       });
 

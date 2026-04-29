@@ -229,7 +229,8 @@ export async function POST(request: NextRequest) {
     const quantity = validateBody(body);
     const { supabase, distributor } = await requireDistributor(request);
     const distributorName = clean(distributor.company_name) || clean(body.distributorAccountName) || "Approved Distributor";
-    const distributorEmail = clean(distributor.contact_email) || clean(body.email);
+    const orderContactEmail = clean(body.email).toLowerCase();
+    const distributorEmail = clean(distributor.contact_email) || orderContactEmail;
     const orderId = await createPendingOrder({
       supabase,
       distributorId: clean(distributor.id),
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer_email: distributorEmail,
+      customer_email: orderContactEmail || distributorEmail,
       line_items: [
         {
           quantity,
@@ -277,6 +278,8 @@ export async function POST(request: NextRequest) {
         order_type: "distributor",
         distributor_profile_id: clean(distributor.id),
         distributor_account_name: distributorName,
+        order_contact_email: orderContactEmail,
+        distributor_contact_email: distributorEmail,
         quantity: String(quantity),
         unit_price: "750.00",
         shipping_method: body.shippingMethod ?? "",
