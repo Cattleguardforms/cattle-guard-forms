@@ -256,7 +256,6 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   };
 
   const shipmentRequest = {
-    BolNumber: bolNumber,
     PoNumber: poNumber,
     UnitOfWeight: "LB",
     PickUpDate: pickupDate,
