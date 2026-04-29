@@ -64,6 +64,8 @@ function statusText(value: unknown) {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [summary, setSummary] = useState<OrdersPayload["summary"]>({ activeOrders: 0, paid: 0, pendingManufacturer: 0, readyToShip: 0 });
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -111,7 +113,29 @@ export default function AdminOrdersPage() {
   }
 
   useEffect(() => {
-    void loadOrders();
+    async function checkSessionAndLoad() {
+      if (!supabase) {
+        setError("Admin authentication is not available right now.");
+        setSessionChecked(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) {
+        setHasSession(false);
+        setSessionChecked(true);
+        setLoading(false);
+        window.location.href = "/admin";
+        return;
+      }
+
+      setHasSession(true);
+      setSessionChecked(true);
+      await loadOrders();
+    }
+
+    void checkSessionAndLoad();
   }, [supabase]);
 
   async function runEchoBooking(orderId: string, dryRun: boolean) {
@@ -137,6 +161,23 @@ export default function AdminOrdersPage() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  if (!sessionChecked || !hasSession) {
+    return (
+      <main className="min-h-screen bg-neutral-50 text-neutral-950">
+        <header className="border-b border-neutral-200 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+            <Link href="/admin" className="font-semibold text-green-800">Admin Portal</Link>
+          </div>
+        </header>
+        <section className="mx-auto max-w-7xl px-6 py-12">
+          <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Checking admin session</p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight">Redirecting to admin login...</h1>
+          {error ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
+        </section>
+      </main>
+    );
   }
 
   return (
