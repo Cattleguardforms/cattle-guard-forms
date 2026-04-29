@@ -9,6 +9,8 @@ const navItems = [
   ["Contact", "/contact"],
 ];
 
+const stepSevenImage = "/installations/step%20-%207.png?v=2";
+
 const steps = [
   {
     title: "Prep the Form",
@@ -56,7 +58,7 @@ const steps = [
     title: "Prepare Site and Place",
     body:
       "Choose a level, well-drained location aligned with the roadway or gate. Compact the base, use gravel as needed, then set the cattle guard square and level.",
-    imageSrc: "/installations/step%20-%207.png",
+    imageSrc: stepSevenImage,
     imageAlt: "Finished concrete cattle guard section ready for placement",
   },
   {
@@ -106,7 +108,7 @@ export default function InstallationsPage() {
       <section className="relative overflow-hidden bg-green-950 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(34,197,94,0.20),transparent_26%)]" />
         <div className="absolute inset-y-0 right-0 hidden w-[58%] lg:block">
-          <img src="/installations/step%20-%207.png" alt="Finished cattle guard section ready for placement" className="h-full w-full object-cover opacity-75" />
+          <img src={stepSevenImage} alt="Finished cattle guard section ready for placement" className="h-full w-full object-cover opacity-75" />
           <div className="absolute inset-0 bg-gradient-to-r from-green-950 via-green-950/55 to-transparent" />
         </div>
         <div className="relative mx-auto max-w-7xl px-6 py-16 lg:py-24">
