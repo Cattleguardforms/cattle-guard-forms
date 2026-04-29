@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { sendDistributorOrderEmails } from "@/lib/email/resend";
+
+export const runtime = "nodejs";
 
 const DISTRIBUTOR_UNIT_AMOUNT = 75000;
 const DISTRIBUTOR_UNIT_PRICE = 750;
 const MAX_QUANTITY = 50;
+const ORDER_FILES_BUCKET = "order-files";
+const MAX_BOL_SIZE_BYTES = 15 * 1024 * 1024;
+const ALLOWED_BOL_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 function getBaseUrl(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -19,6 +25,11 @@ function clean(value: unknown) {
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization") || "";
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+}
+
+function safeFilename(name: string) {
+  const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120);
+  return cleaned || "bol-file";
 }
 
 type CheckoutBody = {
@@ -43,6 +54,40 @@ type CheckoutBody = {
   warrantyCustomerPhone?: string;
 };
 
+async function readCheckoutInput(request: NextRequest): Promise<{ body: CheckoutBody; bolFile: File | null }> {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const file = formData.get("bolFile");
+    return {
+      body: {
+        quantity: Number(formData.get("quantity")),
+        email: clean(formData.get("email")),
+        distributorAccountName: clean(formData.get("distributorAccountName")),
+        shippingMethod: clean(formData.get("shippingMethod")) === "own" ? "own" : "echo",
+        shipToName: clean(formData.get("shipToName")),
+        shipToAddress: clean(formData.get("shipToAddress")),
+        shipToAddress2: clean(formData.get("shipToAddress2")),
+        shipToCity: clean(formData.get("shipToCity")),
+        shipToState: clean(formData.get("shipToState")),
+        shipToZip: clean(formData.get("shipToZip")),
+        selectedRate: clean(formData.get("selectedRate")),
+        freightCharge: Number(formData.get("freightCharge") ?? 0),
+        contactPhone: clean(formData.get("contactPhone")),
+        deliveryType: clean(formData.get("deliveryType")),
+        liftgateRequired: clean(formData.get("liftgateRequired")),
+        warrantyCustomerName: clean(formData.get("warrantyCustomerName")),
+        warrantyCustomerEmail: clean(formData.get("warrantyCustomerEmail")),
+        warrantyCustomerPhone: clean(formData.get("warrantyCustomerPhone")),
+        bolFileName: file instanceof File ? file.name : clean(formData.get("bolFileName")),
+      },
+      bolFile: file instanceof File ? file : null,
+    };
+  }
+
+  return { body: (await request.json()) as CheckoutBody, bolFile: null };
+}
+
 async function requireDistributor(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) throw new Error("Approved distributor sign-in is required before checkout.");
@@ -66,7 +111,7 @@ async function requireDistributor(request: NextRequest) {
   const { data: distributor, error: distributorError } = await supabase
     .from("distributor_profiles")
     .select("id, user_id, company_name, contact_email, status, price_per_unit")
-    .or(`user_id.eq.${userData.user.id},contact_email.eq.${email}`)
+    .eq("contact_email", email)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
@@ -83,7 +128,14 @@ function getFreightCharge(body: CheckoutBody) {
   return Math.round(freightCharge * 100) / 100;
 }
 
-function validateBody(body: CheckoutBody) {
+function validateBolFile(file: File | null) {
+  if (!file) throw new Error("BOL upload is required when arranging your own freight.");
+  if (file.size <= 0) throw new Error("BOL upload file is empty.");
+  if (file.size > MAX_BOL_SIZE_BYTES) throw new Error("BOL file is too large. Maximum size is 15 MB.");
+  if (file.type && !ALLOWED_BOL_TYPES.has(file.type)) throw new Error("BOL must be a PDF, JPG, or PNG file.");
+}
+
+function validateBody(body: CheckoutBody, bolFile: File | null) {
   const quantity = Number(body.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
     throw new Error(`Quantity must be between 1 and ${MAX_QUANTITY}.`);
@@ -102,23 +154,19 @@ function validateBody(body: CheckoutBody) {
     if (getFreightCharge(body) <= 0) throw new Error("Selected freight charge is required before checkout.");
   }
 
-  if (shippingMethod === "own" && !clean(body.bolFileName)) {
-    throw new Error("BOL upload is required when arranging your own freight.");
-  }
-
+  if (shippingMethod === "own") validateBolFile(bolFile);
   return quantity;
 }
 
 function warrantyNote(body: CheckoutBody) {
-  const parts = [
+  return [
     "Warranty customer information:",
     `Name: ${clean(body.warrantyCustomerName) || "Not set"}`,
     `Email: ${clean(body.warrantyCustomerEmail) || "Not set"}`,
     `Phone: ${clean(body.warrantyCustomerPhone) || "Not set"}`,
     `Shipping method: ${body.shippingMethod === "own" ? "Distributor-arranged freight" : "Cattle Guard Forms freight quote"}`,
-    body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Required"}` : "",
-  ].filter(Boolean);
-  return parts.join("\n");
+    body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Attached"}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 async function createPendingOrder(input: {
@@ -149,8 +197,6 @@ async function createPendingOrder(input: {
       checkout_status: "created",
       shipment_status: "pending",
       shipping_method: shippingMethod,
-      order_contact_email: input.orderContactEmail,
-      distributor_email: input.distributorEmail,
       distributor_profile_id: input.distributorId,
       raw_vendor_name: input.distributorName,
       normalized_vendor_name: input.distributorName,
@@ -180,19 +226,40 @@ async function createPendingOrder(input: {
   if (error) throw new Error(`Unable to create distributor order before checkout: ${error.message}`);
   const orderId = clean(data?.id);
   if (!orderId) throw new Error("Distributor order was created without an order ID.");
-
-  const { error: activityError } = await input.supabase.from("crm_activity").insert({
-    activity_type: "checkout_started",
-    title: `Distributor checkout started for order ${orderId}`,
-    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s). ${clean(input.body.warrantyCustomerName)} is the warranty customer.`,
-    order_id: orderId,
-    distributor_profile_id: input.distributorId,
-    source: "distributor_checkout",
-    status: "open",
-  });
-  if (activityError) console.warn("Unable to create distributor checkout CRM activity", activityError.message);
-
   return orderId;
+}
+
+async function saveBolFile(input: {
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  orderId: string;
+  file: File;
+}) {
+  const filename = safeFilename(input.file.name);
+  const storagePath = `${input.orderId}/original_bol/${Date.now()}-${filename}`;
+  const arrayBuffer = await input.file.arrayBuffer();
+  const content = Buffer.from(arrayBuffer);
+
+  const { error: uploadError } = await input.supabase.storage
+    .from(ORDER_FILES_BUCKET)
+    .upload(storagePath, content, {
+      contentType: input.file.type || "application/octet-stream",
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(`BOL file upload failed: ${uploadError.message}`);
+
+  const { error: insertError } = await input.supabase.from("order_files").insert({
+    order_id: input.orderId,
+    file_type: "original_bol",
+    file_name: filename,
+    storage_path: storagePath,
+    content_type: input.file.type || null,
+    size_bytes: input.file.size,
+    uploaded_by_role: "distributor",
+  });
+
+  if (insertError) throw new Error(`BOL file metadata insert failed: ${insertError.message}`);
+  return { filename, content, contentType: input.file.type || undefined };
 }
 
 async function attachStripeSession(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; orderId: string; sessionId: string }) {
@@ -201,28 +268,21 @@ async function attachStripeSession(input: { supabase: ReturnType<typeof createSu
     .from("orders")
     .update({ stripe_checkout_session_id: input.sessionId, checkout_status: "created", updated_at: now })
     .eq("id", input.orderId);
-  if (!error) return;
-
-  const message = error.message || "";
-  if (!message.includes("checkout_status")) throw new Error(`Unable to attach Stripe session to order: ${message}`);
-
-  const { error: fallbackError } = await input.supabase
-    .from("orders")
-    .update({ stripe_checkout_session_id: input.sessionId, updated_at: now })
-    .eq("id", input.orderId);
-  if (fallbackError) throw new Error(`Unable to attach Stripe session to order: ${fallbackError.message}`);
+  if (error) throw new Error(`Unable to attach Stripe session to order: ${error.message}`);
 }
 
 export async function POST(request: NextRequest) {
   if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Checkout is not available right now." }, { status: 500 });
 
   try {
-    const body = (await request.json()) as CheckoutBody;
-    const quantity = validateBody(body);
+    const { body, bolFile } = await readCheckoutInput(request);
+    const quantity = validateBody(body, bolFile);
     const { supabase, distributor } = await requireDistributor(request);
     const distributorName = clean(distributor.company_name) || clean(body.distributorAccountName) || "Approved Distributor";
     const orderContactEmail = clean(body.email).toLowerCase();
     const distributorEmail = clean(distributor.contact_email) || orderContactEmail;
+    const shippingMethod = body.shippingMethod ?? "echo";
+
     const orderId = await createPendingOrder({
       supabase,
       distributorId: clean(distributor.id),
@@ -232,6 +292,30 @@ export async function POST(request: NextRequest) {
       body,
       quantity,
     });
+
+    let bolAttachment: { filename: string; content: Buffer; contentType?: string } | undefined;
+    if (shippingMethod === "own" && bolFile) {
+      bolAttachment = await saveBolFile({ supabase, orderId, file: bolFile });
+      await sendDistributorOrderEmails({
+        orderId,
+        distributorAccountName: distributorName,
+        email: distributorEmail,
+        customerName: clean(body.warrantyCustomerName),
+        customerEmail: clean(body.warrantyCustomerEmail),
+        quantity,
+        shippingMethod,
+        shipToName: clean(body.shipToName),
+        shipToAddress: clean(body.shipToAddress),
+        shipToAddress2: clean(body.shipToAddress2),
+        shipToCity: clean(body.shipToCity),
+        shipToState: clean(body.shipToState),
+        shipToZip: clean(body.shipToZip),
+        selectedRate: "Distributor-arranged freight",
+        bolFileName: bolAttachment.filename,
+        bolAttachment,
+        orderNotes: warrantyNote(body),
+      });
+    }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const baseUrl = getBaseUrl(request);
@@ -247,13 +331,22 @@ export async function POST(request: NextRequest) {
             currency: "usd",
             unit_amount: DISTRIBUTOR_UNIT_AMOUNT,
             product_data: {
-              name: "CowStop Reusable Form — Distributor Rate",
+              name: "CowStop Reusable Form - Distributor Rate",
               description: "Distributor online order for CowStop reusable cattle guard forms.",
             },
           },
         },
         ...(freightCharge > 0
-          ? [{ quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(freightCharge * 100), product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." } } }]
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "usd",
+                  unit_amount: Math.round(freightCharge * 100),
+                  product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." },
+                },
+              },
+            ]
           : []),
       ],
       metadata: {
@@ -261,14 +354,13 @@ export async function POST(request: NextRequest) {
         order_type: "distributor",
         distributor_profile_id: clean(distributor.id),
         distributor_account_name: distributorName,
-        order_contact_email: orderContactEmail,
         distributor_contact_email: distributorEmail,
         warranty_customer_name: clean(body.warrantyCustomerName),
         warranty_customer_email: clean(body.warrantyCustomerEmail),
         warranty_customer_phone: clean(body.warrantyCustomerPhone),
         quantity: String(quantity),
         unit_price: "750.00",
-        shipping_method: body.shippingMethod ?? "",
+        shipping_method: shippingMethod,
         ship_to_name: body.shipToName ?? "",
         ship_to_address: body.shipToAddress ?? "",
         ship_to_city: body.shipToCity ?? "",
@@ -277,7 +369,7 @@ export async function POST(request: NextRequest) {
         contact_phone: body.contactPhone ?? "",
         selected_rate: body.selectedRate ?? "",
         freight_charge: String(freightCharge),
-        bol_file_name: body.bolFileName ?? "",
+        bol_file_name: bolAttachment?.filename ?? body.bolFileName ?? "",
       },
       success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,
       cancel_url: `${baseUrl}/distributor/portal?checkout=cancelled&order=${orderId}`,
