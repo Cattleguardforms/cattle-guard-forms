@@ -49,7 +49,7 @@ async function assertOrderVisible(
 ) {
   const { data: order, error } = await supabase
     .from("orders")
-    .select("id, email, order_contact_email, distributor_email")
+    .select("*")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -57,9 +57,17 @@ async function assertOrderVisible(
   if (!order) throw new Error("Order not found.");
   if (actor.role === "admin") return;
 
-  const distributorEmail = clean(order.distributor_email).toLowerCase();
-  const orderEmail = clean(order.order_contact_email || order.email).toLowerCase();
-  if (![distributorEmail, orderEmail].filter(Boolean).includes(actor.email)) {
+  const orderRecord = order as Record<string, unknown>;
+  const visibleEmails = [
+    clean(orderRecord.distributor_email),
+    clean(orderRecord.order_contact_email),
+    clean(orderRecord.customer_email),
+    clean(orderRecord.contact_email),
+  ]
+    .filter(Boolean)
+    .map((email) => email.toLowerCase());
+
+  if (!visibleEmails.includes(actor.email)) {
     throw new Error("This order is not available to the signed-in account.");
   }
 }
