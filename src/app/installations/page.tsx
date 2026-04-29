@@ -9,63 +9,64 @@ const navItems = [
   ["Contact", "/contact"],
 ];
 
-const stepSevenImage = "/installations/step%20-%207.png?v=2";
+const installationImageVersion = "v=3";
+const stepImage = (step: number) => `/installations/step%20-%20${step}.png?${installationImageVersion}`;
 
 const steps = [
   {
     title: "Prep the Form",
     body:
       "Apply concrete release agent inside the reusable form. Set the rebar, tomato stakes, J-bolts, and tie wire according to the reinforcement plan before pouring.",
-    imageSrc: "/installations/step%20-%201.jpg",
+    imageSrc: stepImage(1),
     imageAlt: "Cattle Guard Forms reusable form prepared with rebar and lift points",
   },
   {
     title: "Pour 4000 PSI Concrete",
     body:
       "Pour 4000 PSI concrete into the form evenly. Work the mix around reinforcement, corners, and anchor points to reduce voids and keep the finished section consistent.",
-    imageSrc: "/installations/step%20-%202.jpg",
+    imageSrc: stepImage(2),
     imageAlt: "Concrete being poured into the reusable cattle guard form",
   },
   {
     title: "Settle, Level, and Cure",
     body:
       "Tap or vibrate the form to release trapped air, strike off the top surface, and let the concrete cure undisturbed. Curing time depends on temperature and humidity.",
-    imageSrc: "/installations/step%20-%203.jpg",
+    imageSrc: stepImage(3),
     imageAlt: "Concrete settled and leveled inside the form",
   },
   {
     title: "Install J-Bolts and Cure",
     body:
       "While the concrete is still plastic, insert the J-bolts at the designated anchor points. Check alignment and depth before the concrete sets. Allow the concrete to cure undisturbed before removal.",
-    imageSrc: "/installations/step%20-%204.jpg",
+    imageSrc: stepImage(4),
     imageAlt: "Cattle guard form with J-bolt hardware placed before cure",
   },
   {
     title: "Attach Chain to J-Hooks",
     body:
       "Once the concrete is cured, attach lifting chains or slings securely to the J-hooks. Confirm that the load is balanced evenly before lifting.",
-    imageSrc: "/installations/step%20-%205.png",
+    imageSrc: stepImage(5),
     imageAlt: "Chain attached to cattle guard lifting hardware",
   },
   {
     title: "Lift From the Form",
     body:
       "Using a loader, forklift, tractor, or crane, carefully lift the cured cattle guard out of the form. Avoid twisting, sudden jerks, or uneven lifting.",
-    imageSrc: "/installations/step%20-%206.jpg",
+    imageSrc: stepImage(6),
     imageAlt: "Cured concrete cattle guard being lifted from the reusable form",
   },
   {
     title: "Prepare Site and Place",
     body:
       "Choose a level, well-drained location aligned with the roadway or gate. Compact the base, use gravel as needed, then set the cattle guard square and level.",
-    imageSrc: stepSevenImage,
+    imageSrc: stepImage(7),
     imageAlt: "Finished concrete cattle guard section ready for placement",
   },
   {
     title: "Backfill, Grade, and Inspect",
     body:
       "Backfill around the cattle guard, grade the approach so vehicles transition smoothly, and confirm the unit is level, stable, and clear of loose debris before opening the crossing to traffic.",
-    imageSrc: "/installations/step%20-%208.png",
+    imageSrc: stepImage(8),
     imageAlt: "Finished above-grade cattle guard with yellow edges ready for final grading and inspection",
   },
 ];
@@ -108,7 +109,7 @@ export default function InstallationsPage() {
       <section className="relative overflow-hidden bg-green-950 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(34,197,94,0.20),transparent_26%)]" />
         <div className="absolute inset-y-0 right-0 hidden w-[58%] lg:block">
-          <img src={stepSevenImage} alt="Finished cattle guard section ready for placement" className="h-full w-full object-cover opacity-75" />
+          <img src={stepImage(7)} alt="Finished cattle guard section ready for placement" className="h-full w-full object-cover opacity-75" />
           <div className="absolute inset-0 bg-gradient-to-r from-green-950 via-green-950/55 to-transparent" />
         </div>
         <div className="relative mx-auto max-w-7xl px-6 py-16 lg:py-24">
