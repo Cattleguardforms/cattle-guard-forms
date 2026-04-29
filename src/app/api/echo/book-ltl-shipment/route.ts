@@ -17,6 +17,8 @@ const ORIGIN = {
 };
 
 const FREIGHT_CLASS = "150";
+const APPROVED_ADMIN_EMAILS = new Set(["orders@cattleguardforms.com", "support@cattleguardforms.com"]);
+const STATE_CODES: Record<string, string> = { FLORIDA: "FL" };
 
 type BookingBody = {
   orderId?: string;
@@ -52,6 +54,16 @@ function phone(value: unknown) {
   return clean(value).replace(/[^0-9]/g, "");
 }
 
+function normalizeState(value: string) {
+  const upper = clean(value).toUpperCase();
+  if (upper.length === 2) return upper;
+  return STATE_CODES[upper] ?? upper;
+}
+
+function normalizeAddress(value: string) {
+  return clean(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 function tokenFrom(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
   return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -63,13 +75,15 @@ async function requireAdmin(request: NextRequest) {
   const supabase = createSupabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
+  const email = userData.user.email.toLowerCase();
   const { data: profile, error: profileError } = await supabase
     .from("app_profiles")
     .select("role, status")
-    .eq("email", userData.user.email.toLowerCase())
+    .eq("email", email)
     .maybeSingle();
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
-  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
+  const hasAdminProfile = Boolean(profile && profile.role === "admin" && profile.status === "active");
+  if (!hasAdminProfile && !APPROVED_ADMIN_EMAILS.has(email)) throw new Error("Admin role is required.");
   return supabase;
 }
 
@@ -168,9 +182,10 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   const destType = locationType(deliveryType);
   const shipToName = customerVal(body.shipToName, customer, ["company", "first_name"], val(undefined, order, ["raw_vendor_name", "normalized_vendor_name"], "Customer"));
   const shipToAddress = val(body.shipToAddress, order, ["project_address_line1", "ship_to_address"]);
-  const shipToAddress2 = val(body.shipToAddress2, order, ["project_address_line2", "ship_to_address_2"]);
+  const rawShipToAddress2 = val(body.shipToAddress2, order, ["project_address_line2", "ship_to_address_2"]);
+  const shipToAddress2 = normalizeAddress(rawShipToAddress2) === normalizeAddress(shipToAddress) ? "" : rawShipToAddress2;
   const shipToCity = val(body.shipToCity, order, ["project_city", "ship_to_city"]);
-  const shipToState = val(body.shipToState, order, ["project_state", "ship_to_state"]).toUpperCase();
+  const shipToState = normalizeState(val(body.shipToState, order, ["project_state", "ship_to_state"]));
   const shipToZip = val(body.shipToZip, order, ["project_postal_code", "ship_to_zip"]);
   const contactName = clean(body.contactName) || shipToName;
   const contactEmail = customerVal(body.contactEmail, customer, ["email"], clean(order?.order_contact_email));
@@ -178,6 +193,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   if ([shipToName, shipToAddress, shipToCity, shipToState, shipToZip, contactPhone].some((x) => !clean(x))) {
     throw new Error("Ship-to name, address, city, state, ZIP, and contact phone are required before booking Echo LTL shipment.");
   }
+  if (shipToState.length !== 2) throw new Error("Ship-to state must be a valid 2-letter state code before booking Echo LTL shipment.");
   const selectedRate = clean(order?.selected_rate);
   const carrierName = clean(body.carrierName) || clean(order?.carrier) || selectedRate.split("|")[0]?.trim();
   const pickupDate = clean(body.pickupDate) || echoDate(addBusinessDays(new Date(), 3));
@@ -215,7 +231,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
         LocationType: destType,
         LocationName: shipToName.slice(0, 60),
         AddressLine1: shipToAddress,
-        AddressLine2: shipToAddress2,
+        AddressLine2: shipToAddress2 || undefined,
         City: shipToCity,
         StateProvince: shipToState,
         PostalCode: shipToZip,
