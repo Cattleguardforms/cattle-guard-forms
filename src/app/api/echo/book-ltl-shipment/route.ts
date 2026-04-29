@@ -210,6 +210,34 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   const deliveryDate = clean(body.deliveryDate) || echoDate(addBusinessDays(new Date(), 8));
   const specialInstructions = (clean(body.specialInstructions) || `Cattle Guard Forms order ${orderId || bolNumber}`).slice(0, 140);
 
+  const origin = {
+    LocationType: ORIGIN.locationType,
+    LocationName: ORIGIN.locationName,
+    AddressLine1: ORIGIN.addressLine1,
+    City: ORIGIN.city,
+    StateProvince: ORIGIN.stateProvince,
+    PostalCode: ORIGIN.postalCode,
+    CountryCode: ORIGIN.countryCode,
+    ContactName: ORIGIN.contactName,
+    ContactPhone: ORIGIN.contactPhone,
+    Accessorials: [],
+  };
+
+  const destination = {
+    LocationType: destType,
+    LocationName: shipToName.slice(0, 60),
+    AddressLine1: shipToAddress,
+    AddressLine2: shipToAddress2 || undefined,
+    City: shipToCity,
+    StateProvince: shipToState,
+    PostalCode: shipToZip,
+    CountryCode: "US",
+    ContactName: contactName,
+    ContactPhone: contactPhone,
+    ContactEmail: contactEmail || undefined,
+    Accessorials: accessorials(destType, liftgateRequired),
+  };
+
   const shipmentRequest = {
     BolNumber: bolNumber,
     PoNumber: clean(body.poNumber) || orderId.slice(0, 40),
@@ -220,38 +248,8 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     CarrierSCAC: clean(body.carrierScac) || undefined,
     CarrierName: carrierName || undefined,
     SpecialInstructions: specialInstructions,
-    Stops: [
-      {
-        StopNumber: 1,
-        StopType: "Pickup",
-        LocationType: ORIGIN.locationType,
-        LocationName: ORIGIN.locationName,
-        AddressLine1: ORIGIN.addressLine1,
-        City: ORIGIN.city,
-        StateProvince: ORIGIN.stateProvince,
-        PostalCode: ORIGIN.postalCode,
-        CountryCode: ORIGIN.countryCode,
-        ContactName: ORIGIN.contactName,
-        ContactPhone: ORIGIN.contactPhone,
-        Accessorials: [],
-      },
-      {
-        StopNumber: 2,
-        StopType: "Delivery",
-        LocationType: destType,
-        LocationName: shipToName.slice(0, 60),
-        AddressLine1: shipToAddress,
-        AddressLine2: shipToAddress2 || undefined,
-        City: shipToCity,
-        StateProvince: shipToState,
-        PostalCode: shipToZip,
-        CountryCode: "US",
-        ContactName: contactName,
-        ContactPhone: contactPhone,
-        ContactEmail: contactEmail || undefined,
-        Accessorials: accessorials(destType, liftgateRequired),
-      },
-    ],
+    Origin: origin,
+    Destination: destination,
     Items: [
       {
         Description: "CowStop reusable concrete cattle guard forms",
@@ -266,7 +264,10 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
         HazardousMaterial: false,
       },
     ],
-    References: [{ Type: "Order", Value: orderId || bolNumber }],
+    References: [
+      { ReferenceNumberName: "BOL", ReferenceNumber: bolNumber },
+      { ReferenceNumberName: "PO", ReferenceNumber: clean(body.poNumber) || orderId.slice(0, 40) },
+    ],
   };
 
   return { shipmentRequest, meta: { orderId, bolNumber, pickupDate, deliveryDate, carrierName, palletPlan: plan } };
