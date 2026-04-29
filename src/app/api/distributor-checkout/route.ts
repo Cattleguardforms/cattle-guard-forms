@@ -104,7 +104,9 @@ function validateBody(body: CheckoutBody) {
     throw new Error("A valid receipt email is required.");
   }
 
-  if (body.shippingMethod === "echo") {
+  const shippingMethod = body.shippingMethod ?? "echo";
+
+  if (shippingMethod === "echo") {
     const missingShipTo = [
       body.shipToName,
       body.shipToAddress,
@@ -123,8 +125,11 @@ function validateBody(body: CheckoutBody) {
     }
   }
 
-  if (body.shippingMethod === "own" && !body.bolFileName?.trim()) {
-    throw new Error("BOL upload is required when shipping on your own.");
+  if (shippingMethod === "own") {
+    const missingShipTo = [body.shipToName, body.shipToAddress, body.shipToCity, body.shipToState, body.shipToZip].some((value) => !value?.trim());
+    if (missingShipTo) {
+      throw new Error("Ship-to name and address are required when arranging your own freight.");
+    }
   }
 
   return quantity;
@@ -134,12 +139,15 @@ async function createPendingOrder(input: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   distributorId: string;
   distributorName: string;
+  distributorEmail: string;
+  orderContactEmail: string;
   body: CheckoutBody;
   quantity: number;
 }) {
   const freightCharge = getFreightCharge(input.body);
   const total = input.quantity * DISTRIBUTOR_UNIT_PRICE + freightCharge;
   const now = new Date().toISOString();
+  const shippingMethod = input.body.shippingMethod ?? "echo";
 
   const { data, error } = await input.supabase
     .from("orders")
@@ -148,14 +156,35 @@ async function createPendingOrder(input: {
       product_name: "CowStop Reusable Form",
       product_status: "active",
       cowstop_quantity: input.quantity,
+      quantity: input.quantity,
       unit_price: DISTRIBUTOR_UNIT_PRICE,
       total,
       payment_status: "pending",
-      shipping_method: input.body.shippingMethod ?? "echo",
-      bol_file: clean(input.body.bolFileName) || null,
+      checkout_status: "created",
+      shipment_status: "pending",
+      shipping_method: shippingMethod,
+      order_contact_email: input.orderContactEmail,
+      distributor_email: input.distributorEmail,
       distributor_profile_id: input.distributorId,
       raw_vendor_name: input.distributorName,
       normalized_vendor_name: input.distributorName,
+      ship_to_name: clean(input.body.shipToName),
+      ship_to_address: clean(input.body.shipToAddress),
+      ship_to_address_2: clean(input.body.shipToAddress2),
+      ship_to_city: clean(input.body.shipToCity),
+      ship_to_state: clean(input.body.shipToState),
+      ship_to_zip: clean(input.body.shipToZip),
+      project_address_line1: clean(input.body.shipToAddress),
+      project_city: clean(input.body.shipToCity),
+      project_state: clean(input.body.shipToState),
+      project_postal_code: clean(input.body.shipToZip),
+      contact_phone: clean(input.body.contactPhone),
+      delivery_type: clean(input.body.deliveryType),
+      liftgate_required: clean(input.body.liftgateRequired),
+      selected_rate: clean(input.body.selectedRate),
+      freight_charge: freightCharge,
+      bol_file: clean(input.body.bolFileName) || null,
+      manufacturer_notes: shippingMethod === "own" ? "Distributor is arranging freight / BOL." : null,
       created_at: now,
       updated_at: now,
     })
@@ -235,6 +264,8 @@ export async function POST(request: NextRequest) {
       supabase,
       distributorId: clean(distributor.id),
       distributorName,
+      distributorEmail,
+      orderContactEmail,
       body,
       quantity,
     });
