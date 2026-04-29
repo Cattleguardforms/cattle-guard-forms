@@ -61,7 +61,17 @@ function normalizeState(value: string) {
 }
 
 function normalizeAddress(value: string) {
-  return clean(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return clean(value)
+    .toUpperCase()
+    .replace(/\bTRAIL\b/g, "TRL")
+    .replace(/\bSTREET\b/g, "ST")
+    .replace(/\bROAD\b/g, "RD")
+    .replace(/\bAVENUE\b/g, "AVE")
+    .replace(/\bDRIVE\b/g, "DR")
+    .replace(/\bLANE\b/g, "LN")
+    .replace(/\bCOURT\b/g, "CT")
+    .replace(/\bBOULEVARD\b/g, "BLVD")
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 function tokenFrom(request: NextRequest) {
