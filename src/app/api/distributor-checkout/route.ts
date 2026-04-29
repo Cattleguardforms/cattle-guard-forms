@@ -38,20 +38,18 @@ type CheckoutBody = {
   deliveryType?: string;
   liftgateRequired?: string;
   bolFileName?: string;
+  warrantyCustomerName?: string;
+  warrantyCustomerEmail?: string;
+  warrantyCustomerPhone?: string;
 };
 
 async function requireDistributor(request: NextRequest) {
   const token = getBearerToken(request);
-  if (!token) {
-    throw new Error("Approved distributor sign-in is required before checkout.");
-  }
+  if (!token) throw new Error("Approved distributor sign-in is required before checkout.");
 
   const supabase = createSupabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-  if (userError || !userData.user?.email) {
-    throw new Error("Invalid distributor session. Please sign in again.");
-  }
+  if (userError || !userData.user?.email) throw new Error("Invalid distributor session. Please sign in again.");
 
   const email = userData.user.email.toLowerCase();
   const { data: profile, error: profileError } = await supabase
@@ -60,10 +58,7 @@ async function requireDistributor(request: NextRequest) {
     .eq("email", email)
     .maybeSingle();
 
-  if (profileError) {
-    throw new Error(`Distributor role lookup failed: ${profileError.message}`);
-  }
-
+  if (profileError) throw new Error(`Distributor role lookup failed: ${profileError.message}`);
   if (!profile || profile.role !== "distributor" || profile.status !== "active") {
     throw new Error("Approved distributor role is required before checkout.");
   }
@@ -76,15 +71,10 @@ async function requireDistributor(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  if (distributorError) {
-    throw new Error(`Distributor profile lookup failed: ${distributorError.message}`);
-  }
+  if (distributorError) throw new Error(`Distributor profile lookup failed: ${distributorError.message}`);
+  if (!distributor) throw new Error("Active distributor profile is required before checkout.");
 
-  if (!distributor) {
-    throw new Error("Active distributor profile is required before checkout.");
-  }
-
-  return { supabase, user: userData.user, profile, distributor };
+  return { supabase, distributor };
 }
 
 function getFreightCharge(body: CheckoutBody) {
@@ -95,44 +85,40 @@ function getFreightCharge(body: CheckoutBody) {
 
 function validateBody(body: CheckoutBody) {
   const quantity = Number(body.quantity);
-
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
     throw new Error(`Quantity must be between 1 and ${MAX_QUANTITY}.`);
   }
 
-  if (!body.email || !body.email.includes("@")) {
-    throw new Error("A valid receipt email is required.");
-  }
+  if (!body.email || !body.email.includes("@")) throw new Error("A valid receipt email is required.");
+  if (!clean(body.warrantyCustomerName)) throw new Error("Customer name is required for warranty records.");
+  if (!clean(body.warrantyCustomerPhone)) throw new Error("Customer phone is required for warranty records.");
 
   const shippingMethod = body.shippingMethod ?? "echo";
+  const missingShipTo = [body.shipToName, body.shipToAddress, body.shipToCity, body.shipToState, body.shipToZip].some((value) => !value?.trim());
+  if (missingShipTo) throw new Error("Ship-to name, address, city, state, and ZIP are required.");
 
   if (shippingMethod === "echo") {
-    const missingShipTo = [
-      body.shipToName,
-      body.shipToAddress,
-      body.shipToCity,
-      body.shipToState,
-      body.shipToZip,
-      body.selectedRate,
-    ].some((value) => !value?.trim());
-
-    if (missingShipTo) {
-      throw new Error("Ship-to name, address, and freight option are required for Cattle Guard Forms shipping.");
-    }
-
-    if (getFreightCharge(body) <= 0) {
-      throw new Error("Selected freight charge is required before checkout.");
-    }
+    if (!clean(body.selectedRate)) throw new Error("A freight option is required before checkout.");
+    if (getFreightCharge(body) <= 0) throw new Error("Selected freight charge is required before checkout.");
   }
 
-  if (shippingMethod === "own") {
-    const missingShipTo = [body.shipToName, body.shipToAddress, body.shipToCity, body.shipToState, body.shipToZip].some((value) => !value?.trim());
-    if (missingShipTo) {
-      throw new Error("Ship-to name and address are required when arranging your own freight.");
-    }
+  if (shippingMethod === "own" && !clean(body.bolFileName)) {
+    throw new Error("BOL upload is required when arranging your own freight.");
   }
 
   return quantity;
+}
+
+function warrantyNote(body: CheckoutBody) {
+  const parts = [
+    "Warranty customer information:",
+    `Name: ${clean(body.warrantyCustomerName) || "Not set"}`,
+    `Email: ${clean(body.warrantyCustomerEmail) || "Not set"}`,
+    `Phone: ${clean(body.warrantyCustomerPhone) || "Not set"}`,
+    `Shipping method: ${body.shippingMethod === "own" ? "Distributor-arranged freight" : "Cattle Guard Forms freight quote"}`,
+    body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Required"}` : "",
+  ].filter(Boolean);
+  return parts.join("\n");
 }
 
 async function createPendingOrder(input: {
@@ -184,74 +170,51 @@ async function createPendingOrder(input: {
       selected_rate: clean(input.body.selectedRate),
       freight_charge: freightCharge,
       bol_file: clean(input.body.bolFileName) || null,
-      manufacturer_notes: shippingMethod === "own" ? "Distributor is arranging freight / BOL." : null,
+      manufacturer_notes: warrantyNote(input.body),
       created_at: now,
       updated_at: now,
     })
     .select("id")
     .single();
 
-  if (error) {
-    throw new Error(`Unable to create distributor order before checkout: ${error.message}`);
-  }
-
+  if (error) throw new Error(`Unable to create distributor order before checkout: ${error.message}`);
   const orderId = clean(data?.id);
-  if (!orderId) {
-    throw new Error("Distributor order was created without an order ID.");
-  }
+  if (!orderId) throw new Error("Distributor order was created without an order ID.");
 
   const { error: activityError } = await input.supabase.from("crm_activity").insert({
     activity_type: "checkout_started",
     title: `Distributor checkout started for order ${orderId}`,
-    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s).`,
+    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s). ${clean(input.body.warrantyCustomerName)} is the warranty customer.`,
     order_id: orderId,
     distributor_profile_id: input.distributorId,
     source: "distributor_checkout",
     status: "open",
   });
-
-  if (activityError) {
-    console.warn("Unable to create distributor checkout CRM activity", activityError.message);
-  }
+  if (activityError) console.warn("Unable to create distributor checkout CRM activity", activityError.message);
 
   return orderId;
 }
 
-async function attachStripeSession(input: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
-  orderId: string;
-  sessionId: string;
-}) {
+async function attachStripeSession(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; orderId: string; sessionId: string }) {
   const now = new Date().toISOString();
-
   const { error } = await input.supabase
     .from("orders")
     .update({ stripe_checkout_session_id: input.sessionId, checkout_status: "created", updated_at: now })
     .eq("id", input.orderId);
-
   if (!error) return;
 
   const message = error.message || "";
-  if (!message.includes("checkout_status")) {
-    throw new Error(`Unable to attach Stripe session to order: ${message}`);
-  }
+  if (!message.includes("checkout_status")) throw new Error(`Unable to attach Stripe session to order: ${message}`);
 
   const { error: fallbackError } = await input.supabase
     .from("orders")
     .update({ stripe_checkout_session_id: input.sessionId, updated_at: now })
     .eq("id", input.orderId);
-
-  if (fallbackError) {
-    throw new Error(`Unable to attach Stripe session to order: ${fallbackError.message}`);
-  }
-
-  console.warn("orders.checkout_status is missing; attached Stripe session without checkout_status.");
+  if (fallbackError) throw new Error(`Unable to attach Stripe session to order: ${fallbackError.message}`);
 }
 
 export async function POST(request: NextRequest) {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ error: "Checkout is not available right now." }, { status: 500 });
-  }
+  if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Checkout is not available right now." }, { status: 500 });
 
   try {
     const body = (await request.json()) as CheckoutBody;
@@ -272,6 +235,7 @@ export async function POST(request: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const baseUrl = getBaseUrl(request);
+    const freightCharge = getFreightCharge(body);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -288,20 +252,8 @@ export async function POST(request: NextRequest) {
             },
           },
         },
-        ...(getFreightCharge(body) > 0
-          ? [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: "usd",
-                  unit_amount: Math.round(getFreightCharge(body) * 100),
-                  product_data: {
-                    name: "Freight & Handling",
-                    description: clean(body.selectedRate) || "Selected freight option.",
-                  },
-                },
-              },
-            ]
+        ...(freightCharge > 0
+          ? [{ quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(freightCharge * 100), product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." } } }]
           : []),
       ],
       metadata: {
@@ -311,20 +263,20 @@ export async function POST(request: NextRequest) {
         distributor_account_name: distributorName,
         order_contact_email: orderContactEmail,
         distributor_contact_email: distributorEmail,
+        warranty_customer_name: clean(body.warrantyCustomerName),
+        warranty_customer_email: clean(body.warrantyCustomerEmail),
+        warranty_customer_phone: clean(body.warrantyCustomerPhone),
         quantity: String(quantity),
         unit_price: "750.00",
         shipping_method: body.shippingMethod ?? "",
         ship_to_name: body.shipToName ?? "",
         ship_to_address: body.shipToAddress ?? "",
-        ship_to_address_2: body.shipToAddress2 ?? "",
         ship_to_city: body.shipToCity ?? "",
         ship_to_state: body.shipToState ?? "",
         ship_to_zip: body.shipToZip ?? "",
         contact_phone: body.contactPhone ?? "",
-        delivery_type: body.deliveryType ?? "",
-        liftgate_required: body.liftgateRequired ?? "",
         selected_rate: body.selectedRate ?? "",
-        freight_charge: String(getFreightCharge(body)),
+        freight_charge: String(freightCharge),
         bol_file_name: body.bolFileName ?? "",
       },
       success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,
@@ -332,12 +284,8 @@ export async function POST(request: NextRequest) {
     });
 
     await attachStripeSession({ supabase, orderId, sessionId: session.id });
-
     return NextResponse.json({ url: session.url, orderId });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to start distributor checkout right now." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to start distributor checkout right now." }, { status: 400 });
   }
 }
