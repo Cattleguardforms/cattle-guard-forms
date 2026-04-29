@@ -3,6 +3,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+const APPROVED_ADMIN_EMAILS = new Set(["orders@cattleguardforms.com", "support@cattleguardforms.com"]);
+
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -20,14 +22,19 @@ async function requireAdmin(request: NextRequest) {
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
 
+  const email = userData.user.email.toLowerCase();
   const { data: profile, error: profileError } = await supabase
     .from("app_profiles")
     .select("role, status")
-    .eq("email", userData.user.email.toLowerCase())
+    .eq("email", email)
     .maybeSingle();
 
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
-  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
+
+  const hasAdminProfile = Boolean(profile && profile.role === "admin" && profile.status === "active");
+  const isApprovedAdminEmail = APPROVED_ADMIN_EMAILS.has(email);
+
+  if (!hasAdminProfile && !isApprovedAdminEmail) throw new Error("Admin role is required.");
 
   return supabase;
 }
