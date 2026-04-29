@@ -44,9 +44,12 @@ export default function DistributorPage() {
             If you are an existing distributor, use the portal sign-in below. If you want to apply for distributor access, contact support and include your company name, contact information, service area, and expected order volume.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link href="/distributor/portal" className="inline-flex justify-center rounded bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900">
               Distributor Portal Sign In
+            </Link>
+            <Link href="/distributor/own-freight-checkout" className="inline-flex justify-center rounded bg-amber-600 px-6 py-3 font-semibold text-white hover:bg-amber-700">
+              Own Freight / Upload BOL
             </Link>
             <Link href="/contact?topic=Distributor%20Access" className="inline-flex justify-center rounded border border-green-800 bg-white px-6 py-3 font-semibold text-green-900 hover:bg-green-50">
               Request Distributor Access
@@ -69,10 +72,13 @@ export default function DistributorPage() {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-2xl font-semibold">Freight and fulfillment</h2>
+            <h2 className="text-2xl font-semibold">Own freight / BOL upload</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">
-              Freight quote and fulfillment details are confirmed after order review. Shipping documents and production coordination are handled through approved account workflows.
+              If the distributor is arranging freight, customer warranty information and a BOL are required before checkout. The BOL is emailed with the order to fulfillment.
             </p>
+            <Link href="/distributor/own-freight-checkout" className="mt-4 inline-flex font-semibold text-green-800 hover:text-green-900">
+              Start own-freight checkout →
+            </Link>
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
