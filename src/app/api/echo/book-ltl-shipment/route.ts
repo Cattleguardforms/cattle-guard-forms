@@ -230,6 +230,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     AppointmentStart: "08:00",
     AppointmentEnd: "17:00",
     ReferenceNumber: echoReference,
+    BolNumber: bolNumber,
     Accessorials: [],
   };
 
@@ -249,6 +250,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     AppointmentStart: "08:00",
     AppointmentEnd: "17:00",
     ReferenceNumber: echoReference,
+    BolNumber: bolNumber,
     Accessorials: accessorials(destType, liftgateRequired),
   };
 
