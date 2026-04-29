@@ -14,6 +14,34 @@ function getBearerToken(request: NextRequest) {
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 }
 
+function distributorKey(profile: Record<string, unknown>) {
+  const email = clean(profile.email || profile.contact_email).toLowerCase();
+  if (email) return `email:${email}`;
+
+  const name = clean(profile.company_name || profile.company || profile.business_name || profile.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return name ? `name:${name}` : `id:${clean(profile.id)}`;
+}
+
+function mergeProfiles(existing: Record<string, unknown>, next: Record<string, unknown>) {
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(next)) {
+    const current = merged[key];
+    if ((current === null || current === undefined || current === "") && value !== null && value !== undefined && value !== "") {
+      merged[key] = value;
+    }
+  }
+
+  const existingStatus = clean(existing.status);
+  const nextStatus = clean(next.status);
+  if (existingStatus !== "active" && nextStatus === "active") merged.status = next.status;
+  if (existingStatus === "disabled" || nextStatus === "disabled") merged.status = "disabled";
+
+  return merged;
+}
+
 async function requireAdmin(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) throw new Error("Missing admin session token.");
@@ -54,7 +82,16 @@ export async function GET(request: NextRequest) {
 
     if (profileError) throw new Error(`Distributor lookup failed: ${profileError.message}`);
 
-    const distributorRows = (profiles ?? []) as Record<string, unknown>[];
+    const rawDistributorRows = (profiles ?? []) as Record<string, unknown>[];
+    const distributorRows = Array.from(
+      rawDistributorRows.reduce<Map<string, Record<string, unknown>>>((map, profile) => {
+        const key = distributorKey(profile);
+        const existing = map.get(key);
+        map.set(key, existing ? mergeProfiles(existing, profile) : profile);
+        return map;
+      }, new Map()).values(),
+    );
+
     const emails = distributorRows
       .map((profile) => clean(profile.email || profile.contact_email).toLowerCase())
       .filter(Boolean);
