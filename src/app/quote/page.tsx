@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import CustomerFreightQuotePanel from "./CustomerFreightQuotePanel";
 
 type OrderFormData = {
@@ -119,6 +119,8 @@ export default function QuotePage() {
   const [selectedFreightRate, setSelectedFreightRate] = useState("");
   const [selectedFreightCharge, setSelectedFreightCharge] = useState(0);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
+  const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const pricing = useMemo(() => {
@@ -132,6 +134,14 @@ export default function QuotePage() {
 
   const palletPlan = useMemo(() => getPalletPlan(formData.quantity), [formData.quantity]);
   const palletCount = getPalletCount(formData.quantity);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    setCheckoutStatus(params.get("checkout"));
+    setReturnedOrderId(params.get("order"));
+  }, []);
 
   function resetFreightSelection() {
     setHasFreightQuote(false);
@@ -250,6 +260,23 @@ export default function QuotePage() {
       </section>
 
       <form className="mx-auto max-w-7xl px-6 py-14" onSubmit={handleCheckout}>
+        {checkoutStatus === "success" ? (
+          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-950">
+            <p className="font-black">Payment successful. Your CowStop order was submitted.</p>
+            <p className="mt-1 text-sm leading-6">
+              We received your order and payment. Freight and fulfillment details are saved with the order.
+              {returnedOrderId ? ` Order ID: ${returnedOrderId}` : ""}
+            </p>
+          </div>
+        ) : null}
+
+        {checkoutStatus === "cancelled" ? (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950">
+            <p className="font-black">Checkout was cancelled.</p>
+            <p className="mt-1 text-sm leading-6">No payment was completed. You can review the order and try again.</p>
+          </div>
+        ) : null}
+
         {error ? <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div> : null}
 
         <section className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
