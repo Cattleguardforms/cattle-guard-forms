@@ -141,8 +141,7 @@ function customerVal(bodyValue: unknown, customer: DbRecord | null, keys: string
 }
 
 function makeBol(orderId: string) {
-  const prefix = clean(orderId).replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "TEST";
-  return `CGF${prefix}${Date.now().toString().slice(-8)}`.slice(0, 40);
+  return shortReference(orderId);
 }
 
 function locationType(value: string) {
@@ -256,6 +255,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   };
 
   const shipmentRequest = {
+    BolNumber: bolNumber,
     PoNumber: poNumber,
     UnitOfWeight: "LB",
     PickUpDate: pickupDate,
