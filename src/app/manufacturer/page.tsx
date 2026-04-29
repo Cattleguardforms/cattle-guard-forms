@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -52,6 +52,35 @@ function Card({ label, value }: { label: string; value: number }) {
   );
 }
 
+function OrderActions({ order, onUpload }: { order: Order; onUpload: (order: Order, file: File) => void }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <div className="flex min-w-40 flex-col gap-2">
+      <Link href={`/admin/orders?order=${order.id}`} className="rounded border border-neutral-300 px-3 py-2 text-center text-xs font-bold text-neutral-900 hover:border-green-800 hover:bg-green-50">
+        View Order
+      </Link>
+      <button type="button" className="rounded bg-green-800 px-3 py-2 text-xs font-bold text-white hover:bg-green-900" onClick={() => alert("Original BOL download will be connected to the order file bucket next.") }>
+        Download Original BOL
+      </button>
+      <button type="button" className="rounded border border-green-800 px-3 py-2 text-xs font-bold text-green-900 hover:bg-green-50" onClick={() => inputRef.current?.click()}>
+        Upload Signed BOL
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onUpload(order, file);
+          event.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 export default function ManufacturerPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<Payload["summary"]>({
@@ -63,6 +92,7 @@ export default function ManufacturerPortalPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const supabase = useMemo(() => {
     if (!supabaseUrl || !supabaseKey) return null;
@@ -112,6 +142,10 @@ export default function ManufacturerPortalPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSignedBolUpload(order: Order, file: File) {
+    setNotice(`Selected signed BOL for order ${order.shortId}: ${file.name}. Upload storage will be connected to Supabase next.`);
   }
 
   useEffect(() => {
@@ -183,9 +217,14 @@ export default function ManufacturerPortalPage() {
             {error}
           </div>
         ) : null}
+        {notice ? (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {notice}
+          </div>
+        ) : null}
 
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200">
-          <table className="w-full min-w-[1050px] text-left text-sm">
+          <table className="w-full min-w-[1200px] text-left text-sm">
             <thead className="bg-neutral-100 text-neutral-600">
               <tr>
                 <th className="px-4 py-3">Order</th>
@@ -195,13 +234,14 @@ export default function ManufacturerPortalPage() {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Carrier / BOL</th>
                 <th className="px-4 py-3">Dates</th>
+                <th className="px-4 py-3">Actions</th>
                 <th className="px-4 py-3">Notes</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-neutral-600">
+                  <td colSpan={9} className="px-4 py-8 text-center text-neutral-600">
                     Loading manufacturer orders...
                   </td>
                 </tr>
@@ -209,7 +249,7 @@ export default function ManufacturerPortalPage() {
 
               {!loading && orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-neutral-600">
+                  <td colSpan={9} className="px-4 py-8 text-center text-neutral-600">
                     No paid fulfillment orders found.
                   </td>
                 </tr>
@@ -250,6 +290,9 @@ export default function ManufacturerPortalPage() {
                     <td className="px-4 py-4">
                       <p>Ship: {show(order.shipDate)}</p>
                       <p className="mt-1 text-xs text-neutral-500">ETA: {show(order.estimatedDeliveryDate)}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <OrderActions order={order} onUpload={handleSignedBolUpload} />
                     </td>
                     <td className="px-4 py-4 text-neutral-700">{show(order.manufacturerNotes)}</td>
                   </tr>
