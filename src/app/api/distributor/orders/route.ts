@@ -35,7 +35,7 @@ async function requireDistributor(request: NextRequest) {
   const email = userData.user.email.toLowerCase();
   const { data: profile, error: profileError } = await supabase
     .from("app_profiles")
-    .select("role, status, company_name")
+    .select("role, status")
     .eq("email", email)
     .maybeSingle();
 
@@ -55,18 +55,18 @@ async function requireDistributor(request: NextRequest) {
   if (distributorError) throw new Error(`Distributor account lookup failed: ${distributorError.message}`);
   if (!distributor) throw new Error("Active distributor account is required.");
 
-  return { supabase, email, distributor };
+  return { supabase, distributor };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, email, distributor } = await requireDistributor(request);
+    const { supabase, distributor } = await requireDistributor(request);
     const distributorId = clean(distributor.id);
 
     const { data: rows, error } = await supabase
       .from("orders")
       .select("*")
-      .or(`distributor_profile_id.eq.${distributorId},order_contact_email.eq.${email},distributor_email.eq.${email}`)
+      .eq("distributor_profile_id", distributorId)
       .order("created_at", { ascending: false })
       .limit(50);
 
