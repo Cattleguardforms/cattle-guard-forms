@@ -186,6 +186,7 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) throw new Error("Quantity must be between 1 and 50.");
   const plan = palletPlan(quantity);
   const orderId = clean(body.orderId || order?.id);
+  const poNumber = clean(body.poNumber) || orderId.slice(0, 40);
   const bolNumber = clean(body.bolNumber) || makeBol(orderId);
   const deliveryType = val(body.deliveryType, order, ["delivery_type"], "residential");
   const liftgateRequired = val(body.liftgateRequired, order, ["liftgate_required"], "yes");
@@ -220,6 +221,11 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     CountryCode: ORIGIN.countryCode,
     ContactName: ORIGIN.contactName,
     ContactPhone: ORIGIN.contactPhone,
+    AppointmentDate: pickupDate,
+    AppointmentStart: "08:00",
+    AppointmentEnd: "17:00",
+    ReferenceNumber: poNumber,
+    BolNumber: bolNumber,
     Accessorials: [],
   };
 
@@ -235,12 +241,17 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
     ContactName: contactName,
     ContactPhone: contactPhone,
     ContactEmail: contactEmail || undefined,
+    AppointmentDate: deliveryDate,
+    AppointmentStart: "08:00",
+    AppointmentEnd: "17:00",
+    ReferenceNumber: poNumber,
+    BolNumber: bolNumber,
     Accessorials: accessorials(destType, liftgateRequired),
   };
 
   const shipmentRequest = {
     BolNumber: bolNumber,
-    PoNumber: clean(body.poNumber) || orderId.slice(0, 40),
+    PoNumber: poNumber,
     UnitOfWeight: "LB",
     PickUpDate: pickupDate,
     DeliveryDate: deliveryDate,
@@ -265,8 +276,8 @@ function buildRequest(body: BookingBody, order: DbRecord | null, customer: DbRec
       },
     ],
     References: [
-      { ReferenceNumberName: "BOL", ReferenceNumber: bolNumber },
-      { ReferenceNumberName: "PO", ReferenceNumber: clean(body.poNumber) || orderId.slice(0, 40) },
+      { ReferenceNumberName: "BOL", ReferenceNumberValue: bolNumber },
+      { ReferenceNumberName: "PO", ReferenceNumberValue: poNumber },
     ],
   };
 
