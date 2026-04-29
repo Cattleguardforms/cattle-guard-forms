@@ -105,7 +105,7 @@ function validateBody(body: CustomerCheckoutBody) {
   return quantity;
 }
 
-async function upsertCustomer(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; body: CustomerCheckoutBody }) {
+async function upsertCustomer(input: { supabase: ReturnType<typeof getSupabaseAdminClient>; body: CustomerCheckoutBody }) {
   const email = clean(input.body.email).toLowerCase();
   const customerData = {
     email,
@@ -140,7 +140,7 @@ async function upsertCustomer(input: { supabase: ReturnType<typeof createSupabas
 }
 
 async function createPendingOrder(input: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  supabase: ReturnType<typeof getSupabaseAdminClient>;
   customerId: string;
   body: CustomerCheckoutBody;
   quantity: number;
@@ -208,7 +208,7 @@ async function createPendingOrder(input: {
 }
 
 async function attachStripeSession(input: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  supabase: ReturnType<typeof getSupabaseAdminClient>;
   orderId: string;
   sessionId: string;
 }) {
