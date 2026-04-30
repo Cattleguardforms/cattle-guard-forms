@@ -143,6 +143,8 @@ function validateBody(body: CheckoutBody, bolFile: File | null) {
   if (!body.email || !body.email.includes("@")) throw new Error("A valid receipt email is required.");
   if (!clean(body.warrantyCustomerName)) throw new Error("Customer name is required for warranty records.");
   if (!clean(body.warrantyCustomerPhone)) throw new Error("Customer phone is required for warranty records.");
+  const warrantyEmail = clean(body.warrantyCustomerEmail);
+  if (!warrantyEmail || !warrantyEmail.includes("@")) throw new Error("Customer email is required for warranty records.");
 
   const shippingMethod = body.shippingMethod ?? "echo";
   const missingShipTo = [body.shipToName, body.shipToAddress, body.shipToCity, body.shipToState, body.shipToZip].some((value) => !value?.trim());
