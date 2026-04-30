@@ -47,6 +47,22 @@ function orderStatus(order: Record<string, unknown>) {
   return clean(order.payment_status) === "paid" ? "ready_for_fulfillment" : "pending_payment";
 }
 
+function customerDisplay(order: Record<string, unknown>) {
+  return clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_name) || "Customer / Distributor";
+}
+
+function shipToDisplay(order: Record<string, unknown>) {
+  return [
+    clean(order.ship_to_name),
+    clean(order.project_address_line1) || clean(order.ship_to_address),
+    clean(order.project_city) || clean(order.ship_to_city),
+    clean(order.project_state) || clean(order.ship_to_state),
+    clean(order.project_postal_code) || clean(order.ship_to_zip),
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
@@ -64,22 +80,16 @@ export async function GET(request: NextRequest) {
       .filter((order) => clean(order.payment_status) === "paid" || clean(order.checkout_status) === "paid" || clean(order.shipment_status) === "ready_for_fulfillment")
       .map((order) => {
         const quantity = Number(order.cowstop_quantity ?? order.quantity ?? 0);
-        const shipTo = [
-          clean(order.project_address_line1 || order.ship_to_address),
-          clean(order.project_city || order.ship_to_city),
-          clean(order.project_state || order.ship_to_state),
-          clean(order.project_postal_code || order.ship_to_zip),
-        ].filter(Boolean).join(", ");
 
         return {
           id: clean(order.id),
           shortId: clean(order.id).slice(0, 8),
-          customer: clean(order.normalized_vendor_name || order.raw_vendor_name || order.order_contact_email || order.email) || "Customer / Distributor",
-          contactEmail: clean(order.order_contact_email || order.email),
-          contactPhone: clean(order.contact_phone),
+          customer: customerDisplay(order),
+          contactEmail: clean(order.customer_email) || clean(order.email),
+          contactPhone: clean(order.contact_phone) || clean(order.customer_phone),
           quantity,
           quantityLabel: `${quantity || 0} CowStop form${quantity === 1 ? "" : "s"}`,
-          shipTo: shipTo || "Ship-to address not set",
+          shipTo: shipToDisplay(order) || "Ship-to address not set",
           status: orderStatus(order),
           paymentStatus: clean(order.payment_status),
           carrier: clean(order.carrier),
