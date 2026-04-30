@@ -15,7 +15,7 @@ export default function WarrantyPage() {
             <p className="text-sm font-bold uppercase tracking-wide text-green-800">Cattle Guard Forms</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">CowStop Warranty & Support Information</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-700">
-              Please keep this sheet with your order records. Customer information is collected so Cattle Guard Forms can maintain warranty records, product traceability, and future support history for each CowStop order.
+              Please keep this sheet with your order records. This document is used for customer warranty support, freight records, and product claim review.
             </p>
           </div>
           <Link href="/" className="text-sm font-bold text-green-800 print:hidden">
@@ -45,28 +45,16 @@ export default function WarrantyPage() {
           </ul>
         </section>
 
-        <section className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
-            <h2 className="text-xl font-bold">Why customer information is required</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">
-              The customer name and phone number are required for warranty records and product traceability. This helps Cattle Guard Forms identify the correct order if there is ever a product, installation, shipping, or support issue.
-            </p>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">
-              Customer email is optional, but helpful if warranty or support communication is needed later.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
-            <h2 className="text-xl font-bold">What to keep with this sheet</h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-neutral-700">
-              <li>Customer name and phone number</li>
-              <li>Distributor order confirmation</li>
-              <li>Bill of lading or freight documents</li>
-              <li>Delivery photos, if available</li>
-              <li>Installation date and project location</li>
-              <li>Photos of any claimed manufacturer defect</li>
-            </ul>
-          </div>
+        <section className="mt-8 rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
+          <h2 className="text-xl font-bold">What to keep with this sheet</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-neutral-700">
+            <li>Customer name, phone number, and email</li>
+            <li>Distributor order confirmation</li>
+            <li>Bill of lading or freight documents</li>
+            <li>Delivery photos, if available</li>
+            <li>Installation date and project location</li>
+            <li>Photos of any claimed manufacturer defect</li>
+          </ul>
         </section>
 
         <section className="mt-8 rounded-xl border border-green-100 bg-green-50 p-5 print:border-neutral-400 print:bg-white">
@@ -81,7 +69,7 @@ export default function WarrantyPage() {
               <div className="mt-2 h-10 rounded border border-neutral-300 bg-white" />
             </div>
             <div>
-              <p className="font-bold">Customer email optional</p>
+              <p className="font-bold">Customer email</p>
               <div className="mt-2 h-10 rounded border border-neutral-300 bg-white" />
             </div>
             <div>
@@ -126,8 +114,8 @@ export default function WarrantyPage() {
           <div className="rounded bg-green-50 px-5 py-3 text-sm font-bold text-green-950 ring-1 ring-green-200">
             Use your browser print command to print this warranty sheet.
           </div>
-          <Link href="/distributor/order-portal" className="rounded border border-green-800 bg-white px-5 py-3 font-bold text-green-900 hover:bg-green-50">
-            Distributor order portal
+          <Link href="/distributor/home" className="rounded border border-green-800 bg-white px-5 py-3 font-bold text-green-900 hover:bg-green-50">
+            Distributor Portal
           </Link>
         </div>
       </section>
