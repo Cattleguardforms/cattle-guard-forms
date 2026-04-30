@@ -23,6 +23,28 @@ export default function WarrantyPage() {
           </Link>
         </div>
 
+        <section className="mt-8 rounded-xl border border-green-200 bg-green-50 p-5 print:border-neutral-400 print:bg-white">
+          <h2 className="text-xl font-bold text-green-950">CowStop material and construction</h2>
+          <p className="mt-3 text-sm leading-6 text-green-950">
+            CowStop forms are manufactured from high-density polyethylene (HDPE). The form is foam-filled / foam-supported so it can hold its shape for normal concrete forming use.
+          </p>
+          <p className="mt-3 text-sm leading-6 text-green-950">
+            HDPE is durable and reusable, but it is not indestructible. Damage caused by handling, freight, jobsite equipment, dragging, crushing, cutting, drilling, burning, improper storage, or use outside normal CowStop forming applications is not considered a manufacturer defect.
+          </p>
+        </section>
+
+        <section className="mt-8 rounded-xl border border-red-200 bg-red-50 p-5 print:border-neutral-400 print:bg-white">
+          <h2 className="text-xl font-bold text-red-950">Limited warranty claim requirements</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-red-950">
+            <li>Warranty coverage is limited to manufacturer defects only.</li>
+            <li>Any suspected manufacturer defect must be reported within 30 days of receiving the CowStop form.</li>
+            <li>Photos of the form and the claimed damage must be submitted before any warranty claim can be reviewed.</li>
+            <li>The warranty claim must be reviewed and approved by Cattle Guard Forms before any return is accepted.</li>
+            <li>If a return inspection is required, the customer is responsible for freight back to the Cattle Guard Forms manufacturing facility.</li>
+            <li>If excessive use, misuse, jobsite damage, freight damage, modification, or improper handling is visible on the form, the warranty claim may be denied and the form may not be accepted for return.</li>
+          </ul>
+        </section>
+
         <section className="mt-8 grid gap-6 md:grid-cols-2">
           <div className="rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
             <h2 className="text-xl font-bold">Why customer information is required</h2>
@@ -42,6 +64,7 @@ export default function WarrantyPage() {
               <li>Bill of lading or freight documents</li>
               <li>Delivery photos, if available</li>
               <li>Installation date and project location</li>
+              <li>Photos of any claimed manufacturer defect</li>
             </ul>
           </div>
         </section>
@@ -80,14 +103,14 @@ export default function WarrantyPage() {
           <div className="rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
             <h2 className="text-xl font-bold">If support is needed</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">
-              Contact the distributor where the CowStop form was purchased first. If the issue requires Cattle Guard Forms support, please include the customer name, distributor name, order number, delivery location, and photos of the product or installation area.
+              Contact the distributor where the CowStop form was purchased first. If the issue requires Cattle Guard Forms support, please include the customer name, distributor name, order number, delivery location, and clear photos of the product, claimed damage, and installation area.
             </p>
           </div>
 
           <div className="rounded-xl border border-neutral-200 p-5 print:border-neutral-400">
             <h2 className="text-xl font-bold">Freight and delivery notes</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">
-              Keep all freight documents, including the original BOL, signed BOL, tracking information, and delivery photos. These records may be needed for shipping support or warranty review.
+              Keep all freight documents, including the original BOL, signed BOL, tracking information, and delivery photos. Freight damage must be documented at delivery and is not treated as a manufacturer defect.
             </p>
           </div>
         </section>
@@ -95,7 +118,7 @@ export default function WarrantyPage() {
         <section className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950 print:border-neutral-400 print:bg-white">
           <p className="font-bold">Important</p>
           <p className="mt-2">
-            This sheet is a customer-support and warranty-record document. It does not replace the invoice, bill of lading, distributor agreement, or any written warranty terms provided separately by Cattle Guard Forms.
+            This sheet is a customer-support and warranty-record document. It does not replace the invoice, bill of lading, distributor agreement, or any written warranty terms provided separately by Cattle Guard Forms. Warranty review is not automatic; all claims require photo documentation and approval by Cattle Guard Forms before return or replacement consideration.
           </p>
         </section>
 
