@@ -7,9 +7,9 @@ const portals = [
     description: "Business command center for orders, distributors, CRM activity, analytics, and settings.",
   },
   {
-    title: "Distributor Order Portal",
-    href: "/distributor/order-portal",
-    description: "Approved distributor ordering for CowStop forms, CGF freight quotes, own-freight BOL upload, and distributor pricing.",
+    title: "Distributor Portal",
+    href: "/distributor/home",
+    description: "Approved distributor home for open orders, past orders, documents, support, and Shop access for new CowStop orders.",
   },
   {
     title: "Manufacturer Portal",
@@ -46,7 +46,7 @@ export default function PortalsPage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Cattle Guard Forms portals</p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight">Portal Access</h1>
         <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">
-          Use this page as the canonical connection point between the public website and the active internal portals. Distributor ordering now routes through the clean Distributor Order Portal.
+          Use this page as the canonical connection point between the public website and the active internal portals. Distributors now land in Distributor Portal Home first, then use Shop when placing a new order.
         </p>
 
         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -66,7 +66,7 @@ export default function PortalsPage() {
         </div>
 
         <div className="mt-8 rounded-2xl bg-amber-50 p-5 text-sm leading-6 text-amber-900 ring-1 ring-amber-200">
-          Canonical routes: Admin Portal = /admin, Distributor Order Portal = /distributor/order-portal, Manufacturer Portal = /manufacturer, Marketing Portal = /marketing. Old /reseller traffic redirects to /distributor.
+          Canonical routes: Admin Portal = /admin, Distributor Portal = /distributor/home, Distributor Shop = /distributor/shop, Manufacturer Portal = /manufacturer, Marketing Portal = /marketing. Old /reseller traffic redirects to /distributor.
         </div>
       </section>
     </main>
