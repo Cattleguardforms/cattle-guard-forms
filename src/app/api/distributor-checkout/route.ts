@@ -127,8 +127,25 @@ function getFreightCharge(body: CheckoutBody) {
   return Math.round(freightCharge * 100) / 100;
 }
 
-function buildOwnFreightRedirectUrl(request: NextRequest) {
-  return `${getBaseUrl(request)}/distributor/own-freight-checkout`;
+function buildOwnFreightRedirectUrl(request: NextRequest, body: CheckoutBody) {
+  const url = new URL("/distributor/own-freight-checkout", getBaseUrl(request));
+  const fields: Array<[string, unknown]> = [
+    ["quantity", body.quantity],
+    ["email", body.email],
+    ["shipToName", body.shipToName],
+    ["shipToAddress", body.shipToAddress],
+    ["shipToCity", body.shipToCity],
+    ["shipToState", body.shipToState],
+    ["shipToZip", body.shipToZip],
+    ["contactPhone", body.contactPhone],
+  ];
+
+  for (const [key, value] of fields) {
+    const text = typeof value === "number" ? String(value) : clean(value);
+    if (text) url.searchParams.set(key, text);
+  }
+
+  return url.toString();
 }
 
 function validateBolFile(file: File | null) {
@@ -279,7 +296,7 @@ export async function POST(request: NextRequest) {
     const { body, bolFile } = await readCheckoutInput(request);
 
     if (body.shippingMethod === "own" && !bolFile) {
-      return NextResponse.json({ url: buildOwnFreightRedirectUrl(request), requiresBol: true });
+      return NextResponse.json({ url: buildOwnFreightRedirectUrl(request, body), requiresBol: true });
     }
 
     const quantity = validateBody(body, bolFile);
