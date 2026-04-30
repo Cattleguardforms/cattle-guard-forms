@@ -123,15 +123,9 @@ export default function WarrantyPage() {
         </section>
 
         <div className="mt-8 flex flex-wrap gap-3 print:hidden">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") window.print();
-            }}
-            className="rounded bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900"
-          >
-            Print warranty sheet
-          </button>
+          <div className="rounded bg-green-50 px-5 py-3 text-sm font-bold text-green-950 ring-1 ring-green-200">
+            Use your browser print command to print this warranty sheet.
+          </div>
           <Link href="/distributor/order-portal" className="rounded border border-green-800 bg-white px-5 py-3 font-bold text-green-900 hover:bg-green-50">
             Distributor order portal
           </Link>
