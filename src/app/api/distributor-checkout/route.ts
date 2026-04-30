@@ -127,27 +127,6 @@ function getFreightCharge(body: CheckoutBody) {
   return Math.round(freightCharge * 100) / 100;
 }
 
-function buildOwnFreightRedirectUrl(request: NextRequest, body: CheckoutBody) {
-  const url = new URL("/distributor/own-freight-checkout", getBaseUrl(request));
-  const fields: Array<[string, unknown]> = [
-    ["quantity", body.quantity],
-    ["email", body.email],
-    ["shipToName", body.shipToName],
-    ["shipToAddress", body.shipToAddress],
-    ["shipToCity", body.shipToCity],
-    ["shipToState", body.shipToState],
-    ["shipToZip", body.shipToZip],
-    ["contactPhone", body.contactPhone],
-  ];
-
-  for (const [key, value] of fields) {
-    const text = typeof value === "number" ? String(value) : clean(value);
-    if (text) url.searchParams.set(key, text);
-  }
-
-  return url.toString();
-}
-
 function validateBolFile(file: File | null) {
   if (!file) throw new Error("BOL upload is required when arranging your own freight.");
   if (file.size <= 0) throw new Error("BOL upload file is empty.");
@@ -294,11 +273,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const { body, bolFile } = await readCheckoutInput(request);
-
-    if (body.shippingMethod === "own" && !bolFile) {
-      return NextResponse.json({ url: buildOwnFreightRedirectUrl(request, body), requiresBol: true });
-    }
-
     const quantity = validateBody(body, bolFile);
     const { supabase, distributor } = await requireDistributor(request);
     const distributorName = clean(distributor.company_name) || clean(body.distributorAccountName) || "Approved Distributor";
@@ -374,8 +348,8 @@ export async function POST(request: NextRequest) {
         freight_charge: String(freightCharge),
         bol_file_name: bolFileName,
       },
-      success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,
-      cancel_url: `${baseUrl}/distributor/portal?checkout=cancelled&order=${orderId}`,
+      success_url: `${baseUrl}/distributor/home?checkout=success&order=${orderId}`,
+      cancel_url: `${baseUrl}/distributor/shop?checkout=cancelled&order=${orderId}`,
     });
 
     await attachStripeSession({ supabase, orderId, sessionId: session.id });
