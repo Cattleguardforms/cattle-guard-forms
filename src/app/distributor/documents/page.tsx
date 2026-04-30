@@ -9,22 +9,22 @@ const documents = [
   },
   {
     title: "Materials Packet",
-    href: "/CowStop_Materials_Packet_Revised.pdf",
+    href: "/distributor/documents/materials",
     description: "CowStop material list, pallet notes, weights, dimensions, and setup checklist.",
   },
   {
     title: "Installation Guide Packet",
-    href: "/CowStop_Installation_Guide_Packet.pdf",
+    href: "/distributor/documents/installation-guide",
     description: "Customer-facing installation guide with preparation, pour, curing, lifting, and placement steps.",
   },
   {
     title: "Engineering Certificate Packet",
-    href: "/CowStop_Engineering_Certificate_Packet.pdf",
+    href: "/distributor/documents/engineering-certificate",
     description: "HS-20 engineering certificate packet for CowStop reference documentation.",
   },
   {
     title: "Approved Distributor Packet Set",
-    href: "/CowStop_Approved_Distributor_Packet_Set_Revised.pdf",
+    href: "/distributor/documents/approved-packet-set",
     description: "Combined distributor packet containing warranty, materials, installation, and engineering documents.",
   },
 ];
@@ -54,10 +54,6 @@ export default function DistributorDocumentsPage() {
               <span className="mt-4 inline-flex rounded bg-green-800 px-4 py-2 text-sm font-bold text-white">Open document</span>
             </Link>
           ))}
-        </div>
-
-        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-          PDF file links require the packets to be present in the app public folder. If a packet link 404s after deploy, upload the matching PDF into the repository public folder or wire this room to Supabase Storage.
         </div>
       </section>
     </main>
