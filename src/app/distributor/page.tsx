@@ -3,7 +3,7 @@ import Link from "next/link";
 export const metadata = {
   title: "CowStop Distributor Access | Cattle Guard Forms",
   description:
-    "Request approved distributor access or sign in to the CowStop distributor portal for reusable cattle guard form ordering and support.",
+    "Request approved distributor access or sign in to the CowStop distributor order portal for reusable cattle guard form ordering and support.",
 };
 
 function Header() {
@@ -38,18 +38,15 @@ export default function DistributorPage() {
             CowStop distributor access is by approval only.
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-neutral-700">
-            Approved distributor accounts can sign in to the distributor portal for CowStop ordering and account support. New distributor requests are reviewed before portal access is enabled.
+            Approved distributor accounts can sign in to one clean order portal for CowStop orders, Cattle Guard Forms freight quotes, or distributor-arranged freight with BOL upload.
           </p>
           <p className="mt-4 max-w-3xl text-base leading-7 text-neutral-700">
-            If you are an existing distributor, use the portal sign-in below. If you want to apply for distributor access, contact support and include your company name, contact information, service area, and expected order volume.
+            If you are an existing distributor, use the order portal below. If you want to apply for distributor access, contact support and include your company name, contact information, service area, and expected order volume.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="/distributor/portal" className="inline-flex justify-center rounded bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900">
-              Distributor Portal Sign In
-            </Link>
-            <Link href="/distributor/own-freight-checkout" className="inline-flex justify-center rounded bg-amber-600 px-6 py-3 font-semibold text-white hover:bg-amber-700">
-              Own Freight / Upload BOL
+            <Link href="/distributor/order-portal" className="inline-flex justify-center rounded bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900">
+              Distributor Order Portal
             </Link>
             <Link href="/contact?topic=Distributor%20Access" className="inline-flex justify-center rounded border border-green-800 bg-white px-6 py-3 font-semibold text-green-900 hover:bg-green-50">
               Request Distributor Access
@@ -62,22 +59,12 @@ export default function DistributorPage() {
 
         <aside className="space-y-6">
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-2xl font-semibold">Approved distributor portal</h2>
+            <h2 className="text-2xl font-semibold">Approved distributor order portal</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">
-              Approved accounts can sign in to access distributor ordering and support workflows. Distributor access is role-gated and requires an active approved account.
+              Approved accounts can order CowStop forms, choose CGF freight or distributor-arranged freight, and upload BOL documents in one portal.
             </p>
-            <Link href="/distributor/portal" className="mt-4 inline-flex font-semibold text-green-800 hover:text-green-900">
-              Open distributor portal →
-            </Link>
-          </section>
-
-          <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-2xl font-semibold">Own freight / BOL upload</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">
-              If the distributor is arranging freight, customer warranty information and a BOL are required before checkout. The BOL is emailed with the order to fulfillment.
-            </p>
-            <Link href="/distributor/own-freight-checkout" className="mt-4 inline-flex font-semibold text-green-800 hover:text-green-900">
-              Start own-freight checkout →
+            <Link href="/distributor/order-portal" className="mt-4 inline-flex font-semibold text-green-800 hover:text-green-900">
+              Open distributor order portal →
             </Link>
           </section>
 
