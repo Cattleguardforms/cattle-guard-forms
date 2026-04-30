@@ -127,6 +127,10 @@ function getFreightCharge(body: CheckoutBody) {
   return Math.round(freightCharge * 100) / 100;
 }
 
+function buildOwnFreightRedirectUrl(request: NextRequest) {
+  return `${getBaseUrl(request)}/distributor/own-freight-checkout`;
+}
+
 function validateBolFile(file: File | null) {
   if (!file) throw new Error("BOL upload is required when arranging your own freight.");
   if (file.size <= 0) throw new Error("BOL upload file is empty.");
@@ -273,6 +277,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const { body, bolFile } = await readCheckoutInput(request);
+
+    if (body.shippingMethod === "own" && !bolFile) {
+      return NextResponse.json({ url: buildOwnFreightRedirectUrl(request), requiresBol: true });
+    }
+
     const quantity = validateBody(body, bolFile);
     const { supabase, distributor } = await requireDistributor(request);
     const distributorName = clean(distributor.company_name) || clean(body.distributorAccountName) || "Approved Distributor";
