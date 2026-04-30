@@ -8,6 +8,12 @@ export const runtime = "nodejs";
 
 type LooseRecord = Record<string, unknown>;
 
+type BolAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -55,6 +61,39 @@ async function findDistributor(order: LooseRecord) {
 
   if (error) throw new Error(`Distributor lookup failed: ${error.message}`);
   return (data ?? null) as LooseRecord | null;
+}
+
+async function findOriginalBolAttachment(orderId: string): Promise<BolAttachment | undefined> {
+  const supabase = createSupabaseAdminClient();
+  const { data: fileRecord, error } = await supabase
+    .from("order_files")
+    .select("file_name, storage_path, content_type")
+    .eq("order_id", orderId)
+    .eq("file_type", "original_bol")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Paid PO BOL lookup skipped", error.message);
+    return undefined;
+  }
+
+  const storagePath = clean(fileRecord?.storage_path);
+  if (!storagePath) return undefined;
+
+  const { data: blob, error: downloadError } = await supabase.storage.from("order-files").download(storagePath);
+  if (downloadError || !blob) {
+    console.warn("Paid PO BOL download skipped", downloadError?.message);
+    return undefined;
+  }
+
+  const arrayBuffer = await blob.arrayBuffer();
+  return {
+    filename: clean(fileRecord?.file_name) || "customer-bol.pdf",
+    content: Buffer.from(arrayBuffer),
+    contentType: clean(fileRecord?.content_type) || undefined,
+  };
 }
 
 async function createCrmActivity(input: {
@@ -152,6 +191,7 @@ function buildShipTo(order: LooseRecord, customer: LooseRecord | null) {
 }
 
 async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order: LooseRecord) {
+  const orderId = clean(order.id) || clean(session.metadata?.orderId);
   const customer = await findCustomer(order);
   const distributor = await findDistributor(order);
   const email =
@@ -173,25 +213,33 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
     clean(customer?.company) ||
     "Cattle Guard Forms Customer";
   const customerName =
+    clean(session.metadata?.warranty_customer_name) ||
     clean(order.customer_name) ||
     clean(customer?.customer_name) ||
     [clean(customer?.first_name), clean(customer?.last_name)].filter(Boolean).join(" ") ||
     clean(customer?.company) ||
     clean(customer?.company_name) ||
     undefined;
+  const customerEmail =
+    clean(session.metadata?.warranty_customer_email) ||
+    clean(customer?.email) ||
+    clean(session.customer_details?.email) ||
+    undefined;
+  const bolAttachment = orderId ? await findOriginalBolAttachment(orderId) : undefined;
 
   await sendDistributorOrderEmails({
-    orderId: clean(order.id) || clean(session.metadata?.orderId),
+    orderId,
     distributorAccountName,
     email,
     customerName,
-    customerEmail: clean(customer?.email) || clean(session.customer_details?.email) || undefined,
+    customerEmail,
     quantity,
-    shippingMethod: clean(order.shipping_method) || "echo",
+    shippingMethod: clean(order.shipping_method) || clean(session.metadata?.shipping_method) || "echo",
     ...buildShipTo(order, customer),
-    selectedRate: clean(order.selected_rate) || undefined,
-    bolFileName: clean(order.bol_file) || undefined,
-    orderNotes: clean(order.notes) || clean(order.admin_notes) || undefined,
+    selectedRate: clean(order.selected_rate) || clean(session.metadata?.selected_rate) || undefined,
+    bolFileName: clean(order.bol_file) || clean(session.metadata?.bol_file_name) || bolAttachment?.filename || undefined,
+    bolAttachment,
+    orderNotes: clean(order.manufacturer_notes) || clean(order.notes) || clean(order.admin_notes) || undefined,
     stripeSessionId: session.id,
   });
 }
