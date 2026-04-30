@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { sendDistributorOrderEmails } from "@/lib/email/resend";
 
 export const runtime = "nodejs";
 
@@ -165,7 +164,7 @@ function warrantyNote(body: CheckoutBody) {
     `Email: ${clean(body.warrantyCustomerEmail) || "Not set"}`,
     `Phone: ${clean(body.warrantyCustomerPhone) || "Not set"}`,
     `Shipping method: ${body.shippingMethod === "own" ? "Distributor-arranged freight" : "Cattle Guard Forms freight quote"}`,
-    body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Attached"}` : "",
+    body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Attached after payment"}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -173,8 +172,6 @@ async function createPendingOrder(input: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   distributorId: string;
   distributorName: string;
-  distributorEmail: string;
-  orderContactEmail: string;
   body: CheckoutBody;
   quantity: number;
 }) {
@@ -259,7 +256,7 @@ async function saveBolFile(input: {
   });
 
   if (insertError) throw new Error(`BOL file metadata insert failed: ${insertError.message}`);
-  return { filename, content, contentType: input.file.type || undefined };
+  return { filename, contentType: input.file.type || undefined };
 }
 
 async function attachStripeSession(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; orderId: string; sessionId: string }) {
@@ -287,34 +284,14 @@ export async function POST(request: NextRequest) {
       supabase,
       distributorId: clean(distributor.id),
       distributorName,
-      distributorEmail,
-      orderContactEmail,
       body,
       quantity,
     });
 
-    let bolAttachment: { filename: string; content: Buffer; contentType?: string } | undefined;
+    let bolFileName = clean(body.bolFileName);
     if (shippingMethod === "own" && bolFile) {
-      bolAttachment = await saveBolFile({ supabase, orderId, file: bolFile });
-      await sendDistributorOrderEmails({
-        orderId,
-        distributorAccountName: distributorName,
-        email: distributorEmail,
-        customerName: clean(body.warrantyCustomerName),
-        customerEmail: clean(body.warrantyCustomerEmail),
-        quantity,
-        shippingMethod,
-        shipToName: clean(body.shipToName),
-        shipToAddress: clean(body.shipToAddress),
-        shipToAddress2: clean(body.shipToAddress2),
-        shipToCity: clean(body.shipToCity),
-        shipToState: clean(body.shipToState),
-        shipToZip: clean(body.shipToZip),
-        selectedRate: "Distributor-arranged freight",
-        bolFileName: bolAttachment.filename,
-        bolAttachment,
-        orderNotes: warrantyNote(body),
-      });
+      const savedBol = await saveBolFile({ supabase, orderId, file: bolFile });
+      bolFileName = savedBol.filename;
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -369,7 +346,7 @@ export async function POST(request: NextRequest) {
         contact_phone: body.contactPhone ?? "",
         selected_rate: body.selectedRate ?? "",
         freight_charge: String(freightCharge),
-        bol_file_name: bolAttachment?.filename ?? body.bolFileName ?? "",
+        bol_file_name: bolFileName,
       },
       success_url: `${baseUrl}/distributor/portal?checkout=success&order=${orderId}`,
       cancel_url: `${baseUrl}/distributor/portal?checkout=cancelled&order=${orderId}`,
