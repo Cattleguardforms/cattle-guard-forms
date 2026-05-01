@@ -161,6 +161,16 @@ export default function FreightQuotePanel({
       return;
     }
 
+    if (!deliveryType.trim()) {
+      setError("Select the freight delivery location type before requesting an Echo quote.");
+      return;
+    }
+
+    if (!liftgateRequired.trim()) {
+      setError("Select whether liftgate service is required before requesting an Echo quote.");
+      return;
+    }
+
     const normalizedContactPhone = normalizePhone(contactPhone);
     if (normalizedContactPhone.length < 10) {
       setError("Enter a valid delivery contact phone number before requesting freight.");
