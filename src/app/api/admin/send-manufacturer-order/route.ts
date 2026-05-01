@@ -19,11 +19,14 @@ function tokenFrom(request: NextRequest) { const header = request.headers.get("a
 function emails(value?: string) { return (value || "").split(",").map((email) => email.trim()).filter(Boolean); }
 function num(value: unknown, fallback = 0) { const next = Number(value ?? fallback); return Number.isFinite(next) ? next : fallback; }
 function noteValue(notes: string, label: string) { const line = notes.split("\n").find((entry) => entry.toLowerCase().startsWith(`${label.toLowerCase()}:`)); return line ? line.slice(line.indexOf(":") + 1).trim() : ""; }
+function isInternalAutomation(request: NextRequest) { const expected = process.env.CGF_AUTOMATION_SECRET || process.env.STRIPE_WEBHOOK_SECRET || ""; const provided = request.headers.get("x-cgf-automation-secret") || ""; return Boolean(expected && provided && provided === expected); }
 
 async function requireAdmin(request: NextRequest) {
+  const supabase = createSupabaseAdminClient();
+  if (isInternalAutomation(request)) return supabase;
+
   const token = tokenFrom(request);
   if (!token) throw new Error("Missing admin session token.");
-  const supabase = createSupabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
   const email = userData.user.email.toLowerCase();
