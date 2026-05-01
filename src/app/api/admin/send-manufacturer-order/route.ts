@@ -14,9 +14,16 @@ type InternalDryRunEmailBody = {
   internalDryRun?: boolean;
 };
 
+const DEFAULT_FROM_EMAIL = "orders@cattleguardforms.com";
+const DEFAULT_REPLY_TO_EMAIL = "support@cattleguardforms.com";
+const DEFAULT_SUPPORT_EMAIL = "support@cattleguardforms.com";
+const DEFAULT_ORDERS_EMAIL = "orders@cattleguardforms.com";
+
 function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function isValidEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
+function safeEmail(value: unknown, fallback: string) { const candidate = clean(value); return isValidEmail(candidate) ? candidate : fallback; }
 function tokenFrom(request: NextRequest) { const header = request.headers.get("authorization") || ""; return header.startsWith("Bearer ") ? header.slice(7).trim() : ""; }
-function emails(value?: string) { return (value || "").split(",").map((email) => email.trim()).filter(Boolean); }
+function emails(value?: string) { return (value || "").split(",").map((email) => email.trim()).filter(isValidEmail); }
 function num(value: unknown, fallback = 0) { const next = Number(value ?? fallback); return Number.isFinite(next) ? next : fallback; }
 function noteValue(notes: string, label: string) { const line = notes.split("\n").find((entry) => entry.toLowerCase().startsWith(`${label.toLowerCase()}:`)); return line ? line.slice(line.indexOf(":") + 1).trim() : ""; }
 function isInternalAutomation(request: NextRequest) { const expected = process.env.CGF_AUTOMATION_SECRET || process.env.STRIPE_WEBHOOK_SECRET || ""; const provided = request.headers.get("x-cgf-automation-secret") || ""; return Boolean(expected && provided && provided === expected); }
@@ -152,15 +159,16 @@ export async function POST(request: NextRequest) {
 
     const bolAttachment = await fetchEchoBolAttachment(shipmentId, clean(orderRecord.bol_number));
     const manufacturerTemplate = buildManufacturerFulfillmentTemplate(buildOrderPayload(orderRecord, bolAttachment.filename));
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is required to send email.");
+    const resendApiKey = clean(process.env.RESEND_API_KEY);
+    if (!resendApiKey) throw new Error("RESEND_API_KEY is required to send email.");
+    const resend = new Resend(resendApiKey);
 
-    const supportEmail = process.env.SUPPORT_EMAIL || "support@cattleguardforms.com";
-    const ordersEmail = process.env.ORDERS_EMAIL || "orders@cattleguardforms.com";
-    const from = process.env.FROM_EMAIL || "orders@cattleguardforms.com";
-    const replyTo = process.env.REPLY_TO_EMAIL || ordersEmail;
+    const supportEmail = safeEmail(process.env.SUPPORT_EMAIL, DEFAULT_SUPPORT_EMAIL);
+    const ordersEmail = safeEmail(process.env.ORDERS_EMAIL, DEFAULT_ORDERS_EMAIL);
+    const from = safeEmail(process.env.FROM_EMAIL, DEFAULT_FROM_EMAIL);
+    const replyTo = safeEmail(process.env.REPLY_TO_EMAIL || process.env.ORDERS_EMAIL, DEFAULT_REPLY_TO_EMAIL);
     const manufacturerRecipients = body.internalDryRun ? [supportEmail] : emails(process.env.MANUFACTURER_EMAILS);
-    if (manufacturerRecipients.length === 0) throw new Error("MANUFACTURER_EMAILS must include at least one recipient.");
+    if (manufacturerRecipients.length === 0) throw new Error("MANUFACTURER_EMAILS must include at least one valid recipient.");
 
     const manufacturerResult = await resend.emails.send({
       from,
