@@ -27,6 +27,14 @@ function stripeId(value: string | Stripe.PaymentIntent | Stripe.Customer | null 
   return typeof value === "string" ? value : value.id;
 }
 
+function siteUrl() {
+  return (process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "https://cattleguardforms.com").replace(/^https?:\/\//, "https://").replace(/\/$/, "");
+}
+
+function automationSecret() {
+  return process.env.CGF_AUTOMATION_SECRET || process.env.STRIPE_WEBHOOK_SECRET || "";
+}
+
 async function findOrder(orderId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
@@ -244,6 +252,44 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
   });
 }
 
+function shouldAutoFulfill(order: LooseRecord) {
+  const isDistributorOrder = clean(order.order_type) === "distributor" || Boolean(clean(order.distributor_profile_id));
+  const usesEcho = (clean(order.shipping_method) || "echo") === "echo";
+  const alreadyBooked = ["echo_booked", "shipped", "delivered"].includes(clean(order.shipment_status));
+  return isDistributorOrder && usesEcho && !alreadyBooked;
+}
+
+async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
+  if (!shouldAutoFulfill(order)) return;
+  const secret = automationSecret();
+  if (!secret) throw new Error("Automation secret is not configured.");
+  const baseUrl = siteUrl();
+
+  const bookResponse = await fetch(`${baseUrl}/api/echo/book-ltl-shipment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
+    body: JSON.stringify({ orderId, dryRun: false }),
+  });
+  const bookPayload = await bookResponse.json();
+  if (!bookResponse.ok || !bookPayload.ok) throw new Error(`Auto Echo booking failed: ${JSON.stringify(bookPayload).slice(0, 1200)}`);
+
+  const emailResponse = await fetch(`${baseUrl}/api/admin/send-manufacturer-order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
+    body: JSON.stringify({ orderId, internalDryRun: true }),
+  });
+  const emailPayload = await emailResponse.json();
+  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal fulfillment email failed: ${JSON.stringify(emailPayload).slice(0, 1200)}`);
+
+  await createCrmActivity({
+    title: `Auto fulfillment completed for order ${orderId}`,
+    description: `Echo booking and internal dry-run fulfillment emails completed after Stripe payment. Echo BOL: ${bookPayload.bolNumber || "not provided"}.`,
+    orderId,
+    customerId: clean(order.customer_id) || null,
+    distributorProfileId: clean(order.distributor_profile_id) || null,
+  });
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const orderId = clean(session.metadata?.orderId);
   if (!orderId) throw new Error("Stripe checkout.session.completed is missing metadata.orderId.");
@@ -267,6 +313,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       await createCrmActivity({
         title: `Payment email workflow needs review for order ${orderId}`,
         description: error instanceof Error ? error.message : "Unable to send payment workflow emails.",
+        orderId,
+        customerId: clean(order.customer_id) || null,
+        distributorProfileId: clean(order.distributor_profile_id) || null,
+        status: "open",
+      });
+    }
+
+    try {
+      await triggerAutoFulfillment(orderId, order);
+    } catch (error) {
+      console.warn("Stripe webhook auto fulfillment needs review", error);
+      await createCrmActivity({
+        title: `Auto fulfillment needs review for order ${orderId}`,
+        description: error instanceof Error ? error.message : "Unable to run auto fulfillment.",
         orderId,
         customerId: clean(order.customer_id) || null,
         distributorProfileId: clean(order.distributor_profile_id) || null,
