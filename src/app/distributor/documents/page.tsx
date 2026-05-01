@@ -23,15 +23,20 @@ const documents = [
     description: "HS-20 engineering certificate packet for CowStop reference documentation.",
   },
   {
+    title: "Frequently Asked Questions",
+    href: "/faq",
+    description: "Updated CowStop frequently asked questions for customer and distributor reference.",
+  },
+  {
     title: "Approved Distributor Packet Set",
     href: "/distributor/documents/approved-packet-set",
-    description: "Combined distributor packet containing warranty, materials, installation, and engineering documents.",
+    description: "Combined distributor packet containing warranty, materials, installation, engineering, and FAQ documents.",
   },
 ];
 
 export const metadata = {
   title: "Distributor Documents | Cattle Guard Forms",
-  description: "Distributor document room for CowStop warranty, materials, installation, and engineering packets.",
+  description: "Distributor document room for CowStop warranty, materials, installation, engineering, and FAQ packets.",
 };
 
 export default function DistributorDocumentsPage() {
@@ -42,7 +47,7 @@ export default function DistributorDocumentsPage() {
         <p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal</p>
         <h1 className="mt-2 text-3xl font-black">Documents</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">
-          Access approved CowStop paperwork for distributors and customers. These documents should be used for warranty records, material planning, installation support, and engineering reference.
+          Access approved CowStop paperwork for distributors and customers. Open any document, then use Download / Save PDF to create a customer-ready PDF copy.
         </p>
         <DistributorNav active="documents" />
 
