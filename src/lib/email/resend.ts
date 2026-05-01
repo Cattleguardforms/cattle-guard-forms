@@ -38,8 +38,20 @@ export type DistributorOrderEmailPayload = {
   stripeSessionId?: string;
 };
 
+const DEFAULT_FROM_EMAIL = "orders@cattleguardforms.com";
+const DEFAULT_REPLY_TO_EMAIL = "support@cattleguardforms.com";
+const DEFAULT_SUPPORT_EMAIL = "support@cattleguardforms.com";
+
+function clean(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 function requireEnv(name: string) {
-  const value = process.env[name];
+  const value = clean(process.env[name]);
   if (!value) {
     throw new Error(`${name} is required to send order emails.`);
   }
@@ -47,30 +59,39 @@ function requireEnv(name: string) {
 }
 
 function optionalEnv(name: string) {
-  return process.env[name];
+  return clean(process.env[name]);
+}
+
+function safeEmail(value: string | undefined, fallback: string) {
+  const candidate = clean(value);
+  return isValidEmail(candidate) ? candidate : fallback;
 }
 
 function parseEmailList(value: string) {
   return value
     .split(",")
     .map((email) => email.trim())
-    .filter(Boolean);
+    .filter(isValidEmail);
 }
 
 function getManufacturerEmails() {
   const emails = parseEmailList(requireEnv("MANUFACTURER_EMAILS"));
   if (emails.length === 0) {
-    throw new Error("MANUFACTURER_EMAILS must include at least one email address.");
+    throw new Error("MANUFACTURER_EMAILS must include at least one valid email address.");
   }
   return emails;
 }
 
 function getEmailSettings() {
+  const fromEmail = safeEmail(optionalEnv("FROM_EMAIL"), DEFAULT_FROM_EMAIL);
+  const replyToEmail = safeEmail(optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL"), DEFAULT_REPLY_TO_EMAIL);
+  const supportEmail = safeEmail(optionalEnv("SUPPORT_EMAIL"), DEFAULT_SUPPORT_EMAIL);
+
   return {
     resendApiKey: requireEnv("RESEND_API_KEY"),
-    fromEmail: optionalEnv("FROM_EMAIL") || "orders@cattleguardforms.com",
-    replyToEmail: optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL") || "orders@cattleguardforms.com",
-    supportEmail: requireEnv("SUPPORT_EMAIL"),
+    fromEmail,
+    replyToEmail,
+    supportEmail,
   };
 }
 
