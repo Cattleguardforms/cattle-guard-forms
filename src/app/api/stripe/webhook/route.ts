@@ -33,7 +33,9 @@ function stripeId(value: string | Stripe.PaymentIntent | Stripe.Customer | null 
 }
 
 function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "https://cattleguardforms.com").replace(/^https?:\/\//, "https://").replace(/\/$/, "");
+  const configured = clean(process.env.NEXT_PUBLIC_SITE_URL) || clean(process.env.VERCEL_URL) || "cattleguardforms.com";
+  const withProtocol = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
+  return withProtocol.replace(/\/$/, "");
 }
 
 function automationSecret() {
