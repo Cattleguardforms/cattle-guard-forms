@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const DISTRIBUTOR_UNIT_AMOUNT = 75000;
 const DISTRIBUTOR_UNIT_PRICE = 750;
 const MAX_QUANTITY = 50;
+const MAX_COWSTOPS_PER_PALLET = 6;
 const ORDER_FILES_BUCKET = "order-files";
 const MAX_BOL_SIZE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_BOL_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
@@ -29,6 +30,29 @@ function getBearerToken(request: NextRequest) {
 function safeFilename(name: string) {
   const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120);
   return cleaned || "bol-file";
+}
+
+function getPalletPlan(quantity: number) {
+  const remainder = quantity % MAX_COWSTOPS_PER_PALLET;
+  const unitsOnLastPallet = remainder === 0 ? MAX_COWSTOPS_PER_PALLET : remainder;
+  const palletCount = Math.ceil(quantity / MAX_COWSTOPS_PER_PALLET);
+
+  const lastPallet = {
+    1: { length: 72, width: 48, height: 20, weight: 105 },
+    2: { length: 72, width: 48, height: 20, weight: 190 },
+    3: { length: 72, width: 48, height: 36, weight: 270 },
+    4: { length: 72, width: 48, height: 36, weight: 355 },
+    5: { length: 72, width: 48, height: 52, weight: 440 },
+    6: { length: 72, width: 48, height: 52, weight: 525 },
+  }[unitsOnLastPallet];
+
+  return {
+    palletCount,
+    length: lastPallet.length,
+    width: lastPallet.width,
+    height: lastPallet.height,
+    weight: (Math.floor(quantity / MAX_COWSTOPS_PER_PALLET) * 525) + (remainder === 0 ? 0 : lastPallet.weight),
+  };
 }
 
 type CheckoutBody = {
@@ -151,6 +175,8 @@ function validateBody(body: CheckoutBody, bolFile: File | null) {
   if (missingShipTo) throw new Error("Ship-to name, address, city, state, and ZIP are required.");
 
   if (shippingMethod === "echo") {
+    if (!clean(body.deliveryType)) throw new Error("Delivery location type is required before checkout.");
+    if (!clean(body.liftgateRequired)) throw new Error("Liftgate selection is required before checkout.");
     if (!clean(body.selectedRate)) throw new Error("A freight option is required before checkout.");
     if (getFreightCharge(body) <= 0) throw new Error("Selected freight charge is required before checkout.");
   }
@@ -165,6 +191,8 @@ function warrantyNote(body: CheckoutBody) {
     `Name: ${clean(body.warrantyCustomerName) || "Not set"}`,
     `Email: ${clean(body.warrantyCustomerEmail) || "Not set"}`,
     `Phone: ${clean(body.warrantyCustomerPhone) || "Not set"}`,
+    `Delivery type: ${clean(body.deliveryType) || "Not set"}`,
+    `Liftgate required: ${clean(body.liftgateRequired) || "Not set"}`,
     `Shipping method: ${body.shippingMethod === "own" ? "Distributor-arranged freight" : "Cattle Guard Forms freight quote"}`,
     body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Attached after payment"}` : "",
   ].filter(Boolean).join("\n");
@@ -174,6 +202,7 @@ async function createPendingOrder(input: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   distributorId: string;
   distributorName: string;
+  distributorEmail: string;
   body: CheckoutBody;
   quantity: number;
 }) {
@@ -181,6 +210,13 @@ async function createPendingOrder(input: {
   const total = input.quantity * DISTRIBUTOR_UNIT_PRICE + freightCharge;
   const now = new Date().toISOString();
   const shippingMethod = input.body.shippingMethod ?? "echo";
+  const palletPlan = getPalletPlan(input.quantity);
+  const contactEmail = clean(input.body.email).toLowerCase() || clean(input.distributorEmail).toLowerCase();
+  const contactName = clean(input.body.distributorAccountName) || input.distributorName;
+  const customerName = clean(input.body.warrantyCustomerName);
+  const customerEmail = clean(input.body.warrantyCustomerEmail).toLowerCase();
+  const customerPhone = clean(input.body.warrantyCustomerPhone);
+  const deliveryType = clean(input.body.deliveryType);
 
   const { data, error } = await input.supabase
     .from("orders")
@@ -199,6 +235,15 @@ async function createPendingOrder(input: {
       distributor_profile_id: input.distributorId,
       raw_vendor_name: input.distributorName,
       normalized_vendor_name: input.distributorName,
+      contact_name: contactName,
+      contact_email: contactEmail,
+      contact_phone: clean(input.body.contactPhone),
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      warranty_customer_name: customerName,
+      warranty_customer_email: customerEmail,
+      warranty_customer_phone: customerPhone,
       ship_to_name: clean(input.body.shipToName),
       ship_to_address: clean(input.body.shipToAddress),
       ship_to_address_2: clean(input.body.shipToAddress2),
@@ -209,11 +254,17 @@ async function createPendingOrder(input: {
       project_city: clean(input.body.shipToCity),
       project_state: clean(input.body.shipToState),
       project_postal_code: clean(input.body.shipToZip),
-      contact_phone: clean(input.body.contactPhone),
-      delivery_type: clean(input.body.deliveryType),
+      delivery_type: deliveryType,
+      delivery_location_type: deliveryType,
       liftgate_required: clean(input.body.liftgateRequired),
       selected_rate: clean(input.body.selectedRate),
+      selected_freight_carrier: clean(input.body.selectedRate),
       freight_charge: freightCharge,
+      pallet_count: palletPlan.palletCount,
+      pallet_length_in: palletPlan.length,
+      pallet_width_in: palletPlan.width,
+      pallet_height_in: palletPlan.height,
+      pallet_weight_lbs: palletPlan.weight,
       bol_file: clean(input.body.bolFileName) || null,
       manufacturer_notes: warrantyNote(input.body),
       created_at: now,
@@ -281,11 +332,13 @@ export async function POST(request: NextRequest) {
     const orderContactEmail = clean(body.email).toLowerCase();
     const distributorEmail = clean(distributor.contact_email) || orderContactEmail;
     const shippingMethod = body.shippingMethod ?? "echo";
+    const palletPlan = getPalletPlan(quantity);
 
     const orderId = await createPendingOrder({
       supabase,
       distributorId: clean(distributor.id),
       distributorName,
+      distributorEmail,
       body,
       quantity,
     });
@@ -337,6 +390,14 @@ export async function POST(request: NextRequest) {
         warranty_customer_name: clean(body.warrantyCustomerName),
         warranty_customer_email: clean(body.warrantyCustomerEmail),
         warranty_customer_phone: clean(body.warrantyCustomerPhone),
+        delivery_type: clean(body.deliveryType),
+        delivery_location_type: clean(body.deliveryType),
+        liftgate_required: clean(body.liftgateRequired),
+        pallet_count: String(palletPlan.palletCount),
+        pallet_length_in: String(palletPlan.length),
+        pallet_width_in: String(palletPlan.width),
+        pallet_height_in: String(palletPlan.height),
+        pallet_weight_lbs: String(palletPlan.weight),
         quantity: String(quantity),
         unit_price: "750.00",
         shipping_method: shippingMethod,
