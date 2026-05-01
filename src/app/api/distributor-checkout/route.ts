@@ -48,6 +48,13 @@ function safeFilename(name: string) {
   return cleaned || "bol-file";
 }
 
+function splitName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] };
+}
+
 function getPalletPlan(quantity: number) {
   const fullPallets = Math.floor(quantity / MAX_COWSTOPS_PER_PALLET);
   const remainder = quantity % MAX_COWSTOPS_PER_PALLET;
@@ -207,11 +214,52 @@ function warrantyNote(body: CheckoutBody) {
   ].filter(Boolean).join("\n");
 }
 
+async function upsertWarrantyCustomer(input: {
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  body: CheckoutBody;
+  distributorName: string;
+}) {
+  const email = clean(input.body.warrantyCustomerEmail).toLowerCase();
+  const name = clean(input.body.warrantyCustomerName);
+  const { firstName, lastName } = splitName(name);
+  const customerData = {
+    email,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    phone: clean(input.body.warrantyCustomerPhone) || null,
+    company: clean(input.body.shipToName) || clean(input.distributorName) || null,
+    address_line1: clean(input.body.shipToAddress) || null,
+    address_line2: clean(input.body.shipToAddress2) || null,
+    city: clean(input.body.shipToCity) || null,
+    state: clean(input.body.shipToState) || null,
+    postal_code: clean(input.body.shipToZip) || null,
+  };
+
+  const { data: existing, error: lookupError } = await input.supabase
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (lookupError) throw new Error(`Warranty customer lookup failed: ${lookupError.message}`);
+
+  if (existing?.id) {
+    const { error } = await input.supabase.from("customers").update(customerData).eq("id", existing.id);
+    if (error) throw new Error(`Warranty customer update failed: ${error.message}`);
+    return clean(existing.id);
+  }
+
+  const { data, error } = await input.supabase.from("customers").insert(customerData).select("id").single();
+  if (error || !data?.id) throw new Error(`Warranty customer create failed: ${error?.message || "missing customer id"}`);
+  return clean(data.id);
+}
+
 async function createPendingOrder(input: {
   supabase: ReturnType<typeof createSupabaseAdminClient>;
   distributorId: string;
   distributorName: string;
   distributorEmail: string;
+  customerId: string;
   body: CheckoutBody;
   quantity: number;
 }) {
@@ -230,6 +278,7 @@ async function createPendingOrder(input: {
   const { data, error } = await input.supabase
     .from("orders")
     .insert({
+      customer_id: input.customerId,
       order_type: "distributor",
       product_name: "CowStop Reusable Form",
       product_status: "active",
@@ -285,6 +334,20 @@ async function createPendingOrder(input: {
   if (error) throw new Error(`Unable to create distributor order before checkout: ${error.message}`);
   const orderId = clean(data?.id);
   if (!orderId) throw new Error("Distributor order was created without an order ID.");
+
+  const { error: activityError } = await input.supabase.from("crm_activity").insert({
+    activity_type: "distributor_checkout_started",
+    title: `Distributor checkout started for warranty customer ${customerName}`,
+    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s). Warranty customer: ${customerName}, ${customerEmail}, ${customerPhone}.`,
+    order_id: orderId,
+    source: "distributor_checkout",
+    status: "open",
+  });
+
+  if (activityError) {
+    console.warn("Unable to create distributor warranty customer CRM activity", activityError.message);
+  }
+
   return orderId;
 }
 
@@ -342,12 +405,14 @@ export async function POST(request: NextRequest) {
     const distributorEmail = clean(distributor.contact_email) || orderContactEmail;
     const shippingMethod = body.shippingMethod ?? "echo";
     const palletPlan = getPalletPlan(quantity);
+    const customerId = await upsertWarrantyCustomer({ supabase, body, distributorName });
 
     const orderId = await createPendingOrder({
       supabase,
       distributorId: clean(distributor.id),
       distributorName,
       distributorEmail,
+      customerId,
       body,
       quantity,
     });
@@ -392,6 +457,7 @@ export async function POST(request: NextRequest) {
       ],
       metadata: {
         orderId,
+        customer_id: customerId,
         order_type: "distributor",
         distributor_profile_id: clean(distributor.id),
         distributor_account_name: distributorName,
