@@ -53,9 +53,7 @@ function stripeId(value: string | Stripe.PaymentIntent | Stripe.Customer | null 
 }
 
 function siteUrl() {
-  const configured = clean(process.env.NEXT_PUBLIC_SITE_URL) || clean(process.env.VERCEL_URL) || "cattleguardforms.com";
-  const withProtocol = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
-  return withProtocol.replace(/\/$/, "");
+  return "https://cattleguardforms.com";
 }
 
 function automationSecret() {
