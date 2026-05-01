@@ -12,6 +12,22 @@ const ORDER_FILES_BUCKET = "order-files";
 const MAX_BOL_SIZE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_BOL_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
+type PalletSpec = {
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+};
+
+const PALLET_SPECS_BY_UNIT_COUNT: Record<1 | 2 | 3 | 4 | 5 | 6, PalletSpec> = {
+  1: { length: 72, width: 48, height: 20, weight: 105 },
+  2: { length: 72, width: 48, height: 20, weight: 190 },
+  3: { length: 72, width: 48, height: 36, weight: 270 },
+  4: { length: 72, width: 48, height: 36, weight: 355 },
+  5: { length: 72, width: 48, height: 52, weight: 440 },
+  6: { length: 72, width: 48, height: 52, weight: 525 },
+};
+
 function getBaseUrl(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (origin) return origin;
@@ -33,25 +49,18 @@ function safeFilename(name: string) {
 }
 
 function getPalletPlan(quantity: number) {
+  const fullPallets = Math.floor(quantity / MAX_COWSTOPS_PER_PALLET);
   const remainder = quantity % MAX_COWSTOPS_PER_PALLET;
-  const unitsOnLastPallet = remainder === 0 ? MAX_COWSTOPS_PER_PALLET : remainder;
+  const unitsOnLastPallet = (remainder === 0 ? MAX_COWSTOPS_PER_PALLET : remainder) as 1 | 2 | 3 | 4 | 5 | 6;
   const palletCount = Math.ceil(quantity / MAX_COWSTOPS_PER_PALLET);
-
-  const lastPallet = {
-    1: { length: 72, width: 48, height: 20, weight: 105 },
-    2: { length: 72, width: 48, height: 20, weight: 190 },
-    3: { length: 72, width: 48, height: 36, weight: 270 },
-    4: { length: 72, width: 48, height: 36, weight: 355 },
-    5: { length: 72, width: 48, height: 52, weight: 440 },
-    6: { length: 72, width: 48, height: 52, weight: 525 },
-  }[unitsOnLastPallet];
+  const lastPallet = PALLET_SPECS_BY_UNIT_COUNT[unitsOnLastPallet];
 
   return {
     palletCount,
     length: lastPallet.length,
     width: lastPallet.width,
     height: lastPallet.height,
-    weight: (Math.floor(quantity / MAX_COWSTOPS_PER_PALLET) * 525) + (remainder === 0 ? 0 : lastPallet.weight),
+    weight: fullPallets * PALLET_SPECS_BY_UNIT_COUNT[6].weight + (remainder === 0 ? 0 : lastPallet.weight),
   };
 }
 
