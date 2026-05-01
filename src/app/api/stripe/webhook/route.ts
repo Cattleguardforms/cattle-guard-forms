@@ -23,6 +23,26 @@ function validEmail(value: unknown) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : "";
 }
 
+async function readAutomationResponse(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  const text = await response.text();
+  if (contentType.includes("application/json") && text) {
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return { ok: false, parseError: "Automation response claimed JSON but could not be parsed.", rawResponse: text.slice(0, 1200) };
+    }
+  }
+  if (text.trim().startsWith("{")) {
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return { ok: false, parseError: "Automation response could not be parsed as JSON.", rawResponse: text.slice(0, 1200) };
+    }
+  }
+  return { ok: false, nonJsonResponse: true, contentType, rawResponse: text.slice(0, 1200) };
+}
+
 function centsToDollars(value: number | null | undefined) {
   return typeof value === "number" ? value / 100 : null;
 }
@@ -280,16 +300,16 @@ async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
     headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
     body: JSON.stringify({ orderId, dryRun: false }),
   });
-  const bookPayload = await bookResponse.json();
-  if (!bookResponse.ok || !bookPayload.ok) throw new Error(`Auto Echo booking failed: ${JSON.stringify(bookPayload).slice(0, 1200)}`);
+  const bookPayload = await readAutomationResponse(bookResponse);
+  if (!bookResponse.ok || !bookPayload.ok) throw new Error(`Auto Echo booking failed at ${baseUrl}/api/echo/book-ltl-shipment: ${JSON.stringify(bookPayload).slice(0, 1600)}`);
 
   const emailResponse = await fetch(`${baseUrl}/api/admin/send-manufacturer-order`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
     body: JSON.stringify({ orderId, internalDryRun: true }),
   });
-  const emailPayload = await emailResponse.json();
-  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal fulfillment email failed: ${JSON.stringify(emailPayload).slice(0, 1200)}`);
+  const emailPayload = await readAutomationResponse(emailResponse);
+  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal fulfillment email failed at ${baseUrl}/api/admin/send-manufacturer-order: ${JSON.stringify(emailPayload).slice(0, 1600)}`);
 
   await createCrmActivity({
     title: `Auto fulfillment completed for order ${orderId}`,
