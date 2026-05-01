@@ -18,6 +18,11 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function validEmail(value: unknown) {
+  const candidate = clean(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : "";
+}
+
 function centsToDollars(value: number | null | undefined) {
   return typeof value === "number" ? value / 100 : null;
 }
@@ -203,12 +208,12 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
   const customer = await findCustomer(order);
   const distributor = await findDistributor(order);
   const email =
-    clean(distributor?.contact_email) ||
-    clean(order.email) ||
-    clean(order.customer_email) ||
-    clean(customer?.email) ||
-    clean(session.customer_details?.email) ||
-    clean(session.customer_email);
+    validEmail(distributor?.contact_email) ||
+    validEmail(order.email) ||
+    validEmail(order.customer_email) ||
+    validEmail(customer?.email) ||
+    validEmail(session.customer_details?.email) ||
+    validEmail(session.customer_email);
 
   if (!email) return;
 
@@ -221,6 +226,7 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
     clean(customer?.company) ||
     "Cattle Guard Forms Customer";
   const customerName =
+    clean(order.warranty_customer_name) ||
     clean(session.metadata?.warranty_customer_name) ||
     clean(order.customer_name) ||
     clean(customer?.customer_name) ||
@@ -229,9 +235,11 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
     clean(customer?.company_name) ||
     undefined;
   const customerEmail =
-    clean(session.metadata?.warranty_customer_email) ||
-    clean(customer?.email) ||
-    clean(session.customer_details?.email) ||
+    validEmail(order.warranty_customer_email) ||
+    validEmail(session.metadata?.warranty_customer_email) ||
+    validEmail(order.customer_email) ||
+    validEmail(customer?.email) ||
+    validEmail(session.customer_details?.email) ||
     undefined;
   const bolAttachment = orderId ? await findOriginalBolAttachment(orderId) : undefined;
 
