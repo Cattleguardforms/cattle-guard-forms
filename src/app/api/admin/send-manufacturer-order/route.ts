@@ -14,14 +14,13 @@ type InternalDryRunEmailBody = {
   internalDryRun?: boolean;
 };
 
-const DEFAULT_FROM_EMAIL = "orders@cattleguardforms.com";
-const DEFAULT_REPLY_TO_EMAIL = "support@cattleguardforms.com";
-const DEFAULT_SUPPORT_EMAIL = "support@cattleguardforms.com";
-const DEFAULT_ORDERS_EMAIL = "orders@cattleguardforms.com";
+const TRANSACTIONAL_FROM_EMAIL = "orders@cattleguardforms.com";
+const TRANSACTIONAL_REPLY_TO_EMAIL = "support@cattleguardforms.com";
+const TRANSACTIONAL_SUPPORT_EMAIL = "support@cattleguardforms.com";
+const TRANSACTIONAL_ORDERS_EMAIL = "orders@cattleguardforms.com";
 
 function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
 function isValidEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
-function safeEmail(value: unknown, fallback: string) { const candidate = clean(value); return isValidEmail(candidate) ? candidate : fallback; }
 function tokenFrom(request: NextRequest) { const header = request.headers.get("authorization") || ""; return header.startsWith("Bearer ") ? header.slice(7).trim() : ""; }
 function emails(value?: string) { return (value || "").split(",").map((email) => email.trim()).filter(isValidEmail); }
 function num(value: unknown, fallback = 0) { const next = Number(value ?? fallback); return Number.isFinite(next) ? next : fallback; }
@@ -93,7 +92,7 @@ function buildOrderPayload(order: DbRecord, attachmentName: string): OrderWorkfl
   return {
     orderId: clean(order.id),
     distributorAccountName: clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_display_name) || "Distributor",
-    distributorEmail: clean(order.order_contact_email) || clean(order.customer_email) || clean(order.distributor_email) || "orders@cattleguardforms.com",
+    distributorEmail: clean(order.order_contact_email) || clean(order.customer_email) || clean(order.distributor_email) || TRANSACTIONAL_ORDERS_EMAIL,
     customerName: noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name),
     customerEmail: noteValue(notes, "Email") || clean(order.customer_email),
     quantity: num(order.cowstop_quantity ?? order.quantity ?? order.quantity_display, 1),
@@ -163,10 +162,10 @@ export async function POST(request: NextRequest) {
     if (!resendApiKey) throw new Error("RESEND_API_KEY is required to send email.");
     const resend = new Resend(resendApiKey);
 
-    const supportEmail = safeEmail(process.env.SUPPORT_EMAIL, DEFAULT_SUPPORT_EMAIL);
-    const ordersEmail = safeEmail(process.env.ORDERS_EMAIL, DEFAULT_ORDERS_EMAIL);
-    const from = safeEmail(process.env.FROM_EMAIL, DEFAULT_FROM_EMAIL);
-    const replyTo = safeEmail(process.env.REPLY_TO_EMAIL || process.env.ORDERS_EMAIL, DEFAULT_REPLY_TO_EMAIL);
+    const supportEmail = TRANSACTIONAL_SUPPORT_EMAIL;
+    const ordersEmail = TRANSACTIONAL_ORDERS_EMAIL;
+    const from = TRANSACTIONAL_FROM_EMAIL;
+    const replyTo = TRANSACTIONAL_REPLY_TO_EMAIL;
     const manufacturerRecipients = body.internalDryRun ? [supportEmail] : emails(process.env.MANUFACTURER_EMAILS);
     if (manufacturerRecipients.length === 0) throw new Error("MANUFACTURER_EMAILS must include at least one valid recipient.");
 
