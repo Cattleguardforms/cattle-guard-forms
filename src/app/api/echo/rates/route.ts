@@ -12,6 +12,7 @@ const ORIGIN = {
   countryCode: "US",
   contactName: "Shipping Department",
   contactPhone: "8008294535",
+  locationType: "BUSINESS",
 };
 
 const FREIGHT_CLASS = "150";
@@ -64,9 +65,16 @@ function validateBody(body: EchoRatesBody) {
     throw new Error("Ship-to name, address, city, state, and ZIP are required for Echo rates.");
   }
 
+  if (!clean(body.deliveryType)) {
+    throw new Error("Delivery location type is required for Echo rates.");
+  }
+
+  if (!clean(body.liftgateRequired)) {
+    throw new Error("Liftgate selection is required for Echo rates.");
+  }
+
   return quantity;
 }
-
 
 function addBusinessDays(startDate: Date, businessDays: number) {
   const date = new Date(startDate);
@@ -89,17 +97,24 @@ function formatEchoDate(date: Date) {
   ).padStart(2, "0")}/${date.getFullYear()}`;
 }
 
+function destinationLocationType(value: string) {
+  const normalized = clean(value).toLowerCase();
+  if (normalized === "residential") return "RESIDENTIAL";
+  if (normalized === "construction_site") return "CONSTRUCTIONSITE";
+  return "BUSINESS";
+}
+
 function buildAccessorials(body: EchoRatesBody) {
   const accessorials: { Type: string }[] = [];
   const deliveryType = clean(body.deliveryType).toLowerCase();
   const liftgateRequired = clean(body.liftgateRequired).toLowerCase();
 
-  if (deliveryType === "residential") {
-    accessorials.push({ Type: "RESIDENTIALDELIVERY" });
+  if (liftgateRequired === "yes") {
+    accessorials.push({ Type: "LIFTGATEREQUIRED" });
   }
 
-  if (liftgateRequired === "yes") {
-    accessorials.push({ Type: "LIFTGATEDELIVERY" });
+  if (deliveryType === "limited_access") {
+    accessorials.push({ Type: "LIMITEDACCESSFEE" });
   }
 
   return accessorials;
@@ -108,6 +123,7 @@ function buildAccessorials(body: EchoRatesBody) {
 function buildRatesRequest(body: EchoRatesBody, quantity: number) {
   const palletPlan = getPalletPlan(quantity);
   const accessorials = buildAccessorials(body);
+  const destinationType = destinationLocationType(clean(body.deliveryType));
   const pickUpDate = formatEchoDate(addBusinessDays(new Date(), 3));
 
   return {
@@ -116,6 +132,7 @@ function buildRatesRequest(body: EchoRatesBody, quantity: number) {
     UnitOfWeight: "LB",
     Accessorials: accessorials,
 
+    OriginLocationType: ORIGIN.locationType,
     OriginLocationName: ORIGIN.locationName,
     OriginAddressLine1: ORIGIN.addressLine1,
     OriginCity: ORIGIN.city,
@@ -125,6 +142,7 @@ function buildRatesRequest(body: EchoRatesBody, quantity: number) {
     OriginContactName: ORIGIN.contactName,
     OriginContactPhone: ORIGIN.contactPhone,
 
+    DestinationLocationType: destinationType,
     DestinationLocationName: clean(body.shipToName),
     DestinationAddressLine1: clean(body.shipToAddress),
     DestinationAddressLine2: clean(body.shipToAddress2),
@@ -166,6 +184,8 @@ export async function GET() {
       "shipToCity",
       "shipToState",
       "shipToZip",
+      "deliveryType",
+      "liftgateRequired",
     ],
   });
 }
@@ -190,6 +210,7 @@ export async function POST(request: NextRequest) {
           status: response.status,
           statusText: response.statusText,
           echoResponse,
+          echoRequest,
         },
         { status: 502 },
       );
@@ -200,6 +221,10 @@ export async function POST(request: NextRequest) {
       quantity,
       freightClass: FREIGHT_CLASS,
       palletPlan: getPalletPlan(quantity),
+      echoRequestDetails: {
+        destinationLocationType: echoRequest.DestinationLocationType,
+        accessorials: echoRequest.Accessorials,
+      },
       echoResponse,
     });
   } catch (error) {
