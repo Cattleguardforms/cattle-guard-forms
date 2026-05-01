@@ -38,9 +38,9 @@ export type DistributorOrderEmailPayload = {
   stripeSessionId?: string;
 };
 
-const DEFAULT_FROM_EMAIL = "orders@cattleguardforms.com";
-const DEFAULT_REPLY_TO_EMAIL = "support@cattleguardforms.com";
-const DEFAULT_SUPPORT_EMAIL = "support@cattleguardforms.com";
+const TRANSACTIONAL_FROM_EMAIL = "orders@cattleguardforms.com";
+const TRANSACTIONAL_REPLY_TO_EMAIL = "support@cattleguardforms.com";
+const TRANSACTIONAL_SUPPORT_EMAIL = "support@cattleguardforms.com";
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -56,15 +56,6 @@ function requireEnv(name: string) {
     throw new Error(`${name} is required to send order emails.`);
   }
   return value;
-}
-
-function optionalEnv(name: string) {
-  return clean(process.env[name]);
-}
-
-function safeEmail(value: string | undefined, fallback: string) {
-  const candidate = clean(value);
-  return isValidEmail(candidate) ? candidate : fallback;
 }
 
 function parseEmailList(value: string) {
@@ -83,15 +74,11 @@ function getManufacturerEmails() {
 }
 
 function getEmailSettings() {
-  const fromEmail = safeEmail(optionalEnv("FROM_EMAIL"), DEFAULT_FROM_EMAIL);
-  const replyToEmail = safeEmail(optionalEnv("REPLY_TO_EMAIL") || optionalEnv("ORDERS_EMAIL"), DEFAULT_REPLY_TO_EMAIL);
-  const supportEmail = safeEmail(optionalEnv("SUPPORT_EMAIL"), DEFAULT_SUPPORT_EMAIL);
-
   return {
     resendApiKey: requireEnv("RESEND_API_KEY"),
-    fromEmail,
-    replyToEmail,
-    supportEmail,
+    fromEmail: TRANSACTIONAL_FROM_EMAIL,
+    replyToEmail: TRANSACTIONAL_REPLY_TO_EMAIL,
+    supportEmail: TRANSACTIONAL_SUPPORT_EMAIL,
   };
 }
 
