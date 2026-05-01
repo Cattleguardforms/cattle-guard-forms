@@ -45,6 +45,7 @@ type FreightQuoteResponse = {
 };
 
 const MARKUP_RATE = 0.15;
+const TEMP_RESIDENTIAL_LIFTGATE_SURCHARGE = 150;
 const MAX_DISPLAYED_RATES = 4;
 const MAX_REASONABLE_RATE = 5000;
 
@@ -74,8 +75,12 @@ function money(value: number) {
   return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-function customerFreightCharge(carrierCost: number) {
-  return Math.ceil(carrierCost * (1 + MARKUP_RATE) * 100) / 100;
+function residentialLiftgateSurcharge(deliveryType: string, liftgateRequired: string) {
+  return deliveryType === "residential" && liftgateRequired === "yes" ? TEMP_RESIDENTIAL_LIFTGATE_SURCHARGE : 0;
+}
+
+function customerFreightCharge(carrierCost: number, surcharge: number) {
+  return Math.ceil((carrierCost * (1 + MARKUP_RATE) + surcharge) * 100) / 100;
 }
 
 function getEchoFailureDetails(quote: FreightQuoteResponse | null) {
@@ -118,10 +123,11 @@ function getBestRates(echoResponse: unknown) {
     .slice(0, MAX_DISPLAYED_RATES);
 }
 
-function describeRate(rate: EchoRate, charge: number) {
+function describeRate(rate: EchoRate, charge: number, surcharge: number) {
   const carrier = rate.CarrierName ?? "Echo freight carrier";
   const transit = typeof rate.CarrierTransitDays === "number" ? `${rate.CarrierTransitDays} transit day${rate.CarrierTransitDays === 1 ? "" : "s"}` : "Transit unavailable";
-  return `${carrier} | ${transit} | Freight & handling ${money(charge)}`;
+  const surchargeNote = surcharge > 0 ? ` | Temporary residential liftgate surcharge ${money(surcharge)}` : "";
+  return `${carrier} | ${transit} | Freight & handling ${money(charge)}${surchargeNote}`;
 }
 
 export default function FreightQuotePanel({
@@ -144,6 +150,7 @@ export default function FreightQuotePanel({
   const [selectedRateKey, setSelectedRateKey] = useState("");
 
   const bestRates = quote?.ok ? getBestRates(quote.echoResponse) : [];
+  const temporarySurcharge = residentialLiftgateSurcharge(deliveryType, liftgateRequired);
 
   function resetSelectedRate() {
     setSelectedRateKey("");
@@ -214,10 +221,10 @@ export default function FreightQuotePanel({
 
   function handleSelectRate(rate: EchoRate, index: number) {
     const carrierCost = rate.TotalCharge ?? 0;
-    const charge = customerFreightCharge(carrierCost);
+    const charge = customerFreightCharge(carrierCost, temporarySurcharge);
     const key = `${rate.CarrierSCAC ?? rate.CarrierName ?? "rate"}-${index}-${carrierCost}`;
     setSelectedRateKey(key);
-    onFreightOptionSelect?.(describeRate(rate, charge), charge);
+    onFreightOptionSelect?.(describeRate(rate, charge, temporarySurcharge), charge);
     onQuoteStatusChange?.(true);
   }
 
@@ -229,6 +236,11 @@ export default function FreightQuotePanel({
           <p className="mt-1 text-sm leading-6 text-blue-900">
             Get an Echo LTL freight quote, choose one option, then checkout unlocks.
           </p>
+          {temporarySurcharge > 0 ? (
+            <p className="mt-2 text-sm font-semibold text-blue-950">
+              Temporary residential liftgate surcharge applied: {money(temporarySurcharge)}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
@@ -260,12 +272,17 @@ export default function FreightQuotePanel({
           <p className="mt-2 text-neutral-700">
             Quantity: {quote.quantity} | Freight class: {quote.freightClass} | Planned pallets: {quote.palletPlan?.palletCount}
           </p>
+          {temporarySurcharge > 0 ? (
+            <p className="mt-2 font-semibold text-green-950">
+              Displayed prices include a temporary {money(temporarySurcharge)} residential liftgate surcharge.
+            </p>
+          ) : null}
 
           {bestRates.length ? (
             <div className="mt-4 grid gap-3">
               {bestRates.map((rate, index) => {
                 const carrierCost = rate.TotalCharge ?? 0;
-                const charge = customerFreightCharge(carrierCost);
+                const charge = customerFreightCharge(carrierCost, temporarySurcharge);
                 const key = `${rate.CarrierSCAC ?? rate.CarrierName ?? "rate"}-${index}-${carrierCost}`;
                 return (
                   <label key={key} className="flex cursor-pointer gap-3 rounded border border-neutral-200 bg-neutral-50 p-3 hover:bg-white">
@@ -283,6 +300,11 @@ export default function FreightQuotePanel({
                         {rate.CarrierGuarantee ? ` | Service: ${rate.CarrierGuarantee}` : ""}
                       </span>
                       <span className="mt-2 block text-base font-bold text-green-950">Freight & handling: {money(charge)}</span>
+                      {temporarySurcharge > 0 ? (
+                        <span className="mt-1 block text-xs font-semibold text-neutral-700">
+                          Includes {money(temporarySurcharge)} temporary residential liftgate surcharge.
+                        </span>
+                      ) : null}
                     </span>
                   </label>
                 );
