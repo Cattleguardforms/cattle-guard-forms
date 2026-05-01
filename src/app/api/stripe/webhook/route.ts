@@ -301,17 +301,9 @@ async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
   const bookPayload = await readAutomationResponse(bookResponse);
   if (!bookResponse.ok || !bookPayload.ok) throw new Error(`Auto Echo booking failed at ${baseUrl}/api/echo/book-ltl-shipment: ${JSON.stringify(bookPayload).slice(0, 1600)}`);
 
-  const emailResponse = await fetch(`${baseUrl}/api/admin/send-manufacturer-order`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
-    body: JSON.stringify({ orderId, internalDryRun: true }),
-  });
-  const emailPayload = await readAutomationResponse(emailResponse);
-  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal fulfillment email failed at ${baseUrl}/api/admin/send-manufacturer-order: ${JSON.stringify(emailPayload).slice(0, 1600)}`);
-
   await createCrmActivity({
-    title: `Auto fulfillment completed for order ${orderId}`,
-    description: `Echo booking and internal dry-run fulfillment emails completed after Stripe payment. Echo BOL: ${bookPayload.bolNumber || "not provided"}.`,
+    title: `Auto Echo booking completed for order ${orderId}`,
+    description: `Echo booking completed after Stripe payment. BOL: ${bookPayload.bolNumber || "not provided"}. Manufacturer/BOL document email is queued for a later workflow after the BOL document is available.`,
     orderId,
     customerId: clean(order.customer_id) || null,
     distributorProfileId: clean(order.distributor_profile_id) || null,
