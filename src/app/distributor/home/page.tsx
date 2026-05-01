@@ -3,13 +3,28 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import DistributorNav from "../DistributorNav";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 type ProfileResponse = { ok?: boolean; error?: string; profile?: { email: string; companyName?: string; pricePerUnit?: number } };
 
-type DistributorOrder = { id: string; shortId: string; quantityLabel: string; total: number; paymentStatus: string; status: string; shipTo: string };
+type DistributorOrder = {
+  id: string;
+  shortId: string;
+  quantityLabel: string;
+  total: number;
+  paymentStatus: string;
+  shipmentStatus?: string;
+  status: string;
+  shipTo: string;
+  carrier?: string;
+  bolNumber?: string;
+  trackingLink?: string;
+  createdAt?: string;
+};
+
 type OrdersPayload = { ok?: boolean; error?: string; orders?: DistributorOrder[] };
 
 function money(value: number) {
@@ -19,6 +34,35 @@ function money(value: number) {
 function statusLabel(value?: string) {
   if (!value) return "Pending";
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function dateLabel(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function OrderCard({ order }: { order: DistributorOrder }) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-bold text-green-950">Order {order.shortId}</p>
+          <p className="mt-1 text-xs text-neutral-600">{order.quantityLabel} - {money(order.total)} - {statusLabel(order.status)}</p>
+          <p className="mt-1 text-xs text-neutral-600">{order.shipTo}</p>
+          <p className="mt-1 text-xs font-bold text-neutral-700">Payment: {statusLabel(order.paymentStatus)}</p>
+          {order.createdAt ? <p className="mt-1 text-xs text-neutral-500">Created: {dateLabel(order.createdAt)}</p> : null}
+          {order.bolNumber ? <p className="mt-1 text-xs font-bold text-green-900">BOL: {order.bolNumber}</p> : null}
+          {order.carrier ? <p className="mt-1 text-xs text-neutral-700">Carrier: {order.carrier}</p> : null}
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Link href={`/distributor/orders/${order.id}`} className="rounded bg-green-800 px-3 py-2 text-xs font-bold text-white hover:bg-green-900">View Order</Link>
+          <Link href={`/distributor/orders/${order.id}/warranty`} className="rounded border border-green-800 bg-white px-3 py-2 text-xs font-bold text-green-900 hover:bg-green-50">Warranty Paperwork</Link>
+          {order.trackingLink ? <Link href={order.trackingLink} className="rounded border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-800 hover:bg-neutral-50">Tracking</Link> : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DistributorHomePage() {
@@ -148,18 +192,11 @@ export default function DistributorHomePage() {
               <Link href="/distributor" className="text-sm font-semibold text-green-800">Back to distributor access</Link>
               <p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal Home</p>
               <h1 className="mt-2 text-3xl font-black">Welcome, {companyName}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">This is your distributor home. Use Shop to place a new CowStop order. Open orders, past orders, warranty documents, installation guides, and support will live here.</p>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">Use Shop to place a new CowStop order. Open orders, past orders, warranty paperwork, BOL/shipping status, documents, and support live here.</p>
             </div>
             <button type="button" onClick={signOut} className="rounded border border-neutral-300 px-4 py-2 text-sm font-bold">Sign Out</button>
           </div>
-
-          <nav className="mt-6 flex flex-wrap gap-3 rounded-xl bg-green-50 p-3 ring-1 ring-green-100">
-            <Link href="/distributor/home" className="rounded bg-green-800 px-4 py-2 text-sm font-bold text-white">Home</Link>
-            <Link href="/distributor/shop" className="rounded bg-white px-4 py-2 text-sm font-bold text-green-900 ring-1 ring-green-200">Shop</Link>
-            <Link href="/warranty" className="rounded bg-white px-4 py-2 text-sm font-bold text-green-900 ring-1 ring-green-200">Warranty Packet</Link>
-            <Link href="/distributor/documents" className="rounded bg-white px-4 py-2 text-sm font-bold text-green-900 ring-1 ring-green-200">Documents</Link>
-            <Link href="/distributor/support" className="rounded bg-white px-4 py-2 text-sm font-bold text-green-900 ring-1 ring-green-200">Support</Link>
-          </nav>
+          <DistributorNav active="home" />
         </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-3">
@@ -173,10 +210,10 @@ export default function DistributorHomePage() {
             <h2 className="mt-2 text-2xl font-black">{money(pricePerUnit)}</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">Current approved distributor price per CowStop form.</p>
           </div>
-          <Link href="/warranty" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700">
-            <p className="text-sm font-bold uppercase tracking-wide text-green-800">Paperwork</p>
-            <h2 className="mt-2 text-2xl font-black">Warranty Packet</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">View or print the customer warranty and support record sheet.</p>
+          <Link href="/distributor/documents" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700">
+            <p className="text-sm font-bold uppercase tracking-wide text-green-800">Documents</p>
+            <h2 className="mt-2 text-2xl font-black">Packets & FAQ</h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-700">Open warranty, materials, installation, engineering, and FAQ documents.</p>
           </Link>
         </div>
 
@@ -188,7 +225,7 @@ export default function DistributorHomePage() {
             </div>
             <div className="mt-4 space-y-3">
               {openOrders.length === 0 ? <p className="text-sm text-neutral-600">No open orders found yet.</p> : null}
-              {openOrders.map((order) => <div key={order.id} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"><p className="font-bold text-green-950">Order {order.shortId}</p><p className="mt-1 text-xs text-neutral-600">{order.quantityLabel} - {money(order.total)} - {statusLabel(order.status)}</p><p className="mt-1 text-xs text-neutral-600">{order.shipTo}</p><p className="mt-1 text-xs font-bold text-neutral-700">Payment: {statusLabel(order.paymentStatus)}</p></div>)}
+              {openOrders.map((order) => <OrderCard key={order.id} order={order} />)}
             </div>
           </div>
 
@@ -196,7 +233,7 @@ export default function DistributorHomePage() {
             <h2 className="text-xl font-black">Past Orders</h2>
             <div className="mt-4 space-y-3">
               {pastOrders.length === 0 ? <p className="text-sm text-neutral-600">Past orders will appear here after orders are completed, delivered, archived, or cancelled.</p> : null}
-              {pastOrders.map((order) => <div key={order.id} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"><p className="font-bold text-green-950">Order {order.shortId}</p><p className="mt-1 text-xs text-neutral-600">{order.quantityLabel} - {money(order.total)} - {statusLabel(order.status)}</p><p className="mt-1 text-xs text-neutral-600">{order.shipTo}</p></div>)}
+              {pastOrders.map((order) => <OrderCard key={order.id} order={order} />)}
             </div>
           </div>
         </section>
