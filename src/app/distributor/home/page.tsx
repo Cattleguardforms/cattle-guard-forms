@@ -65,6 +65,39 @@ function OrderCard({ order }: { order: DistributorOrder }) {
   );
 }
 
+function CheckoutReturnBanner() {
+  const [checkoutStatus, setCheckoutStatus] = useState("");
+  const [orderId, setOrderId] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setCheckoutStatus(params.get("checkout") || "");
+    setOrderId(params.get("order") || "");
+  }, []);
+
+  if (checkoutStatus === "success") {
+    return (
+      <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-950">
+        <p className="text-base font-black">Payment successful. Your CowStop order has been received.</p>
+        {orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}
+        <p className="mt-2 text-sm leading-6">We are processing the distributor order, sending email confirmations, and preparing fulfillment details. Refresh Open Orders if the newest status has not appeared yet.</p>
+      </div>
+    );
+  }
+
+  if (checkoutStatus === "cancelled") {
+    return (
+      <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950">
+        <p className="text-base font-black">Checkout was cancelled.</p>
+        {orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}
+        <p className="mt-2 text-sm leading-6">No payment was completed. You can return to Shop and try again.</p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function DistributorHomePage() {
   const supabase = useMemo(() => {
     if (!supabaseUrl || !supabaseKey) return null;
@@ -198,6 +231,8 @@ export default function DistributorHomePage() {
           </div>
           <DistributorNav active="home" />
         </div>
+
+        <CheckoutReturnBanner />
 
         <div className="mt-6 grid gap-5 lg:grid-cols-3">
           <Link href="/distributor/shop" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700">
