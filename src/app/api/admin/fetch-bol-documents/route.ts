@@ -37,18 +37,53 @@ function tokenFrom(request: NextRequest) {
   return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 }
 
-async function requireAdmin(request: NextRequest) {
+async function requireBolFetchAccess(request: NextRequest, orderId: string) {
   const supabase = createSupabaseAdminClient();
   if (isInternalAutomation(request)) return supabase;
 
   const token = tokenFrom(request);
-  if (!token) throw new Error("Missing admin session token.");
+  if (!token) throw new Error("Missing signed-in session token.");
+
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
+  if (userError || !userData.user?.email) throw new Error("Invalid signed-in session.");
+
   const email = userData.user.email.toLowerCase();
-  const { data: profile, error: profileError } = await supabase.from("app_profiles").select("role, status").eq("email", email).maybeSingle();
-  if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
-  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
+  const { data: profile, error: profileError } = await supabase
+    .from("app_profiles")
+    .select("role, status")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (profileError) throw new Error(`Role lookup failed: ${profileError.message}`);
+  if (!profile || profile.status !== "active") throw new Error("Active portal access is required.");
+
+  if (profile.role === "admin") return supabase;
+
+  if (profile.role !== "distributor") throw new Error("Admin or approved distributor access is required.");
+  if (!orderId) throw new Error("An order ID is required for distributor BOL recovery.");
+
+  const { data: distributor, error: distributorError } = await supabase
+    .from("distributor_profiles")
+    .select("id")
+    .eq("contact_email", email)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (distributorError) throw new Error(`Distributor account lookup failed: ${distributorError.message}`);
+  if (!distributor?.id) throw new Error("Active distributor account is required.");
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("id", orderId)
+    .eq("distributor_profile_id", clean(distributor.id))
+    .limit(1)
+    .maybeSingle();
+
+  if (orderError) throw new Error(`Distributor order access check failed: ${orderError.message}`);
+  if (!order?.id) throw new Error("This order is not available to the signed-in distributor.");
+
   return supabase;
 }
 
@@ -276,9 +311,9 @@ async function fetchAndStoreBol(supabase: ReturnType<typeof createSupabaseAdminC
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
     const body = (await request.json().catch(() => ({}))) as FetchBolBody;
     const orderId = clean(body.orderId);
+    const supabase = await requireBolFetchAccess(request, orderId);
     const rawLimit = Number(body.limit ?? MAX_ORDERS_PER_RUN);
     const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_ORDERS_PER_RUN) : MAX_ORDERS_PER_RUN;
     const orders = await getCandidateOrders(supabase, orderId, limit);
@@ -293,5 +328,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  return POST(request);
+  const orderId = clean(request.nextUrl.searchParams.get("orderId"));
+  const limit = clean(request.nextUrl.searchParams.get("limit"));
+  return POST(new NextRequest(request.url, {
+    method: "POST",
+    headers: request.headers,
+    body: JSON.stringify({ orderId, limit }),
+  }));
 }
