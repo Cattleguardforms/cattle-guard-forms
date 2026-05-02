@@ -9,40 +9,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 type ProfileResponse = { ok?: boolean; error?: string; profile?: { email: string; companyName?: string; pricePerUnit?: number } };
-
-type DistributorOrder = {
-  id: string;
-  shortId: string;
-  quantityLabel: string;
-  total: number;
-  paymentStatus: string;
-  shipmentStatus?: string;
-  status: string;
-  shipTo: string;
-  carrier?: string;
-  bolNumber?: string;
-  trackingLink?: string;
-  createdAt?: string;
-};
-
+type DistributorOrder = { id: string; shortId: string; quantityLabel: string; total: number; paymentStatus: string; shipmentStatus?: string; status: string; shipTo: string; carrier?: string; bolNumber?: string; trackingLink?: string; createdAt?: string };
 type OrdersPayload = { ok?: boolean; error?: string; orders?: DistributorOrder[] };
+type BolPayload = { ok?: boolean; error?: string; results?: { ok?: boolean; skipped?: boolean; reason?: string; filename?: string }[] };
 
-function money(value: number) {
-  return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
+function money(value: number) { return value.toLocaleString("en-US", { style: "currency", currency: "USD" }); }
+function statusLabel(value?: string) { if (!value) return "Pending"; return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function dateLabel(value?: string) { if (!value) return ""; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(); }
+function canFetchBol(order: DistributorOrder) { return Boolean(order.bolNumber) || (order.shipmentStatus || "").toLowerCase() === "echo_booked" || (order.carrier || "").toLowerCase().includes("echo"); }
 
-function statusLabel(value?: string) {
-  if (!value) return "Pending";
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function dateLabel(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
-}
-
-function OrderCard({ order }: { order: DistributorOrder }) {
+function OrderCard({ order, fetchingBolId, onFetchBol }: { order: DistributorOrder; fetchingBolId: string; onFetchBol: (orderId: string) => void }) {
   return (
     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -57,6 +33,7 @@ function OrderCard({ order }: { order: DistributorOrder }) {
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Link href={`/distributor/orders/${order.id}`} className="rounded bg-green-800 px-3 py-2 text-xs font-bold text-white hover:bg-green-900">View Order</Link>
+          <button type="button" onClick={() => onFetchBol(order.id)} disabled={Boolean(fetchingBolId) || !canFetchBol(order)} className="rounded bg-blue-800 px-3 py-2 text-xs font-bold text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50">{fetchingBolId === order.id ? "Fetching..." : "Fetch / Store Echo BOL"}</button>
           <Link href={`/distributor/orders/${order.id}/warranty`} className="rounded border border-green-800 bg-white px-3 py-2 text-xs font-bold text-green-900 hover:bg-green-50">Warranty Paperwork</Link>
           {order.trackingLink ? <Link href={order.trackingLink} className="rounded border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-800 hover:bg-neutral-50">Tracking</Link> : null}
         </div>
@@ -68,42 +45,14 @@ function OrderCard({ order }: { order: DistributorOrder }) {
 function CheckoutReturnBanner() {
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const [orderId, setOrderId] = useState("");
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setCheckoutStatus(params.get("checkout") || "");
-    setOrderId(params.get("order") || "");
-  }, []);
-
-  if (checkoutStatus === "success") {
-    return (
-      <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-950">
-        <p className="text-base font-black">Payment successful. Your CowStop order has been received.</p>
-        {orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}
-        <p className="mt-2 text-sm leading-6">We are processing the distributor order, sending email confirmations, and preparing fulfillment details. Refresh Open Orders if the newest status has not appeared yet.</p>
-      </div>
-    );
-  }
-
-  if (checkoutStatus === "cancelled") {
-    return (
-      <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950">
-        <p className="text-base font-black">Checkout was cancelled.</p>
-        {orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}
-        <p className="mt-2 text-sm leading-6">No payment was completed. You can return to Shop and try again.</p>
-      </div>
-    );
-  }
-
+  useEffect(() => { const params = new URLSearchParams(window.location.search); setCheckoutStatus(params.get("checkout") || ""); setOrderId(params.get("order") || ""); }, []);
+  if (checkoutStatus === "success") return <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-950"><p className="text-base font-black">Payment successful. Your CowStop order has been received.</p>{orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}<p className="mt-2 text-sm leading-6">We are processing the distributor order, sending email confirmations, and preparing fulfillment details. Refresh Open Orders if the newest status has not appeared yet.</p></div>;
+  if (checkoutStatus === "cancelled") return <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950"><p className="text-base font-black">Checkout was cancelled.</p>{orderId ? <p className="mt-1 text-sm font-semibold">Order ID: {orderId}</p> : null}<p className="mt-2 text-sm leading-6">No payment was completed. You can return to Shop and try again.</p></div>;
   return null;
 }
 
 export default function DistributorHomePage() {
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) return null;
-    return createClient(supabaseUrl, supabaseKey);
-  }, []);
-
+  const supabase = useMemo(() => (supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null), []);
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [email, setEmail] = useState("");
@@ -112,167 +61,60 @@ export default function DistributorHomePage() {
   const [pricePerUnit, setPricePerUnit] = useState(750);
   const [orders, setOrders] = useState<DistributorOrder[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetchingBolId, setFetchingBolId] = useState("");
 
-  async function getToken() {
-    if (!supabase) throw new Error("Distributor auth is not available.");
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (!token) throw new Error("Distributor sign-in is required.");
-    return token;
-  }
+  async function getToken() { if (!supabase) throw new Error("Distributor auth is not available."); const { data } = await supabase.auth.getSession(); const token = data.session?.access_token; if (!token) throw new Error("Distributor sign-in is required."); return token; }
+  async function loadOrders(token?: string) { const activeToken = token ?? (await getToken()); const response = await fetch("/api/distributor/orders", { headers: { Authorization: `Bearer ${activeToken}` } }); const payload = (await response.json()) as OrdersPayload; if (!response.ok || !payload.ok) throw new Error(payload.error ?? "Unable to load distributor orders."); setOrders(payload.orders ?? []); }
 
-  async function loadOrders(token?: string) {
-    const activeToken = token ?? (await getToken());
-    const response = await fetch("/api/distributor/orders", { headers: { Authorization: `Bearer ${activeToken}` } });
-    const payload = (await response.json()) as OrdersPayload;
-    if (!response.ok || !payload.ok) throw new Error(payload.error ?? "Unable to load distributor orders.");
-    setOrders(payload.orders ?? []);
+  async function fetchBol(orderId: string) {
+    setFetchingBolId(orderId); setError(""); setNotice("");
+    try {
+      const token = await getToken();
+      const response = await fetch("/api/admin/fetch-bol-documents", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ orderId }) });
+      const payload = (await response.json()) as BolPayload;
+      const first = payload.results?.[0];
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Unable to fetch/store Echo BOL.");
+      if (first?.filename) setNotice(`Stored Echo BOL: ${first.filename}. Open the order detail and refresh files to download it.`);
+      else if (first?.reason === "bol_file_already_exists") setNotice("A BOL file is already stored for this order. Open the order detail to download it.");
+      else if (first?.reason === "bol_document_not_available_yet") setNotice("Echo booking exists, but Echo has not returned the downloadable BOL yet. Try again later.");
+      else if (first?.reason === "missing_echo_load_id") setNotice("This order is missing Echo booking data. Contact admin if the shipment was already booked.");
+      else setNotice("BOL recovery finished. Open the order detail and refresh files to check download status.");
+      await loadOrders(token);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to fetch/store Echo BOL."); }
+    finally { setFetchingBolId(""); }
   }
 
   async function verify() {
-    if (!supabase) {
-      setError("Distributor auth is not available.");
-      setReady(true);
-      return;
-    }
-
+    if (!supabase) { setError("Distributor auth is not available."); setReady(true); return; }
     try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) {
-        setSignedIn(false);
-        setReady(true);
-        return;
-      }
-
+      const { data } = await supabase.auth.getSession(); const token = data.session?.access_token;
+      if (!token) { setSignedIn(false); setReady(true); return; }
       const response = await fetch("/api/distributor/profile", { headers: { Authorization: `Bearer ${token}` } });
       const payload = (await response.json()) as ProfileResponse;
       if (!response.ok || !payload.ok) throw new Error(payload.error ?? "Approved distributor access is required.");
-
-      setSignedIn(true);
-      setEmail(payload.profile?.email ?? "");
-      setCompanyName(payload.profile?.companyName ?? "Approved Distributor");
-      setPricePerUnit(payload.profile?.pricePerUnit ?? 750);
-      await loadOrders(token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Approved distributor access is required.");
-      await supabase.auth.signOut();
-      setSignedIn(false);
-    } finally {
-      setReady(true);
-    }
+      setSignedIn(true); setEmail(payload.profile?.email ?? ""); setCompanyName(payload.profile?.companyName ?? "Approved Distributor"); setPricePerUnit(payload.profile?.pricePerUnit ?? 750); await loadOrders(token);
+    } catch (err) { setError(err instanceof Error ? err.message : "Approved distributor access is required."); await supabase.auth.signOut(); setSignedIn(false); }
+    finally { setReady(true); }
   }
 
-  useEffect(() => {
-    void verify();
-  }, [supabase]);
+  useEffect(() => { void verify(); }, [supabase]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      if (!supabase) throw new Error("Distributor sign-in is not available.");
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-      if (signInError) throw new Error("Invalid distributor credentials.");
-      setPassword("");
-      await verify();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign in.");
-    } finally {
-      setLoading(false);
-    }
+    event.preventDefault(); setError(""); setLoading(true);
+    try { if (!supabase) throw new Error("Distributor sign-in is not available."); const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }); if (signInError) throw new Error("Invalid distributor credentials."); setPassword(""); await verify(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to sign in."); }
+    finally { setLoading(false); }
   }
 
-  async function signOut() {
-    setSignedIn(false);
-    setCompanyName("");
-    setOrders([]);
-    if (supabase) await supabase.auth.signOut();
-  }
+  async function signOut() { setSignedIn(false); setCompanyName(""); setOrders([]); if (supabase) await supabase.auth.signOut(); }
 
   if (!ready) return <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-950">Loading distributor portal...</main>;
-
-  if (!signedIn) {
-    return (
-      <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-950">
-        <section className="mx-auto max-w-xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200">
-          <Link href="/distributor" className="text-sm font-semibold text-green-800">Back to distributor access</Link>
-          <p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal</p>
-          <h1 className="mt-2 text-3xl font-black">Distributor Sign In</h1>
-          <p className="mt-3 text-sm leading-6 text-neutral-700">Sign in to access your distributor home, shop, order history, documents, and support.</p>
-          {error ? <div className="mt-5 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
-          <form onSubmit={signIn} className="mt-6 grid gap-4">
-            <label className="grid gap-2 text-sm font-semibold">Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border px-3 py-2 font-normal" /></label>
-            <label className="grid gap-2 text-sm font-semibold">Password<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="rounded border px-3 py-2 font-normal" /></label>
-            <button disabled={loading} className="rounded bg-green-800 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? "Signing in..." : "Sign In"}</button>
-          </form>
-        </section>
-      </main>
-    );
-  }
+  if (!signedIn) return <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-950"><section className="mx-auto max-w-xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200"><Link href="/distributor" className="text-sm font-semibold text-green-800">Back to distributor access</Link><p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal</p><h1 className="mt-2 text-3xl font-black">Distributor Sign In</h1><p className="mt-3 text-sm leading-6 text-neutral-700">Sign in to access your distributor home, shop, order history, documents, and support.</p>{error ? <div className="mt-5 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}<form onSubmit={signIn} className="mt-6 grid gap-4"><label className="grid gap-2 text-sm font-semibold">Email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border px-3 py-2 font-normal" /></label><label className="grid gap-2 text-sm font-semibold">Password<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="rounded border px-3 py-2 font-normal" /></label><button disabled={loading} className="rounded bg-green-800 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? "Signing in..." : "Sign In"}</button></form></section></main>;
 
   const openOrders = orders.filter((order) => !["delivered", "archived", "cancelled"].includes((order.status || "").toLowerCase()));
   const pastOrders = orders.filter((order) => ["delivered", "archived", "cancelled"].includes((order.status || "").toLowerCase()));
 
-  return (
-    <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-950">
-      <section className="mx-auto max-w-6xl">
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <Link href="/distributor" className="text-sm font-semibold text-green-800">Back to distributor access</Link>
-              <p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal Home</p>
-              <h1 className="mt-2 text-3xl font-black">Welcome, {companyName}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">Use Shop to place a new CowStop order. Open orders, past orders, warranty paperwork, BOL/shipping status, documents, and support live here.</p>
-            </div>
-            <button type="button" onClick={signOut} className="rounded border border-neutral-300 px-4 py-2 text-sm font-bold">Sign Out</button>
-          </div>
-          <DistributorNav active="home" />
-        </div>
-
-        <CheckoutReturnBanner />
-
-        <div className="mt-6 grid gap-5 lg:grid-cols-3">
-          <Link href="/distributor/shop" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700">
-            <p className="text-sm font-bold uppercase tracking-wide text-green-800">Shop</p>
-            <h2 className="mt-2 text-2xl font-black">Place a New Order</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">Order CowStop forms, choose CGF freight, or upload your own BOL.</p>
-          </Link>
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200">
-            <p className="text-sm font-bold uppercase tracking-wide text-green-800">Distributor price</p>
-            <h2 className="mt-2 text-2xl font-black">{money(pricePerUnit)}</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">Current approved distributor price per CowStop form.</p>
-          </div>
-          <Link href="/distributor/documents" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700">
-            <p className="text-sm font-bold uppercase tracking-wide text-green-800">Documents</p>
-            <h2 className="mt-2 text-2xl font-black">Packets & FAQ</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-700">Open warranty, materials, installation, engineering, and FAQ documents.</p>
-          </Link>
-        </div>
-
-        <section className="mt-6 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xl font-black">Open Orders</h2>
-              <button type="button" onClick={() => void loadOrders()} className="rounded border border-neutral-300 px-3 py-2 text-xs font-bold">Refresh</button>
-            </div>
-            <div className="mt-4 space-y-3">
-              {openOrders.length === 0 ? <p className="text-sm text-neutral-600">No open orders found yet.</p> : null}
-              {openOrders.map((order) => <OrderCard key={order.id} order={order} />)}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200">
-            <h2 className="text-xl font-black">Past Orders</h2>
-            <div className="mt-4 space-y-3">
-              {pastOrders.length === 0 ? <p className="text-sm text-neutral-600">Past orders will appear here after orders are completed, delivered, archived, or cancelled.</p> : null}
-              {pastOrders.map((order) => <OrderCard key={order.id} order={order} />)}
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
-  );
+  return <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-950"><section className="mx-auto max-w-6xl"><div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200"><div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"><div><Link href="/distributor" className="text-sm font-semibold text-green-800">Back to distributor access</Link><p className="mt-6 text-sm font-bold uppercase tracking-wide text-green-800">Distributor Portal Home</p><h1 className="mt-2 text-3xl font-black">Welcome, {companyName}</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-700">Use Shop to place a new CowStop order. Open orders, past orders, warranty paperwork, BOL/shipping status, documents, and support live here.</p></div><button type="button" onClick={signOut} className="rounded border border-neutral-300 px-4 py-2 text-sm font-bold">Sign Out</button></div><DistributorNav active="home" /></div><CheckoutReturnBanner />{error ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">{error}</div> : null}{notice ? <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-950">{notice}</div> : null}<div className="mt-6 grid gap-5 lg:grid-cols-3"><Link href="/distributor/shop" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700"><p className="text-sm font-bold uppercase tracking-wide text-green-800">Shop</p><h2 className="mt-2 text-2xl font-black">Place a New Order</h2><p className="mt-3 text-sm leading-6 text-neutral-700">Order CowStop forms, choose CGF freight, or upload your own BOL.</p></Link><div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm font-bold uppercase tracking-wide text-green-800">Distributor price</p><h2 className="mt-2 text-2xl font-black">{money(pricePerUnit)}</h2><p className="mt-3 text-sm leading-6 text-neutral-700">Current approved distributor price per CowStop form.</p></div><Link href="/distributor/documents" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 hover:ring-green-700"><p className="text-sm font-bold uppercase tracking-wide text-green-800">Documents</p><h2 className="mt-2 text-2xl font-black">Packets & FAQ</h2><p className="mt-3 text-sm leading-6 text-neutral-700">Open warranty, materials, installation, engineering, and FAQ documents.</p></Link></div><section className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-black">Open Orders</h2><button type="button" onClick={() => void loadOrders()} className="rounded border border-neutral-300 px-3 py-2 text-xs font-bold">Refresh</button></div><div className="mt-4 space-y-3">{openOrders.length === 0 ? <p className="text-sm text-neutral-600">No open orders found yet.</p> : null}{openOrders.map((order) => <OrderCard key={order.id} order={order} fetchingBolId={fetchingBolId} onFetchBol={fetchBol} />)}</div></div><div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><h2 className="text-xl font-black">Past Orders</h2><div className="mt-4 space-y-3">{pastOrders.length === 0 ? <p className="text-sm text-neutral-600">Past orders will appear here after orders are completed, delivered, archived, or cancelled.</p> : null}{pastOrders.map((order) => <OrderCard key={order.id} order={order} fetchingBolId={fetchingBolId} onFetchBol={fetchBol} />)}</div></div></section></section></main>;
 }
