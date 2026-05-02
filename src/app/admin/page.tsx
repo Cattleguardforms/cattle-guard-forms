@@ -20,10 +20,11 @@ type SummaryResponse = {
 };
 
 const modules = [
+  ["Fetch / Store Echo BOL", "/admin/shipping-execution"],
+  ["Orders", "/admin/orders"],
   ["Manage Distributor Accounts", "/admin/distributors"],
   ["Stripe Sandbox Test", "/admin/stripe-test"],
   ["Manufacturer Portal", "/manufacturer"],
-  ["Orders", "/admin/orders"],
   ["Abandoned Checkouts", "/admin/abandoned-checkouts"],
   ["Site Analytics", "/admin/analytics"],
   ["CRM Activity", "/admin/crm-activity"],
@@ -40,6 +41,7 @@ function Header() {
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-neutral-700">
           <Link href="/admin" className="text-green-800">Admin</Link>
+          <Link href="/admin/shipping-execution" className="font-bold text-blue-800">Fetch / Store BOL</Link>
           <Link href="/marketing" className="hover:text-green-800">Marketing</Link>
           <Link href="/contact" className="hover:text-green-800">Public Site</Link>
         </nav>
@@ -226,12 +228,20 @@ export default function AdminPortalPage() {
               <p className="mt-4 max-w-3xl text-lg leading-8 text-neutral-700">View distributors, fulfillment, active orders, abandoned checkouts, analytics, CRM activity, historical imports, and settings.</p>
             </div>
             <div className="flex flex-wrap gap-3">
+              <Link href="/admin/shipping-execution" className="rounded bg-blue-800 px-5 py-3 font-semibold text-white hover:bg-blue-900">Fetch / Store Echo BOL</Link>
               <button onClick={loadSummary} disabled={summaryLoading} className="rounded border border-green-800 px-5 py-3 font-semibold text-green-900 hover:bg-green-50 disabled:opacity-60">Refresh Summary</button>
-              <Link href="/marketing" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Go to Marketing</Link>
+              <Link href="/admin/orders" className="rounded bg-green-800 px-5 py-3 font-semibold text-white hover:bg-green-900">Orders</Link>
               <button onClick={handleSignOut} className="rounded border border-neutral-300 px-5 py-3 font-semibold">Sign Out</button>
             </div>
           </div>
         </div>
+
+        <section className="mt-8 rounded-2xl border-2 border-blue-700 bg-blue-50 p-6 shadow-sm">
+          <p className="text-sm font-bold uppercase tracking-wide text-blue-900">Echo BOL / DOL recovery</p>
+          <h2 className="mt-2 text-2xl font-black text-blue-950">Need the BOL? Click this first.</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-blue-950">This button opens the existing shipping execution screen where the Fetch / Store Echo BOL control already runs against real orders.</p>
+          <Link href="/admin/shipping-execution" className="mt-5 inline-flex rounded bg-blue-800 px-6 py-3 text-sm font-black text-white hover:bg-blue-900">Fetch / Store Echo BOL</Link>
+        </section>
 
         {summaryError ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{summaryError}</div> : null}
 
@@ -248,7 +258,7 @@ export default function AdminPortalPage() {
           <h2 className="text-2xl font-semibold">Admin Modules</h2>
           <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {modules.map(([title, href]) => (
-              <Link key={title} href={href} className="rounded-xl border border-neutral-200 p-5 font-semibold hover:border-green-800 hover:bg-green-50">{title}</Link>
+              <Link key={title} href={href} className={title.includes("BOL") ? "rounded-xl border-2 border-blue-700 bg-blue-50 p-5 font-black text-blue-950 hover:bg-blue-100" : "rounded-xl border border-neutral-200 p-5 font-semibold hover:border-green-800 hover:bg-green-50"}>{title}</Link>
             ))}
           </div>
         </section>
