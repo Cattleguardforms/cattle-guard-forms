@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const ADMIN_EMAIL = "orders@cattleguardforms.com";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseKey);
@@ -52,7 +51,7 @@ function Header() {
 export default function AdminPortalPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [email, setEmail] = useState(ADMIN_EMAIL);
+  const [email, setEmail] = useState("");
   const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -123,8 +122,8 @@ export default function AdminPortalPage() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      if (normalizedEmail !== ADMIN_EMAIL) {
-        setError("Authorized admin account required.");
+      if (!normalizedEmail) {
+        setError("Admin email is required.");
         return;
       }
 
@@ -139,6 +138,22 @@ export default function AdminPortalPage() {
         return;
       }
 
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setError("Admin session could not be created.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/summary", { headers: { Authorization: `Bearer ${token}` } });
+      const payload = (await response.json()) as SummaryResponse;
+      if (!response.ok || !payload.ok) {
+        await supabase.auth.signOut();
+        setError("Authorized admin role is required.");
+        return;
+      }
+
+      setSummary(payload.summary ?? []);
       setSignedIn(true);
     } finally {
       setLoading(false);
