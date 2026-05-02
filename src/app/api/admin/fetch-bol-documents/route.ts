@@ -19,10 +19,16 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function automationSecrets() {
+  return [process.env.CRON_SECRET, process.env.CGF_AUTOMATION_SECRET, process.env.STRIPE_WEBHOOK_SECRET]
+    .map(clean)
+    .filter(Boolean);
+}
+
 function isInternalAutomation(request: NextRequest) {
-  const expected = process.env.CGF_AUTOMATION_SECRET || process.env.STRIPE_WEBHOOK_SECRET || "";
+  const expectedSecrets = automationSecrets();
   const provided = request.headers.get("x-cgf-automation-secret") || request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  return Boolean(expected && provided && provided === expected);
+  return Boolean(provided && expectedSecrets.includes(provided));
 }
 
 function tokenFrom(request: NextRequest) {
