@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 const ORDER_FILES_BUCKET = "order-files";
 const MAX_ORDERS_PER_RUN = 10;
+const BOL_FILE_TYPE = "shipping_document";
 
 type DbRecord = Record<string, unknown>;
 type EchoAttempt = { path: string; status: number; statusText: string; contentType: string; bodyPreview: string };
@@ -176,9 +177,9 @@ function extensionFromContentType(contentType: string) {
 async function hasBolFile(supabase: ReturnType<typeof createSupabaseAdminClient>, orderId: string) {
   const { data, error } = await supabase
     .from("order_files")
-    .select("id")
+    .select("id,file_name,storage_path")
     .eq("order_id", orderId)
-    .in("file_type", ["echo_bol", "signed_bol", "original_bol", "bol"])
+    .or(`file_type.in.(original_bol,signed_bol,shipping_document,other_order_attachment),storage_path.ilike.%/echo_bol/%,file_name.ilike.%BOL%`)
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`Order file lookup failed: ${error.message}`);
@@ -228,7 +229,7 @@ async function storeBolContent(input: {
 
   const { error: insertError } = await input.supabase.from("order_files").insert({
     order_id: input.orderId,
-    file_type: "echo_bol",
+    file_type: BOL_FILE_TYPE,
     file_name: filename,
     storage_path: storagePath,
     content_type: input.contentType,
@@ -253,7 +254,7 @@ async function storeBolContent(input: {
     status: "closed",
   });
 
-  return { ok: true, orderId: input.orderId, shipmentId: input.shipmentId, filename, storagePath, sizeBytes: input.content.byteLength, sourcePath: input.sourcePath };
+  return { ok: true, orderId: input.orderId, shipmentId: input.shipmentId, filename, fileType: BOL_FILE_TYPE, storagePath, sizeBytes: input.content.byteLength, sourcePath: input.sourcePath };
 }
 
 async function fetchAndStoreBol(supabase: ReturnType<typeof createSupabaseAdminClient>, order: DbRecord) {
