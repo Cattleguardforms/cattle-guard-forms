@@ -3,10 +3,15 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const APPROVED_ADMIN_EMAILS = new Set(["orders@cattleguardforms.com", "support@cattleguardforms.com"]);
+const ACTIVITY_TYPES = new Set(["note", "contact", "quote", "quote request", "follow up", "admin_audit", "bol_document", "stripe_payment", "distributor_checkout_started"]);
+const ACTIVITY_STATUSES = new Set(["open", "pending", "follow up", "closed", "archived"]);
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function boundedText(value: unknown, maxLength: number) {
+  return clean(value).slice(0, maxLength);
 }
 
 function getBearerToken(request: NextRequest) {
@@ -30,11 +35,9 @@ async function requireAdmin(request: NextRequest) {
     .maybeSingle();
 
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
+  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
 
-  const hasAdminProfile = Boolean(profile && profile.role === "admin" && profile.status === "active");
-  if (!hasAdminProfile && !APPROVED_ADMIN_EMAILS.has(email)) throw new Error("Admin role is required.");
-
-  return supabase;
+  return { supabase, adminEmail: email };
 }
 
 function activityValue(record: Record<string, unknown>, keys: string[], fallback = "") {
@@ -67,9 +70,32 @@ function normalizeActivity(record: Record<string, unknown>) {
   };
 }
 
+function sanitizeManualActivity(body: Record<string, unknown>, adminEmail: string) {
+  const title = boundedText(body.title, 180);
+  if (!title) throw new Error("Activity title is required.");
+
+  const activityType = boundedText(body.activityType, 60).toLowerCase() || "note";
+  if (!ACTIVITY_TYPES.has(activityType)) throw new Error("Unsupported CRM activity type.");
+
+  const status = boundedText(body.status, 40).toLowerCase() || "open";
+  if (!ACTIVITY_STATUSES.has(status)) throw new Error("Unsupported CRM activity status.");
+
+  return {
+    activity_type: activityType,
+    title,
+    person_company: boundedText(body.personCompany, 180),
+    source: boundedText(body.source, 80) || "manual",
+    status,
+    last_activity: boundedText(body.lastActivity, 80) || new Date().toISOString(),
+    notes: boundedText(body.notes, 2000),
+    assigned_to: adminEmail,
+    created_at: new Date().toISOString(),
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
+    const { supabase } = await requireAdmin(request);
     const { data, error } = await supabase
       .from("crm_activity")
       .select("*")
@@ -99,22 +125,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
+    const { supabase, adminEmail } = await requireAdmin(request);
     const body = (await request.json()) as Record<string, unknown>;
-
-    const title = clean(body.title);
-    if (!title) return NextResponse.json({ ok: false, error: "Activity title is required." }, { status: 400 });
-
-    const insertPayload = {
-      activity_type: clean(body.activityType) || "note",
-      title,
-      person_company: clean(body.personCompany),
-      source: clean(body.source) || "manual",
-      status: clean(body.status) || "open",
-      last_activity: clean(body.lastActivity) || new Date().toISOString(),
-      notes: clean(body.notes),
-      created_at: new Date().toISOString(),
-    };
+    const insertPayload = sanitizeManualActivity(body, adminEmail);
 
     const { data, error } = await supabase.from("crm_activity").insert(insertPayload).select("*").single();
     if (error) throw new Error(`CRM activity create failed: ${error.message}`);
