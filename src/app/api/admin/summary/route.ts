@@ -40,7 +40,7 @@ async function requireAdmin(request: NextRequest) {
 
 async function countTable(supabase: ReturnType<typeof createSupabaseAdminClient>, table: string): Promise<number> {
   const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true });
-  if (error) return 0;
+  if (error) throw new Error(`Unable to count ${table}: ${error.message}`);
   return count ?? 0;
 }
 
@@ -50,7 +50,7 @@ async function countActiveDistributors(supabase: ReturnType<typeof createSupabas
     .select("id", { count: "exact", head: true })
     .eq("status", "active");
 
-  if (error) return 0;
+  if (error) throw new Error(`Unable to count active distributors: ${error.message}`);
   return count ?? 0;
 }
 
@@ -61,7 +61,7 @@ async function countOpenOrders(supabase: ReturnType<typeof createSupabaseAdminCl
     .not("payment_status", "eq", "paid")
     .not("shipment_status", "eq", "delivered");
 
-  if (error) return 0;
+  if (error) throw new Error(`Unable to count open orders: ${error.message}`);
   return count ?? 0;
 }
 
@@ -71,7 +71,7 @@ async function countPaidOrders(supabase: ReturnType<typeof createSupabaseAdminCl
     .select("id", { count: "exact", head: true })
     .eq("payment_status", "paid");
 
-  if (error) return 0;
+  if (error) throw new Error(`Unable to count paid orders: ${error.message}`);
   return count ?? 0;
 }
 
