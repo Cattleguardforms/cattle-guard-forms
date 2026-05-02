@@ -3,8 +3,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const APPROVED_ADMIN_EMAILS = new Set(["orders@cattleguardforms.com", "support@cattleguardforms.com"]);
-
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -58,9 +56,7 @@ async function requireAdmin(request: NextRequest) {
     .maybeSingle();
 
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
-
-  const hasAdminProfile = Boolean(profile && profile.role === "admin" && profile.status === "active");
-  if (!hasAdminProfile && !APPROVED_ADMIN_EMAILS.has(email)) throw new Error("Admin role is required.");
+  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
 
   return supabase;
 }
@@ -103,15 +99,15 @@ export async function GET(request: NextRequest) {
         .select("*")
         .in("order_contact_email", emails);
 
-      if (!orderError && orders) {
-        ordersByEmail = ((orders ?? []) as Record<string, unknown>[]).reduce<Record<string, Record<string, unknown>[]>>((acc, order) => {
-          const email = clean(order.order_contact_email).toLowerCase();
-          if (!email) return acc;
-          if (!acc[email]) acc[email] = [];
-          acc[email].push(order);
-          return acc;
-        }, {});
-      }
+      if (orderError) throw new Error(`Distributor order lookup failed: ${orderError.message}`);
+
+      ordersByEmail = ((orders ?? []) as Record<string, unknown>[]).reduce<Record<string, Record<string, unknown>[]>>((acc, order) => {
+        const email = clean(order.order_contact_email).toLowerCase();
+        if (!email) return acc;
+        if (!acc[email]) acc[email] = [];
+        acc[email].push(order);
+        return acc;
+      }, {});
     }
 
     const distributors = distributorRows.map((profile) => {
