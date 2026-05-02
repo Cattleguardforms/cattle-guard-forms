@@ -34,7 +34,12 @@ These routes must not be used as canonical architecture:
 - `/distributor/portal` — deleted/retired legacy route. Do not route traffic here.
 - `/distributor/order-portal` — retired route returning `notFound()`.
 - `/distributor/stripe` — compatibility redirect only; currently redirects to `/distributor/home`.
-- `/distributor/own-freight-checkout` — older split-lane architecture referenced in prior notes. Do not treat as the current canonical path unless verified live before use.
+
+Important distinction:
+
+- Distributor-arranged freight is **not** legacy. It is a valid shipping lane.
+- The old split route `/distributor/own-freight-checkout` is the legacy architecture risk, not the business rule itself.
+- Current/future distributor checkout must support both CGF/Echo freight and distributor-arranged freight with required distributor document upload.
 
 ## Current operating workflow
 
@@ -47,15 +52,38 @@ Current expected sequence:
 1. Distributor signs in.
 2. Distributor orders through `/distributor/shop`.
 3. Customer warranty name, email, and phone are required.
-4. Freight quote is selected or distributor chooses own freight where supported.
+4. Distributor chooses one shipping lane:
+   - Cattle Guard Forms / Echo freight.
+   - Distributor-arranged freight, requiring distributor-uploaded freight/BOL documents.
 5. Stripe checkout collects payment.
 6. Stripe webhook marks order paid.
 7. Payment/order notification emails send.
-8. Echo booking runs after payment.
-9. Order shows carrier and BOL code/reference once Echo booking succeeds.
-10. BOL document is fetched later by `/api/admin/fetch-bol-documents` and/or scheduled Vercel cron.
-11. BOL file is stored in Supabase Storage and `order_files` as `echo_bol`.
-12. Distributor portal shows Download BOL once the file exists.
+8. If CGF/Echo freight is selected, Echo booking runs after payment.
+9. If CGF/Echo booking succeeds, order shows carrier and BOL code/reference.
+10. If CGF/Echo freight is selected, BOL document is fetched later by `/api/admin/fetch-bol-documents` and/or scheduled Vercel cron.
+11. If distributor-arranged freight is selected, uploaded distributor freight/BOL documents must be stored in Supabase Storage and `order_files` before/with checkout as required by that lane.
+12. Distributor portal shows Download BOL once a BOL/freight document exists in `order_files`.
+
+### Shipping lane rules
+
+#### Lane 1: Cattle Guard Forms / Echo freight
+
+- Distributor requests quote.
+- Distributor selects freight option.
+- Checkout includes product + freight/handling.
+- Stripe payment succeeds.
+- Echo booking runs.
+- BOL code/reference appears after booking.
+- BOL document may not be available immediately.
+- Scheduled/admin BOL fetch stores `echo_bol` when Echo makes the document available.
+
+#### Lane 2: Distributor-arranged freight
+
+- Distributor selects own shipping / arrange freight.
+- Distributor must upload their own freight/BOL documents.
+- Checkout should not proceed unless required freight documents are present for this lane.
+- Uploaded documents should be stored in `order_files` as `original_bol`, `distributor_bol`, or equivalent approved file type.
+- Supplier/support emails and admin views should clearly show that distributor arranged freight and uploaded the documents.
 
 ### Email workflow
 
@@ -65,7 +93,7 @@ Current rule:
 
 - Basic payment/order emails send immediately after payment.
 - BOL/manufacturer packet emails should not block payment workflow.
-- BOL/document emails should only be sent after the BOL document exists.
+- BOL/document emails should only be sent after the BOL document exists, or should reference distributor-uploaded freight documents when distributor-arranged freight is selected.
 
 Verified sender domain requirement:
 
@@ -100,14 +128,14 @@ Working:
 - Supabase sign-in is used from admin surfaces.
 - Admin dashboard links to distributors, orders, manufacturer portal, analytics, CRM activity, import, and settings.
 - `/admin/orders` has real order management behavior.
-- `/admin/shipping-execution` can book Echo shipments and currently includes older direct-download BOL behavior.
+- `/admin/shipping-execution` can book Echo shipments and is being aligned with stored-BOL behavior.
 - `/admin/distributors` loads distributor profile/order information.
 
 Risks:
 
 - Some admin module cards may still point to shallow or placeholder pages.
 - Admin auth is repeated across routes and should eventually be centralized.
-- `/admin/shipping-execution` needs to be updated to use the new stored-BOL workflow instead of treating direct browser BOL download as primary.
+- `/admin/shipping-execution` must support both Echo-stored BOL and distributor-uploaded BOL/freight documents.
 - Archive/destructive admin actions need stronger confirmation and audit logging.
 
 Priority: High.
@@ -127,10 +155,11 @@ Working:
 Risks:
 
 - Need to verify no remaining links point to `/distributor/portal`.
+- Need to verify distributor-arranged freight upload lane is fully live and cannot proceed without required documents.
 - Distributor document pages should be reviewed for real downloadable content vs static placeholders.
 - Distributor profile/settings self-service remains shallow unless proven otherwise.
 
-Priority: Highest until route cleanup is complete.
+Priority: Highest until route cleanup and both shipping lanes are verified.
 
 ### Manufacturer/internal fulfillment portal
 
@@ -144,7 +173,7 @@ Working:
 Risks:
 
 - This is not a separate external manufacturer-login portal.
-- Manufacturer workflow should be tied to stored BOL files, not premature BOL fetch attempts.
+- Manufacturer workflow should be tied to stored BOL/freight files, not premature BOL fetch attempts.
 - If external manufacturer access is needed, a separate role/access model is required.
 
 Priority: Medium-high.
@@ -176,6 +205,7 @@ Split later into reusable helpers:
 - distributor auth helper
 - customer/warranty CRM helper
 - distributor order creation helper
+- shipping lane validation helper
 - freight/pallet helper
 - order file/BOL helper
 - Stripe checkout helper
@@ -190,7 +220,7 @@ Current rule:
 
 - Mark paid order.
 - Send payment/order workflow emails.
-- Run Echo booking.
+- Run Echo booking only for CGF/Echo freight orders.
 - Do not block payment workflow on BOL document email.
 
 Priority: Keep and monitor.
@@ -213,7 +243,7 @@ Status: Functional dependency for distributor/manufacturer BOL workflow.
 
 Risk:
 
-- Needs repeated live verification for `original_bol`, `signed_bol`, and `echo_bol` download behavior.
+- Needs repeated live verification for `original_bol`, `distributor_bol`, `signed_bol`, and `echo_bol` download behavior.
 
 Priority: High.
 
@@ -228,26 +258,29 @@ Priority: High.
    - `CRON_SECRET` is set in production environment.
    - `crm_activity` records `BOL document stored for order...` once Echo provides the document.
 
-3. Remove or fix remaining links to deleted routes:
+3. Verify both distributor shipping lanes:
+   - CGF/Echo freight quote + payment + booking + BOL code + delayed BOL fetch.
+   - Distributor-arranged freight + required document upload + payment + supplier/support visibility.
+
+4. Remove or fix remaining links to deleted routes:
    - Search all links/navigation for `/distributor/portal`.
-   - Search all links/navigation for `/distributor/own-freight-checkout`.
    - Delete retired route stubs if they are not needed.
 
-4. Update admin shipping execution:
-   - Replace direct browser BOL download as the primary model.
-   - Add/use stored-BOL fetch action against `/api/admin/fetch-bol-documents`.
-   - Show whether BOL file exists in `order_files`.
+5. Update admin shipping execution:
+   - Use stored-BOL fetch action against `/api/admin/fetch-bol-documents` for Echo orders.
+   - Show whether BOL/freight files exist in `order_files`.
+   - Support distributor-uploaded BOL/freight files for own-shipping orders.
 
-5. Harden admin and manufacturer auth boundaries:
+6. Harden admin and manufacturer auth boundaries:
    - Centralize role checks.
    - Confirm `app_profiles.role = admin` and `status = active` are enforced on write APIs.
    - Decide whether `/manufacturer` remains admin-only or gets a manufacturer role.
 
-6. Distributor documents audit:
+7. Distributor documents audit:
    - Mark each distributor document route as real/static/downloadable/placeholder.
    - Remove or hide anything not production-ready.
 
-7. Marketing module audit:
+8. Marketing module audit:
    - Mark each marketing module as Real / Partial / Placeholder / Delete.
    - Hide unfinished operational modules until core fulfillment is stable.
 
@@ -265,6 +298,6 @@ Do not expand these until the high-priority defrag queue is handled:
 ## Next safest code tasks
 
 1. Confirm latest Vercel deploy and cron job.
-2. Update `/admin/shipping-execution` to use the stored BOL workflow.
-3. Remove/harden all remaining links to deleted distributor legacy routes.
+2. Verify distributor-arranged freight upload lane still works under current `/distributor/shop` flow.
+3. Update `/admin/shipping-execution` to show stored BOL/freight file status for both shipping lanes.
 4. Audit distributor documents for placeholder/static content.
