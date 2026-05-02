@@ -20,6 +20,7 @@ type FulfillmentUpdate = {
 
 const SHIPMENT_STATUSES = new Set(["pending", "ready_for_fulfillment", "preparing", "ready_to_ship", "shipped", "delivered", "delayed", "cancelled"]);
 const ORDER_STATUSES = new Set(["ready_for_fulfillment", "preparing", "ready_to_ship", "shipped", "delivered", "cancelled"]);
+const ARCHIVE_CONFIRMATION = "ARCHIVE_OLD_ORDERS";
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -65,7 +66,7 @@ async function requireAdmin(request: NextRequest) {
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
   if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
 
-  return supabase;
+  return { supabase, adminEmail: email };
 }
 
 function isArchived(order: LooseRecord) {
@@ -142,9 +143,8 @@ async function loadOrders(supabase: ReturnType<typeof createSupabaseAdminClient>
       .select("*")
       .in("id", customerIds);
 
-    if (!customerError && customers) {
-      customerById = Object.fromEntries((customers as LooseRecord[]).map((customer) => [clean(customer.id), customer]));
-    }
+    if (customerError) throw new Error(`Customer lookup for orders failed: ${customerError.message}`);
+    if (customers) customerById = Object.fromEntries((customers as LooseRecord[]).map((customer) => [clean(customer.id), customer]));
   }
 
   const normalized = rows.map((order) => normalizeOrder(order, customerById[clean(order.customer_id)] ?? null));
@@ -197,9 +197,27 @@ function sanitizeFulfillmentUpdates(input: FulfillmentUpdate) {
   return updates;
 }
 
+async function writeAdminAudit(input: {
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+  adminEmail: string;
+  title: string;
+  description: string;
+  orderId?: string | null;
+}) {
+  const { error } = await input.supabase.from("crm_activity").insert({
+    activity_type: "admin_audit",
+    title: input.title,
+    description: `${input.description}\n\nAdmin: ${input.adminEmail}`,
+    order_id: input.orderId ?? null,
+    source: "admin_orders_api",
+    status: "closed",
+  });
+  if (error) throw new Error(`Admin audit log failed: ${error.message}`);
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
+    const { supabase } = await requireAdmin(request);
     const { searchParams } = new URL(request.url);
     const includeArchived = searchParams.get("includeArchived") === "true";
     const includeAll = searchParams.get("scope") === "all";
@@ -215,7 +233,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
+    const { supabase, adminEmail } = await requireAdmin(request);
     const body = (await request.json()) as { orderId?: unknown; updates?: FulfillmentUpdate };
     const orderId = clean(body.orderId);
     if (!orderId) return NextResponse.json({ ok: false, error: "Missing order id." }, { status: 400 });
@@ -225,6 +243,14 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw new Error(`Fulfillment update failed: ${error.message}`);
     if (!data) throw new Error("Order was not found after update.");
+
+    await writeAdminAudit({
+      supabase,
+      adminEmail,
+      orderId,
+      title: `Admin updated fulfillment for order ${orderId}`,
+      description: `Fulfillment fields updated: ${Object.keys(updates).filter((key) => key !== "updated_at").join(", ")}`,
+    });
 
     return NextResponse.json({ ok: true, order: normalizeOrder(data as LooseRecord, null) });
   } catch (error) {
@@ -237,11 +263,15 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
-    const body = (await request.json()) as { action?: string; keepLatest?: number };
+    const { supabase, adminEmail } = await requireAdmin(request);
+    const body = (await request.json()) as { action?: string; keepLatest?: number; confirm?: string };
 
     if (body.action !== "archive_old_orders") {
       return NextResponse.json({ ok: false, error: "Unsupported admin orders action." }, { status: 400 });
+    }
+
+    if (body.confirm !== ARCHIVE_CONFIRMATION) {
+      return NextResponse.json({ ok: false, error: `Bulk archive requires confirm = ${ARCHIVE_CONFIRMATION}.` }, { status: 400 });
     }
 
     const keepLatest = Math.max(1, Math.min(Number(body.keepLatest ?? 4), 25));
@@ -264,6 +294,13 @@ export async function POST(request: NextRequest) {
 
       if (updateError) throw new Error(`Order archive failed: ${updateError.message}`);
     }
+
+    await writeAdminAudit({
+      supabase,
+      adminEmail,
+      title: "Admin bulk archived old orders",
+      description: `Archived ${archiveIds.length} order(s). Kept latest ${keepLatest}. Archived IDs: ${archiveIds.join(", ") || "none"}.`,
+    });
 
     const payload = await loadOrders(supabase, { includeArchived: false, includeAll: false });
     return NextResponse.json({ ok: true, archivedCount: archiveIds.length, ...payload });
