@@ -92,8 +92,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/quote" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-950/30 hover:bg-green-500">Request a Quote →</Link>
-              <Link href="/installations" className="inline-flex items-center justify-center rounded-lg border border-white/50 px-6 py-4 font-bold text-white hover:bg-white/10">View Installations</Link>
-              <Link href="/distributor" className="inline-flex items-center justify-center rounded-lg border border-white/40 px-6 py-4 font-bold text-white hover:bg-white/10">Distributor Portal</Link>
+              <Link href="/installations" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-950/30 hover:bg-green-500">View Installations</Link>
             </div>
             <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-green-50 sm:grid-cols-4">
               <span>Heavy-Duty</span>
