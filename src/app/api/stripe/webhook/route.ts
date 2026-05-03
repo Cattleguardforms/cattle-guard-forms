@@ -281,10 +281,11 @@ async function sendPaymentWorkflowEmails(session: Stripe.Checkout.Session, order
 }
 
 function shouldAutoFulfill(order: LooseRecord) {
-  const isDistributorOrder = clean(order.order_type) === "distributor" || Boolean(clean(order.distributor_profile_id));
+  const orderType = clean(order.order_type).toLowerCase();
+  const isFulfillableOrder = ["customer", "distributor"].includes(orderType) || Boolean(clean(order.customer_id)) || Boolean(clean(order.distributor_profile_id));
   const usesEcho = (clean(order.shipping_method) || "echo") === "echo";
   const alreadyBooked = ["echo_booked", "shipped", "delivered"].includes(clean(order.shipment_status));
-  return isDistributorOrder && usesEcho && !alreadyBooked;
+  return isFulfillableOrder && usesEcho && !alreadyBooked;
 }
 
 async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
@@ -301,9 +302,17 @@ async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
   const bookPayload = await readAutomationResponse(bookResponse);
   if (!bookResponse.ok || !bookPayload.ok) throw new Error(`Auto Echo booking failed at ${baseUrl}/api/echo/book-ltl-shipment: ${JSON.stringify(bookPayload).slice(0, 1600)}`);
 
+  const emailResponse = await fetch(`${baseUrl}/api/admin/send-manufacturer-order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
+    body: JSON.stringify({ orderId, internalDryRun: true }),
+  });
+  const emailPayload = await readAutomationResponse(emailResponse);
+  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal BOL email failed at ${baseUrl}/api/admin/send-manufacturer-order: ${JSON.stringify(emailPayload).slice(0, 1600)}`);
+
   await createCrmActivity({
-    title: `Auto Echo booking completed for order ${orderId}`,
-    description: `Echo booking completed after Stripe payment. BOL: ${bookPayload.bolNumber || "not provided"}. Manufacturer/BOL document email is queued for a later workflow after the BOL document is available.`,
+    title: `Auto fulfillment completed for order ${orderId}`,
+    description: `Echo booking and internal BOL emails completed after Stripe payment. Echo BOL: ${bookPayload.bolNumber || "not provided"}. Internal BOL file: ${emailPayload.bolFileName || "not provided"}.`,
     orderId,
     customerId: clean(order.customer_id) || null,
     distributorProfileId: clean(order.distributor_profile_id) || null,
