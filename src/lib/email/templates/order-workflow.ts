@@ -47,7 +47,11 @@ function valueOrNotProvided(value?: string) { return value?.trim() || "Not provi
 function formatOrderId(orderId?: string) { return valueOrBlank(orderId) || DEFAULT_ORDER_ID; }
 function url(path: string) { return `${SITE_URL.replace(/\/$/, "")}${path}`; }
 
-function warrantyUrl(orderId: string) { return orderId === DEFAULT_ORDER_ID ? url("/distributor/documents") : url(`/distributor/orders/${orderId}/warranty`); }
+function warrantyUrl(orderId: string, accessToken?: string) {
+  if (orderId === DEFAULT_ORDER_ID) return url("/quote");
+  const query = accessToken ? `?access=${encodeURIComponent(accessToken)}` : "";
+  return url(`/customer/orders/${orderId}/warranty${query}`);
+}
 function installationGuideUrl() { return url("/distributor/documents/approved-packet-set"); }
 function engineeringCertificateUrl() { return url("/distributor/documents/approved-packet-set"); }
 
@@ -105,7 +109,7 @@ export function buildDistributorOrderConfirmationTemplate(payload: OrderWorkflow
       `Quantity: ${payload.quantity} CowStop form(s)`,
       `Shipping Method: ${formatShippingMethodForCustomer(payload)}`, "",
       "Please find your customer paperwork and installation documents below:",
-      `Customer Warranty Paperwork / Print Here: ${warrantyUrl(orderId)}`,
+      `Customer Warranty Paperwork / Print Here: ${warrantyUrl(orderId, payload.stripeSessionId)}`,
       `Customer Installation Guide / Print Here: ${installationGuideUrl()}`,
       `Engineering Certificate / Print Here: ${engineeringCertificateUrl()}`, "",
       bolTimingCopy(payload), "",
