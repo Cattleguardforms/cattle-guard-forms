@@ -1,0 +1,35 @@
+name: Fetch Echo BOLs
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  fetch-echo-bols:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call production BOL fetch endpoint
+        env:
+          CGF_AUTOMATION_SECRET: ${{ secrets.CGF_AUTOMATION_SECRET }}
+          FETCH_BOL_URL: ${{ vars.FETCH_BOL_URL }}
+        run: |
+          set -euo pipefail
+          URL="${FETCH_BOL_URL:-https://cattleguardforms.com/api/admin/fetch-bol-documents?limit=10}"
+          if [ -z "${CGF_AUTOMATION_SECRET:-}" ]; then
+            echo "CGF_AUTOMATION_SECRET repo secret is missing."
+            exit 1
+          fi
+          echo "Calling $URL"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -H "x-cgf-automation-secret: ${CGF_AUTOMATION_SECRET}" \
+            -H "accept: application/json" \
+            "$URL")
+          body=$(echo "$response" | sed '$d')
+          status=$(echo "$response" | tail -n 1)
+          echo "$body"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "BOL fetch endpoint failed with HTTP $status"
+            exit 1
+          fi
