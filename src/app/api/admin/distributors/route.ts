@@ -15,7 +15,6 @@ function getBearerToken(request: NextRequest) {
 function distributorKey(profile: Record<string, unknown>) {
   const email = clean(profile.email || profile.contact_email).toLowerCase();
   if (email) return `email:${email}`;
-
   const name = clean(profile.company_name || profile.company || profile.business_name || profile.name)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -27,37 +26,25 @@ function mergeProfiles(existing: Record<string, unknown>, next: Record<string, u
   const merged = { ...existing };
   for (const [key, value] of Object.entries(next)) {
     const current = merged[key];
-    if ((current === null || current === undefined || current === "") && value !== null && value !== undefined && value !== "") {
-      merged[key] = value;
-    }
+    if ((current === null || current === undefined || current === "") && value !== null && value !== undefined && value !== "") merged[key] = value;
   }
-
   const existingStatus = clean(existing.status);
   const nextStatus = clean(next.status);
   if (existingStatus !== "active" && nextStatus === "active") merged.status = next.status;
   if (existingStatus === "disabled" || nextStatus === "disabled") merged.status = "disabled";
-
   return merged;
 }
 
 async function requireAdmin(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) throw new Error("Missing admin session token.");
-
   const supabase = createSupabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
-
   const email = userData.user.email.toLowerCase();
-  const { data: profile, error: profileError } = await supabase
-    .from("app_profiles")
-    .select("role, status")
-    .eq("email", email)
-    .maybeSingle();
-
+  const { data: profile, error: profileError } = await supabase.from("app_profiles").select("role, status").eq("email", email).maybeSingle();
   if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
   if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
-
   return supabase;
 }
 
@@ -67,55 +54,44 @@ function dollars(centsOrDollars: unknown) {
   return normalized.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+function orderEmails(order: Record<string, unknown>) {
+  return [
+    clean(order.distributor_email),
+    clean(order.customer_email),
+    clean(order.contact_email),
+    clean(order.email),
+  ].filter(Boolean).map((email) => email.toLowerCase());
+}
+
+function orderAmount(order: Record<string, unknown>) {
+  return Number(order.amount_display ?? order.amount_paid ?? order.total ?? 0);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
 
-    const { data: profiles, error: profileError } = await supabase
-      .from("distributor_profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    const { data: profiles, error: profileError } = await supabase.from("distributor_profiles").select("*").order("created_at", { ascending: false });
     if (profileError) throw new Error(`Distributor lookup failed: ${profileError.message}`);
 
     const rawDistributorRows = (profiles ?? []) as Record<string, unknown>[];
-    const distributorRows = Array.from(
-      rawDistributorRows.reduce<Map<string, Record<string, unknown>>>((map, profile) => {
-        const key = distributorKey(profile);
-        const existing = map.get(key);
-        map.set(key, existing ? mergeProfiles(existing, profile) : profile);
-        return map;
-      }, new Map()).values(),
-    );
+    const distributorRows = Array.from(rawDistributorRows.reduce<Map<string, Record<string, unknown>>>((map, profile) => {
+      const key = distributorKey(profile);
+      const existing = map.get(key);
+      map.set(key, existing ? mergeProfiles(existing, profile) : profile);
+      return map;
+    }, new Map()).values());
 
-    const emails = distributorRows
-      .map((profile) => clean(profile.email || profile.contact_email).toLowerCase())
-      .filter(Boolean);
-
-    let ordersByEmail: Record<string, Record<string, unknown>[]> = {};
-    if (emails.length) {
-      const { data: orders, error: orderError } = await supabase
-        .from("orders")
-        .select("*")
-        .in("order_contact_email", emails);
-
-      if (orderError) throw new Error(`Distributor order lookup failed: ${orderError.message}`);
-
-      ordersByEmail = ((orders ?? []) as Record<string, unknown>[]).reduce<Record<string, Record<string, unknown>[]>>((acc, order) => {
-        const email = clean(order.order_contact_email).toLowerCase();
-        if (!email) return acc;
-        if (!acc[email]) acc[email] = [];
-        acc[email].push(order);
-        return acc;
-      }, {});
-    }
+    const { data: ordersData, error: ordersError } = await supabase.from("orders").select("*");
+    if (ordersError) throw new Error(`Distributor order lookup failed: ${ordersError.message}`);
+    const allOrders = (ordersData ?? []) as Record<string, unknown>[];
 
     const distributors = distributorRows.map((profile) => {
       const email = clean(profile.email || profile.contact_email).toLowerCase();
-      const relatedOrders = ordersByEmail[email] ?? [];
-      const activeOrders = relatedOrders.filter((order) => clean(order.shipment_status) !== "archived");
-      const paidOrders = relatedOrders.filter((order) => clean(order.payment_status) === "paid");
-      const revenue = paidOrders.reduce((sum, order) => sum + Number(order.total ?? order.amount_paid ?? 0), 0);
+      const relatedOrders = email ? allOrders.filter((order) => orderEmails(order).includes(email)) : [];
+      const activeOrders = relatedOrders.filter((order) => !["archived", "cancelled", "delivered"].includes(clean(order.shipment_status).toLowerCase()));
+      const paidOrders = relatedOrders.filter((order) => ["paid", "complete", "succeeded"].includes(clean(order.payment_status || order.checkout_status).toLowerCase()) || orderAmount(order) > 0);
+      const revenue = paidOrders.reduce((sum, order) => sum + orderAmount(order), 0);
 
       return {
         id: clean(profile.id),
@@ -140,9 +116,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ok: true, summary, distributors });
   } catch (error) {
-    return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Unable to load distributors." },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to load distributors." }, { status: 401 });
   }
 }
