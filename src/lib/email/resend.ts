@@ -29,11 +29,7 @@ export type DistributorOrderEmailPayload = {
   shipToZip?: string;
   selectedRate?: string;
   bolFileName?: string;
-  bolAttachment?: {
-    filename: string;
-    content: Buffer;
-    contentType?: string;
-  };
+  bolAttachment?: { filename: string; content: Buffer; contentType?: string };
   orderNotes?: string;
   stripeSessionId?: string;
 };
@@ -42,45 +38,13 @@ const TRANSACTIONAL_FROM_EMAIL = "orders@cattleguardforms.com";
 const TRANSACTIONAL_REPLY_TO_EMAIL = "support@cattleguardforms.com";
 const TRANSACTIONAL_SUPPORT_EMAIL = "support@cattleguardforms.com";
 
-function clean(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-function requireEnv(name: string) {
-  const value = clean(process.env[name]);
-  if (!value) {
-    throw new Error(`${name} is required to send order emails.`);
-  }
-  return value;
-}
-
-function parseEmailList(value: string) {
-  return value
-    .split(",")
-    .map((email) => email.trim())
-    .filter(isValidEmail);
-}
-
-function getManufacturerEmails() {
-  const emails = parseEmailList(requireEnv("MANUFACTURER_EMAILS"));
-  if (emails.length === 0) {
-    throw new Error("MANUFACTURER_EMAILS must include at least one valid email address.");
-  }
-  return emails;
-}
-
-function getEmailSettings() {
-  return {
-    resendApiKey: requireEnv("RESEND_API_KEY"),
-    fromEmail: TRANSACTIONAL_FROM_EMAIL,
-    replyToEmail: TRANSACTIONAL_REPLY_TO_EMAIL,
-    supportEmail: TRANSACTIONAL_SUPPORT_EMAIL,
-  };
-}
+function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function isValidEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
+function requireEnv(name: string) { const value = clean(process.env[name]); if (!value) throw new Error(`${name} is required to send order emails.`); return value; }
+function parseEmailList(value: string) { return value.split(",").map((email) => email.trim()).filter(isValidEmail); }
+function uniqueEmails(values: Array<string | undefined>) { return values.map((value) => clean(value).toLowerCase()).filter(isValidEmail).filter((value, index, list) => list.indexOf(value) === index); }
+function getManufacturerEmails() { const emails = parseEmailList(requireEnv("MANUFACTURER_EMAILS")); if (emails.length === 0) throw new Error("MANUFACTURER_EMAILS must include at least one valid email address."); return emails; }
+function getEmailSettings() { return { resendApiKey: requireEnv("RESEND_API_KEY"), fromEmail: TRANSACTIONAL_FROM_EMAIL, replyToEmail: TRANSACTIONAL_REPLY_TO_EMAIL, supportEmail: TRANSACTIONAL_SUPPORT_EMAIL }; }
 
 function buildOrderWorkflowPayload(payload: DistributorOrderEmailPayload): OrderWorkflowPayload {
   return {
@@ -107,30 +71,24 @@ function buildOrderWorkflowPayload(payload: DistributorOrderEmailPayload): Order
 
 function buildAttachments(payload: DistributorOrderEmailPayload) {
   if (!payload.bolAttachment) return undefined;
-  return [
-    {
-      filename: payload.bolAttachment.filename,
-      content: payload.bolAttachment.content,
-      contentType: payload.bolAttachment.contentType,
-    },
-  ];
+  return [{ filename: payload.bolAttachment.filename, content: payload.bolAttachment.content, contentType: payload.bolAttachment.contentType }];
 }
 
 export async function sendDistributorOrderEmails(payload: DistributorOrderEmailPayload) {
   const { resendApiKey, fromEmail, replyToEmail, supportEmail } = getEmailSettings();
   const manufacturerEmails = getManufacturerEmails();
-
   const resend = new Resend(resendApiKey);
   const orderPayload = buildOrderWorkflowPayload(payload);
   const distributorTemplate = buildDistributorOrderConfirmationTemplate(orderPayload);
   const manufacturerTemplate = buildManufacturerFulfillmentTemplate(orderPayload);
   const supportTemplate = buildSupportOrderCopyTemplate(orderPayload);
   const attachments = buildAttachments(payload);
+  const confirmationRecipients = uniqueEmails([payload.email, payload.customerEmail]);
 
-  const [distributorEmail, manufacturerFulfillmentEmail, supportCopyEmail] = await Promise.all([
+  const [confirmationEmail, manufacturerFulfillmentEmail, supportCopyEmail] = await Promise.all([
     resend.emails.send({
       from: fromEmail,
-      to: payload.email,
+      to: confirmationRecipients,
       replyTo: replyToEmail,
       subject: distributorTemplate.subject,
       text: distributorTemplate.text,
@@ -153,26 +111,14 @@ export async function sendDistributorOrderEmails(payload: DistributorOrderEmailP
     }),
   ]);
 
-  return {
-    distributorEmail,
-    manufacturerFulfillmentEmail,
-    supportCopyEmail,
-  };
+  return { distributorEmail: confirmationEmail, customerEmail: confirmationEmail, manufacturerFulfillmentEmail, supportCopyEmail };
 }
 
 export async function sendDistributorShipmentNotification(payload: ShipmentUpdatePayload) {
   const { resendApiKey, fromEmail, replyToEmail } = getEmailSettings();
-
   const resend = new Resend(resendApiKey);
   const template = buildDistributorShipmentNotificationTemplate(payload);
-
-  return resend.emails.send({
-    from: fromEmail,
-    to: payload.distributorEmail,
-    replyTo: replyToEmail,
-    subject: template.subject,
-    text: template.text,
-  });
+  return resend.emails.send({ from: fromEmail, to: payload.distributorEmail, replyTo: replyToEmail, subject: template.subject, text: template.text });
 }
 
 export async function sendSupportRequestEmails(payload: SupportRequestPayload) {
@@ -180,23 +126,9 @@ export async function sendSupportRequestEmails(payload: SupportRequestPayload) {
   const resend = new Resend(resendApiKey);
   const customerTemplate = buildSupportRequestReceivedTemplate(payload);
   const teamTemplate = buildSupportRequestTeamNotificationTemplate(payload);
-
   const [customerEmail, supportCopyEmail] = await Promise.all([
-    resend.emails.send({
-      from: fromEmail,
-      to: payload.email,
-      replyTo: replyToEmail,
-      subject: customerTemplate.subject,
-      text: customerTemplate.text,
-    }),
-    resend.emails.send({
-      from: fromEmail,
-      to: supportEmail,
-      replyTo: replyToEmail,
-      subject: teamTemplate.subject,
-      text: teamTemplate.text,
-    }),
+    resend.emails.send({ from: fromEmail, to: payload.email, replyTo: replyToEmail, subject: customerTemplate.subject, text: customerTemplate.text }),
+    resend.emails.send({ from: fromEmail, to: supportEmail, replyTo: replyToEmail, subject: teamTemplate.subject, text: teamTemplate.text }),
   ]);
-
   return { customerEmail, supportCopyEmail };
 }
