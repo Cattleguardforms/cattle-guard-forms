@@ -27,6 +27,13 @@ function emails(value?: string) { return (value || "").split(",").map((email) =>
 function num(value: unknown, fallback = 0) { const next = Number(value ?? fallback); return Number.isFinite(next) ? next : fallback; }
 function noteValue(notes: string, label: string) { const line = notes.split("\n").find((entry) => entry.toLowerCase().startsWith(`${label.toLowerCase()}:`)); return line ? line.slice(line.indexOf(":") + 1).trim() : ""; }
 function isInternalAutomation(request: NextRequest) { const expected = process.env.CGF_AUTOMATION_SECRET || process.env.STRIPE_WEBHOOK_SECRET || ""; const provided = request.headers.get("x-cgf-automation-secret") || ""; return Boolean(expected && provided && provided === expected); }
+function siteUrl() { return (process.env.NEXT_PUBLIC_SITE_URL || "https://cattleguardforms.com").replace(/\/$/, ""); }
+function customerWarrantyUrl(order: DbRecord) {
+  const orderId = clean(order.id);
+  const access = clean(order.stripe_checkout_session_id) || clean(order.stripe_payment_intent_id);
+  const query = access ? `?access=${encodeURIComponent(access)}` : "";
+  return `${siteUrl()}/customer/orders/${orderId}/warranty${query}`;
+}
 
 async function requireAdmin(request: NextRequest) {
   const supabase = createSupabaseAdminClient();
@@ -92,7 +99,7 @@ function buildOrderPayload(order: DbRecord, attachmentName: string): OrderWorkfl
   const notes = clean(order.manufacturer_notes);
   return {
     orderId: clean(order.id),
-    distributorAccountName: clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_display_name) || "Distributor",
+    distributorAccountName: clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_display_name) || "Cattle Guard Forms Customer",
     distributorEmail: clean(order.order_contact_email) || clean(order.customer_email) || clean(order.distributor_email) || TRANSACTIONAL_ORDERS_EMAIL,
     customerName: noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name),
     customerEmail: noteValue(notes, "Email") || clean(order.customer_email),
@@ -112,6 +119,48 @@ function buildOrderPayload(order: DbRecord, attachmentName: string): OrderWorkfl
   };
 }
 
+function customerEmailFromOrder(order: DbRecord) {
+  const notes = clean(order.manufacturer_notes);
+  const candidates = [
+    noteValue(notes, "Email"),
+    clean(order.warranty_customer_email),
+    clean(order.customer_email),
+    clean(order.order_contact_email),
+  ];
+  return candidates.find(isValidEmail) || "";
+}
+
+function customerNameFromOrder(order: DbRecord) {
+  const notes = clean(order.manufacturer_notes);
+  return noteValue(notes, "Name") || clean(order.warranty_customer_name) || clean(order.ship_to_name) || clean(order.customer_display_name) || "there";
+}
+
+function buildCustomerBolEmailText(order: DbRecord, bolFileName: string) {
+  const orderId = clean(order.id);
+  const notes = clean(order.manufacturer_notes);
+  const bolNumber = clean(order.bol_number) || noteValue(notes, "BOL Number") || "Attached";
+  return [
+    `Hello ${customerNameFromOrder(order)},`,
+    "",
+    "Your CowStop order freight paperwork is ready.",
+    "",
+    `Order ID: ${orderId}`,
+    `BOL Number: ${bolNumber}`,
+    `BOL File: ${bolFileName}`,
+    "",
+    "The bill of lading is attached to this email. Please keep it with your order paperwork.",
+    "",
+    "Customer warranty paperwork:",
+    customerWarrantyUrl(order),
+    "",
+    "If anything looks incorrect, reply to this email or contact support@cattleguardforms.com.",
+    "",
+    "Thank you,",
+    "",
+    "Cattle Guard Forms",
+  ].join("\n");
+}
+
 function buildInternalOrderPaperworkText(order: DbRecord) {
   const notes = clean(order.manufacturer_notes);
   const orderId = clean(order.id);
@@ -119,7 +168,6 @@ function buildInternalOrderPaperworkText(order: DbRecord) {
   const customerEmail = noteValue(notes, "Email") || clean(order.customer_email) || "Not provided";
   const customerPhone = noteValue(notes, "Phone") || clean(order.contact_phone) || "Not provided";
   const bolNumber = clean(order.bol_number) || "Not assigned yet";
-  const warrantyUrl = `${(process.env.NEXT_PUBLIC_SITE_URL || "https://cattleguardforms.com").replace(/\/$/, "")}/distributor/orders/${orderId}/warranty`;
 
   return [
     "Hello,",
@@ -134,7 +182,7 @@ function buildInternalOrderPaperworkText(order: DbRecord) {
     `Quantity: ${num(order.cowstop_quantity ?? order.quantity ?? order.quantity_display, 1)} CowStop form(s)`,
     "",
     "Customer warranty paperwork:",
-    warrantyUrl,
+    customerWarrantyUrl(order),
     "",
     "Please keep this warranty paperwork with the order record and provide the customer-facing packet as needed.",
     "",
@@ -195,6 +243,9 @@ export async function POST(request: NextRequest) {
     });
 
     let internalPaperworkResult: unknown = null;
+    let customerBolResult: unknown = null;
+    const customerEmail = customerEmailFromOrder(orderRecord);
+
     if (body.internalDryRun) {
       internalPaperworkResult = await resend.emails.send({
         from,
@@ -203,12 +254,24 @@ export async function POST(request: NextRequest) {
         subject: `[INTERNAL TEST] CowStop order paperwork ready - ${orderId}`,
         text: buildInternalOrderPaperworkText(orderRecord),
       });
+
+      if (customerEmail) {
+        customerBolResult = await resend.emails.send({
+          from,
+          to: customerEmail,
+          replyTo,
+          subject: `Your CowStop BOL and warranty paperwork - ${orderId}`,
+          text: buildCustomerBolEmailText(orderRecord, bolAttachment.filename),
+          attachments: [{ filename: bolAttachment.filename, content: bolAttachment.content, contentType: bolAttachment.contentType }],
+        });
+      }
     }
 
     const previousNotes = clean(orderRecord.manufacturer_notes);
-    const note = body.internalDryRun ? `Internal dry run emails sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated` : `Manufacturer email sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated`;
+    const customerNote = customerEmail ? `Customer BOL email sent to ${customerEmail}` : "Customer BOL email skipped: no customer email found";
+    const note = body.internalDryRun ? `Internal dry run emails sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated; ${customerNote}` : `Manufacturer email sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated`;
     await supabase.from("orders").update({ manufacturer_notes: [previousNotes, note].filter(Boolean).join("\n"), updated_at: new Date().toISOString() }).eq("id", orderId);
-    return NextResponse.json({ ok: true, internalDryRun: Boolean(body.internalDryRun), orderId, shipmentId, bolFileName: bolAttachment.filename, manufacturerUploadUrl: uploadUrl, recipients: { manufacturerPreview: manufacturerRecipients, paperwork: body.internalDryRun ? [ordersEmail] : [] }, manufacturerResult, internalPaperworkResult });
+    return NextResponse.json({ ok: true, internalDryRun: Boolean(body.internalDryRun), orderId, shipmentId, bolFileName: bolAttachment.filename, manufacturerUploadUrl: uploadUrl, recipients: { manufacturerPreview: manufacturerRecipients, paperwork: body.internalDryRun ? [ordersEmail] : [], customerBol: customerEmail ? [customerEmail] : [] }, manufacturerResult, internalPaperworkResult, customerBolResult });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to send manufacturer order email." }, { status: 400 });
   }
