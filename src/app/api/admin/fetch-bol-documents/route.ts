@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
 import { getEchoAuthorizationHeader, getEchoConfig } from "@/lib/echo/client";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -7,17 +8,96 @@ export const runtime = "nodejs";
 const ORDER_FILES_BUCKET = "order-files";
 const MAX_ORDERS_PER_RUN = 10;
 const BOL_FILE_TYPE = "original_bol";
+const FROM_EMAIL = "orders@cattleguardforms.com";
+const REPLY_TO_EMAIL = "support@cattleguardforms.com";
+const SUPPORT_EMAIL = "support@cattleguardforms.com";
 
 type DbRecord = Record<string, unknown>;
 type EchoAttempt = { path: string; status: number; statusText: string; contentType: string; bodyPreview: string };
 type EchoDocument = { Href?: string; href?: string; Type?: string; type?: string; Description?: string; description?: string; FileName?: string; fileName?: string };
-
 type FetchBolBody = { orderId?: unknown; limit?: unknown };
+
+type StoredBolResult = {
+  ok: true;
+  orderId: string;
+  shipmentId: string;
+  filename: string;
+  fileType: string;
+  storagePath: string;
+  sizeBytes: number;
+  sourcePath: string;
+  emailNotification?: { ok: boolean; recipients?: { manufacturer: string[]; customer: string[]; support: string[] }; error?: string };
+};
 
 function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
 function automationSecrets() { return [process.env.CRON_SECRET, process.env.CGF_AUTOMATION_SECRET, process.env.STRIPE_WEBHOOK_SECRET].map(clean).filter(Boolean); }
 function isInternalAutomation(request: NextRequest) { const expectedSecrets = automationSecrets(); const provided = request.headers.get("x-cgf-automation-secret") || request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || ""; return Boolean(provided && expectedSecrets.includes(provided)); }
 function tokenFrom(request: NextRequest) { const header = request.headers.get("authorization") || ""; return header.startsWith("Bearer ") ? header.slice(7).trim() : ""; }
+function isValidEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
+function parseEmails(value: unknown) { return clean(value).split(",").map((email) => email.trim().toLowerCase()).filter(isValidEmail); }
+function uniqueEmails(values: string[]) { return values.filter((value, index, list) => list.indexOf(value) === index); }
+function orderLabel(order: DbRecord, orderId: string) { return clean(order.bol_number) || clean(order.order_number) || orderId.slice(0, 8); }
+function customerName(order: DbRecord) { return clean(order.customer_name) || clean(order.warranty_customer_name) || clean(order.ship_to_name) || "Customer"; }
+function quantity(order: DbRecord) { const value = Number(order.cowstop_quantity ?? order.quantity ?? 1); return Number.isFinite(value) && value > 0 ? value : 1; }
+function manufacturerEmails() { return parseEmails(process.env.MANUFACTURER_EMAILS); }
+function customerEmails(order: DbRecord) { return uniqueEmails(parseEmails(order.customer_email).concat(parseEmails(order.warranty_customer_email), parseEmails(order.order_contact_email))); }
+function supportEmails() { return uniqueEmails(parseEmails(SUPPORT_EMAIL)); }
+
+async function notifyBolStored(input: { order: DbRecord; orderId: string; filename: string; content: Buffer; contentType: string }) {
+  const resendApiKey = clean(process.env.RESEND_API_KEY);
+  const manufacturer = manufacturerEmails();
+  const customer = customerEmails(input.order);
+  const support = supportEmails();
+  const recipients = { manufacturer, customer, support };
+  if (!resendApiKey) return { ok: false, recipients, error: "RESEND_API_KEY is not configured." };
+  const resend = new Resend(resendApiKey);
+  const orderText = orderLabel(input.order, input.orderId);
+  const shipTo = [clean(input.order.ship_to_name), clean(input.order.ship_to_address), clean(input.order.ship_to_address2), `${clean(input.order.ship_to_city)}, ${clean(input.order.ship_to_state)} ${clean(input.order.ship_to_zip)}`.trim()].filter(Boolean).join("\n");
+  const attachment = { filename: input.filename, content: input.content, contentType: input.contentType };
+  const manufacturerText = [
+    "Hello,",
+    "",
+    "The Echo BOL has been fetched and stored for this CowStop order.",
+    "",
+    `Order ID: ${input.orderId}`,
+    `BOL Number: ${clean(input.order.bol_number) || "Not provided"}`,
+    `Carrier: ${clean(input.order.carrier) || clean(input.order.carrier_name) || "Not provided"}`,
+    `Customer: ${customerName(input.order)}`,
+    `Quantity: ${quantity(input.order)} CowStop form(s)`,
+    "",
+    "Ship-To:",
+    shipTo || "Not provided",
+    "",
+    "The BOL is attached for your records.",
+    "",
+    "Thank you,",
+    "Cattle Guard Forms",
+  ].join("\n");
+  const customerText = [
+    `Hello ${customerName(input.order)},`,
+    "",
+    "Your CowStop BOL / freight document is now available.",
+    "",
+    `Order ID: ${input.orderId}`,
+    `BOL Number: ${clean(input.order.bol_number) || "Not provided"}`,
+    `Carrier: ${clean(input.order.carrier) || clean(input.order.carrier_name) || "Not provided"}`,
+    "",
+    "The BOL is attached for your records.",
+    "",
+    "Thank you,",
+    "Cattle Guard Forms",
+  ].join("\n");
+  try {
+    const sends = [];
+    if (manufacturer.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: manufacturer, replyTo: REPLY_TO_EMAIL, subject: `Echo BOL Ready - ${orderText}`, text: manufacturerText, attachments: [attachment] }));
+    if (customer.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: customer, replyTo: REPLY_TO_EMAIL, subject: `Your CowStop BOL is ready - ${orderText}`, text: customerText, attachments: [attachment] }));
+    if (support.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: support, replyTo: REPLY_TO_EMAIL, subject: `Support Copy - Echo BOL Ready - ${orderText}`, text: ["Support copy of the fetched Echo BOL email.", "", manufacturerText].join("\n"), attachments: [attachment] }));
+    await Promise.all(sends);
+    return { ok: true, recipients };
+  } catch (error) {
+    return { ok: false, recipients, error: error instanceof Error ? error.message : "Unable to send BOL notification email." };
+  }
+}
 
 async function requireBolFetchAccess(request: NextRequest, orderId: string) {
   const supabase = createSupabaseAdminClient();
@@ -60,7 +140,7 @@ async function hasBolFile(supabase: ReturnType<typeof createSupabaseAdminClient>
 async function getCandidateOrders(supabase: ReturnType<typeof createSupabaseAdminClient>, orderId: string, limit: number) { if (orderId) { const { data, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle(); if (error) throw new Error(`Order lookup failed: ${error.message}`); return data ? [data as DbRecord] : []; } const { data, error } = await supabase.from("orders").select("*").eq("shipment_status", "echo_booked").order("updated_at", { ascending: false }).limit(limit); if (error) throw new Error(`Echo-booked order lookup failed: ${error.message}`); return (data ?? []) as DbRecord[]; }
 async function downloadEchoHref(href: string, config: ReturnType<typeof getEchoConfig>) { return fetch(normalizeEchoHref(href, config.baseUrl), { headers: { Authorization: getEchoAuthorizationHeader(config), Accept: "application/pdf,image/jpeg,image/png,application/json,*/*" }, cache: "no-store" }); }
 
-async function storeBolContent(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; order: DbRecord; orderId: string; shipmentId: string; content: Buffer; contentType: string; sourcePath: string }) {
+async function storeBolContent(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; order: DbRecord; orderId: string; shipmentId: string; content: Buffer; contentType: string; sourcePath: string }): Promise<StoredBolResult> {
   const bolNumber = clean(input.order.bol_number) || `Echo-BOL-${input.shipmentId}`;
   const filename = `${bolNumber}.${extensionFromContentType(input.contentType)}`;
   const storagePath = `${input.orderId}/echo_bol/${Date.now()}-${filename}`;
@@ -68,9 +148,10 @@ async function storeBolContent(input: { supabase: ReturnType<typeof createSupaba
   if (uploadError) throw new Error(`BOL upload failed: ${uploadError.message}`);
   const { error: insertError } = await input.supabase.from("order_files").insert({ order_id: input.orderId, file_type: BOL_FILE_TYPE, file_name: filename, storage_path: storagePath, content_type: input.contentType, size_bytes: input.content.byteLength, uploaded_by_role: "system" });
   if (insertError) throw new Error(`BOL file metadata insert failed: ${insertError.message}`);
+  const emailNotification = await notifyBolStored({ order: input.order, orderId: input.orderId, filename, content: input.content, contentType: input.contentType });
   await input.supabase.from("orders").update({ bol_file: `Echo BOL stored from ${input.sourcePath}`, updated_at: new Date().toISOString() }).eq("id", input.orderId);
-  await input.supabase.from("crm_activity").insert({ activity_type: "bol_document", title: `BOL document stored for order ${input.orderId}`, description: `Fetched Echo BOL document ${filename} for Echo shipment/load ${input.shipmentId}. Source: ${input.sourcePath}`, order_id: input.orderId, customer_id: clean(input.order.customer_id) || null, distributor_profile_id: clean(input.order.distributor_profile_id) || null, source: "echo_bol_fetch", status: "closed" });
-  return { ok: true, orderId: input.orderId, shipmentId: input.shipmentId, filename, fileType: BOL_FILE_TYPE, storagePath, sizeBytes: input.content.byteLength, sourcePath: input.sourcePath };
+  await input.supabase.from("crm_activity").insert({ activity_type: "bol_document", title: `BOL document stored for order ${input.orderId}`, description: `Fetched Echo BOL document ${filename} for Echo shipment/load ${input.shipmentId}. Source: ${input.sourcePath}. Email notification: ${emailNotification.ok ? "sent" : `failed - ${emailNotification.error}`}`, order_id: input.orderId, customer_id: clean(input.order.customer_id) || null, distributor_profile_id: clean(input.order.distributor_profile_id) || null, source: "echo_bol_fetch", status: "closed" });
+  return { ok: true, orderId: input.orderId, shipmentId: input.shipmentId, filename, fileType: BOL_FILE_TYPE, storagePath, sizeBytes: input.content.byteLength, sourcePath: input.sourcePath, emailNotification };
 }
 
 async function fetchAndStoreBol(supabase: ReturnType<typeof createSupabaseAdminClient>, order: DbRecord) {
