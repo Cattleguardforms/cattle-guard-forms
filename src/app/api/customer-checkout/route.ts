@@ -61,8 +61,9 @@ async function createPendingOrder(input: { supabase: ReturnType<typeof getSupaba
   const productTotal = getProductTotalCents(input.quantity) / 100;
   const freightCharge = getFreightChargeCents(input.body) / 100;
   const total = productTotal + freightCharge;
+  const addressLine2 = clean(input.body.shipToAddress2);
   const warrantyNotes = [`Warranty customer information:`, `Name: ${customerFullName(input.body)}`, `Email: ${clean(input.body.email)}`, `Phone: ${clean(input.body.phone)}`, `Delivery type: ${clean(input.body.deliveryType)}`, `Liftgate required: ${clean(input.body.liftgateRequired)}`, `Shipping method: Cattle Guard Forms freight quote`].join("\n");
-  const notes = [clean(input.body.notes), warrantyNotes, `Selected freight: ${clean(input.body.selectedRate)}`, `Delivery type: ${clean(input.body.deliveryType)}`, `Liftgate required: ${clean(input.body.liftgateRequired)}`, `Freight & handling: $${freightCharge.toFixed(2)}`].filter(Boolean).join("\n");
+  const notes = [clean(input.body.notes), warrantyNotes, `Selected freight: ${clean(input.body.selectedRate)}`, `Delivery type: ${clean(input.body.deliveryType)}`, `Liftgate required: ${clean(input.body.liftgateRequired)}`, addressLine2 ? `Delivery address line 2: ${addressLine2}` : "", `Freight & handling: $${freightCharge.toFixed(2)}`].filter(Boolean).join("\n");
   const { data, error } = await input.supabase.from("orders").insert({
     customer_id: input.customerId,
     order_type: "customer",
@@ -84,14 +85,13 @@ async function createPendingOrder(input: { supabase: ReturnType<typeof getSupaba
     warranty_customer_phone: clean(input.body.phone),
     ship_to_name: clean(input.body.shipToName),
     ship_to_address: clean(input.body.shipToAddress),
-    ship_to_address2: clean(input.body.shipToAddress2),
     ship_to_city: clean(input.body.shipToCity),
     ship_to_state: clean(input.body.shipToState),
     ship_to_zip: clean(input.body.shipToZip),
     selected_rate: clean(input.body.selectedRate),
     freight_charge: freightCharge,
     project_address_line1: clean(input.body.shipToAddress),
-    project_address_line2: clean(input.body.shipToAddress2),
+    project_address_line2: addressLine2 || null,
     project_city: clean(input.body.shipToCity),
     project_state: clean(input.body.shipToState),
     project_postal_code: clean(input.body.shipToZip),
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         { quantity: 1, price_data: { currency: "usd", unit_amount: productTotalCents, product_data: { name: "CowStop Reusable Form", description: `${quantity} CowStop reusable concrete cattle guard form${quantity === 1 ? "" : "s"}` } } },
         { quantity: 1, price_data: { currency: "usd", unit_amount: freightChargeCents, product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." } } },
       ],
-      metadata: { orderId, order_type: "customer", customer_id: customerId, order_contact_email: email, warranty_customer_name: customerFullName(body), warranty_customer_email: email, warranty_customer_phone: clean(body.phone), quantity: String(quantity), product_total: String(productTotalCents / 100), freight_charge: String(freightChargeCents / 100), selected_rate: clean(body.selectedRate), contact_phone: clean(body.phone), delivery_type: clean(body.deliveryType), liftgate_required: clean(body.liftgateRequired), ship_to_name: clean(body.shipToName), ship_to_address: clean(body.shipToAddress), ship_to_city: clean(body.shipToCity), ship_to_state: clean(body.shipToState), ship_to_zip: clean(body.shipToZip) },
+      metadata: { orderId, order_type: "customer", customer_id: customerId, order_contact_email: email, warranty_customer_name: customerFullName(body), warranty_customer_email: email, warranty_customer_phone: clean(body.phone), quantity: String(quantity), product_total: String(productTotalCents / 100), freight_charge: String(freightChargeCents / 100), selected_rate: clean(body.selectedRate), contact_phone: clean(body.phone), delivery_type: clean(body.deliveryType), liftgate_required: clean(body.liftgateRequired), ship_to_name: clean(body.shipToName), ship_to_address: clean(body.shipToAddress), ship_to_address2: clean(body.shipToAddress2), ship_to_city: clean(body.shipToCity), ship_to_state: clean(body.shipToState), ship_to_zip: clean(body.shipToZip) },
       success_url: `${baseUrl}/quote?checkout=success&order=${orderId}`,
       cancel_url: `${baseUrl}/quote?checkout=cancelled&order=${orderId}`,
     });
