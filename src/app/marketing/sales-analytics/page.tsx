@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type Row = Record<string, unknown>;
+type SearchParams = Promise<{ year?: string; q?: string }>;
 
 type OrderMetric = {
   id: string;
@@ -116,7 +117,8 @@ async function loadPaidOrders() {
   return ((data ?? []) as Row[]).filter(isPaid).map(normalizeOrder);
 }
 
-export default async function SalesAnalyticsPage({ searchParams }: { searchParams?: { year?: string; q?: string } }) {
+export default async function SalesAnalyticsPage({ searchParams }: { searchParams?: SearchParams }) {
+  const params = searchParams ? await searchParams : {};
   let orders: OrderMetric[] = [];
   let loadError = "";
   try {
@@ -126,8 +128,8 @@ export default async function SalesAnalyticsPage({ searchParams }: { searchParam
   }
 
   const years = Array.from(new Set([...orders.map((order) => order.year), currentYear])).sort((a, b) => b - a);
-  const selectedYear = Number(searchParams?.year || currentYear);
-  const q = (searchParams?.q || "").trim().toLowerCase();
+  const selectedYear = Number(params.year || currentYear);
+  const q = (params.q || "").trim().toLowerCase();
   const filtered = orders.filter((order) => order.year === selectedYear).filter((order) => {
     if (!q) return true;
     return [order.distributor, order.owner, order.title, order.source, order.product, order.id].some((value) => value.toLowerCase().includes(q));
@@ -172,7 +174,7 @@ export default async function SalesAnalyticsPage({ searchParams }: { searchParam
 
         <form className="mt-6 grid gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200 md:grid-cols-[160px_1fr_auto]" action="/marketing/sales-analytics">
           <label className="grid gap-2 text-sm font-bold text-neutral-700">Year<select name="year" defaultValue={String(selectedYear)} className="rounded border border-neutral-300 px-3 py-2 font-normal">{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
-          <label className="grid gap-2 text-sm font-bold text-neutral-700">Search by owner, title, distributor, source, product, or order<input name="q" defaultValue={searchParams?.q || ""} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="Search sales..." /></label>
+          <label className="grid gap-2 text-sm font-bold text-neutral-700">Search by owner, title, distributor, source, product, or order<input name="q" defaultValue={params.q || ""} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="Search sales..." /></label>
           <button className="self-end rounded bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Apply</button>
         </form>
 
