@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type Row = Record<string, unknown>;
+type SearchParams = Promise<{ days?: string }>;
 type AnalyticsEvent = { id: string; event_type: string; page_path: string; page_title: string | null; referrer: string | null; visitor_id: string | null; session_id: string | null; channel: string; utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; created_at: string };
 
 const channelLabels: Record<string, string> = { direct: "Direct", organic_search: "Organic Search", social: "Social", distributor_referral: "Distributor Referral", paid_campaign: "Paid Campaign", referral: "Referral" };
@@ -18,8 +19,9 @@ async function loadAnalytics(days: number) { const supabase = createSupabaseAdmi
 function groupChannels(events: AnalyticsEvent[], orders: Row[]) { const map = new Map<string, { channel: string; visits: number; sessions: Set<string>; visitors: Set<string>; conversions: number; revenue: number }>(); for (const channel of Object.keys(channelLabels)) map.set(channel, { channel, visits: 0, sessions: new Set(), visitors: new Set(), conversions: 0, revenue: 0 }); for (const event of events) { const channel = event.channel || "direct"; const row = map.get(channel) ?? { channel, visits: 0, sessions: new Set(), visitors: new Set(), conversions: 0, revenue: 0 }; row.visits += 1; if (event.session_id) row.sessions.add(event.session_id); if (event.visitor_id) row.visitors.add(event.visitor_id); map.set(channel, row); } for (const order of orders) { const channel = channelFromOrder(order); const row = map.get(channel) ?? { channel, visits: 0, sessions: new Set(), visitors: new Set(), conversions: 0, revenue: 0 }; row.conversions += 1; row.revenue += orderAmount(order); map.set(channel, row); } return Array.from(map.values()).map((row) => ({ channel: row.channel, visits: row.visits, sessions: row.sessions.size, visitors: row.visitors.size, conversions: row.conversions, revenue: row.revenue, conversionRate: row.sessions.size ? (row.conversions / row.sessions.size) * 100 : 0 })).sort((a, b) => b.visits - a.visits); }
 function topPages(events: AnalyticsEvent[]) { const map = new Map<string, { page: string; views: number; sessions: Set<string> }>(); for (const event of events) { const page = event.page_path || "/"; const row = map.get(page) ?? { page, views: 0, sessions: new Set() }; row.views += 1; if (event.session_id) row.sessions.add(event.session_id); map.set(page, row); } return Array.from(map.values()).map((row) => ({ page: row.page, views: row.views, sessions: row.sessions.size })).sort((a, b) => b.views - a.views).slice(0, 20); }
 
-export default async function AdminAnalyticsPage({ searchParams }: { searchParams?: { days?: string } }) {
-  const days = Math.max(1, Math.min(Number(searchParams?.days || 30), 365));
+export default async function AdminAnalyticsPage({ searchParams }: { searchParams?: SearchParams }) {
+  const params = searchParams ? await searchParams : {};
+  const days = Math.max(1, Math.min(Number(params.days || 30), 365));
   let events: AnalyticsEvent[] = [];
   let orders: Row[] = [];
   let error = "";
