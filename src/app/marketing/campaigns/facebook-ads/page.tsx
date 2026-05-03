@@ -1,0 +1,5 @@
+import CampaignChannelPage from "../CampaignChannelPage";
+
+export default function FacebookAdsCampaignPage() {
+  return <CampaignChannelPage label="Facebook Ads" eyebrow="Campaigns / Facebook Ads" description="Manage paid Facebook campaigns, audiences, creative testing, lead forms, retargeting, and order attribution." status="Setup needed" connectLabel="Connect or document Meta Business Manager, ad account, pixel, lead forms, and conversion tracking." setupItems={["Connect Meta ad account or add account ID.", "Confirm pixel/conversion tracking.", "Create audience groups and service areas.", "Set lead form and landing page workflow." ]} workflowItems={["Generate ad creative and copy variants.", "Launch audience tests.", "Route leads into CRM Contacts.", "Compare spend to closed orders in Sales Analytics." ]} metricItems={["Spend", "Reach", "Leads", "Cost per lead", "Orders sold", "Revenue", "ROAS"]} actions={[{ label: "Connect Facebook Ads", href: "/marketing/campaigns/facebook-ads#connect", primary: true }, { label: "Open AI Content Studio", href: "/marketing/ai" }, { label: "Open Sales Analytics", href: "/marketing/sales-analytics" }]} />;
+}
