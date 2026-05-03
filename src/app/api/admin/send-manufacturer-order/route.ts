@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getEchoAuthorizationHeader, getEchoConfig } from "@/lib/echo/client";
 import { buildManufacturerFulfillmentTemplate, type OrderWorkflowPayload } from "@/lib/email/templates/order-workflow";
+import { buildManufacturerUploadUrl } from "@/lib/manufacturer/upload-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -143,6 +144,20 @@ function buildInternalOrderPaperworkText(order: DbRecord) {
   ].join("\n");
 }
 
+function appendManufacturerUploadInstructions(text: string, orderId: string, uploadUrl: string) {
+  return [
+    text,
+    "",
+    "---",
+    "BOL UPLOAD LINK",
+    "When the BOL is ready, upload it directly to this order here:",
+    uploadUrl,
+    "",
+    "Uploading the BOL will automatically store it on the order and send the shipped/BOL email to the customer or distributor and support.",
+    `Order ID: ${orderId}`,
+  ].join("\n");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
@@ -156,6 +171,7 @@ export async function POST(request: NextRequest) {
     const shipmentId = extractEchoLoadId(orderRecord);
     if (!shipmentId) throw new Error("Echo shipment/load ID was not found on this order. Book the shipment before emailing.");
 
+    const uploadUrl = buildManufacturerUploadUrl(orderId);
     const bolAttachment = await fetchEchoBolAttachment(shipmentId, clean(orderRecord.bol_number));
     const manufacturerTemplate = buildManufacturerFulfillmentTemplate(buildOrderPayload(orderRecord, bolAttachment.filename));
     const resendApiKey = clean(process.env.RESEND_API_KEY);
@@ -174,7 +190,7 @@ export async function POST(request: NextRequest) {
       to: manufacturerRecipients,
       replyTo,
       subject: body.internalDryRun ? `[INTERNAL TEST] ${manufacturerTemplate.subject}` : manufacturerTemplate.subject,
-      text: body.internalDryRun ? [`INTERNAL TEST ONLY - this is the manufacturer email preview.`, "", manufacturerTemplate.text].join("\n") : manufacturerTemplate.text,
+      text: body.internalDryRun ? [`INTERNAL TEST ONLY - this is the manufacturer email preview.`, "", appendManufacturerUploadInstructions(manufacturerTemplate.text, orderId, uploadUrl)].join("\n") : appendManufacturerUploadInstructions(manufacturerTemplate.text, orderId, uploadUrl),
       attachments: [{ filename: bolAttachment.filename, content: bolAttachment.content, contentType: bolAttachment.contentType }],
     });
 
@@ -190,9 +206,9 @@ export async function POST(request: NextRequest) {
     }
 
     const previousNotes = clean(orderRecord.manufacturer_notes);
-    const note = body.internalDryRun ? `Internal dry run emails sent: ${new Date().toISOString()} with ${bolAttachment.filename}` : `Manufacturer email sent: ${new Date().toISOString()} with ${bolAttachment.filename}`;
+    const note = body.internalDryRun ? `Internal dry run emails sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated` : `Manufacturer email sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated`;
     await supabase.from("orders").update({ manufacturer_notes: [previousNotes, note].filter(Boolean).join("\n"), updated_at: new Date().toISOString() }).eq("id", orderId);
-    return NextResponse.json({ ok: true, internalDryRun: Boolean(body.internalDryRun), orderId, shipmentId, bolFileName: bolAttachment.filename, recipients: { manufacturerPreview: manufacturerRecipients, paperwork: body.internalDryRun ? [ordersEmail] : [] }, manufacturerResult, internalPaperworkResult });
+    return NextResponse.json({ ok: true, internalDryRun: Boolean(body.internalDryRun), orderId, shipmentId, bolFileName: bolAttachment.filename, manufacturerUploadUrl: uploadUrl, recipients: { manufacturerPreview: manufacturerRecipients, paperwork: body.internalDryRun ? [ordersEmail] : [] }, manufacturerResult, internalPaperworkResult });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to send manufacturer order email." }, { status: 400 });
   }
