@@ -1,0 +1,5 @@
+import CampaignChannelPage from "../CampaignChannelPage";
+
+export default function TikTokCampaignPage() {
+  return <CampaignChannelPage label="TikTok" eyebrow="Campaigns / TikTok" description="Manage short-form video ideas, awareness ads, creative tests, lead routing, and attribution for TikTok campaigns." status="Setup needed" connectLabel="Connect or document TikTok Business Center, ad account, pixel, creative workflow, and campaign budget." setupItems={["Connect TikTok ad account or add account ID.", "Confirm pixel and conversion events.", "Build short-form content themes.", "Set test budget and target lead cost." ]} workflowItems={["Generate video hooks and scripts.", "Produce and approve creative assets.", "Launch campaign tests.", "Review lead quality and order attribution." ]} metricItems={["Spend", "Views", "Clicks", "Leads", "Cost per lead", "Orders sold", "Revenue"]} actions={[{ label: "Connect TikTok", href: "/marketing/campaigns/tiktok#connect", primary: true }, { label: "Generate Video Scripts", href: "/marketing/ai" }, { label: "Open Sales Analytics", href: "/marketing/sales-analytics" }]} />;
+}
