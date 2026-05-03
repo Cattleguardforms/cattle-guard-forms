@@ -51,16 +51,19 @@ function warrantyUrl(orderId: string) { return orderId === DEFAULT_ORDER_ID ? ur
 function installationGuideUrl() { return url("/distributor/documents/approved-packet-set"); }
 function engineeringCertificateUrl() { return url("/distributor/documents/approved-packet-set"); }
 
-function formatShippingMethod(payload: Pick<OrderWorkflowPayload, "shippingMethod" | "selectedRate" | "bolFileName">) {
+function formatShippingMethodForManufacturer(payload: Pick<OrderWorkflowPayload, "shippingMethod" | "selectedRate" | "bolFileName">) {
   if (payload.shippingMethod === "own") return `Customer/distributor shipping on own account. BOL file: ${valueOrNotProvided(payload.bolFileName)}`;
   return `Cattle Guard Forms / Echo shipping. Selected rate: ${valueOrNotProvided(payload.selectedRate)}`;
 }
 
+function formatShippingMethodForCustomer(payload: Pick<OrderWorkflowPayload, "shippingMethod">) {
+  if (payload.shippingMethod === "own") return "Distributor-arranged shipping";
+  return "Cattle Guard Forms freight";
+}
+
 function bolTimingCopy(payload: Pick<OrderWorkflowPayload, "shippingMethod">) {
-  if (payload.shippingMethod === "own") {
-    return "Because this order is using customer/distributor-arranged shipping, please provide or upload the BOL when available.";
-  }
-  return "If you use Cattle Guard Forms shipping, you should receive the BOL within 5 to 10 minutes. If you do not receive it, please email support@cattleguardforms.com for help.";
+  if (payload.shippingMethod === "own") return "Your distributor will provide shipping paperwork when available.";
+  return "If this order is shipping with Cattle Guard Forms freight, the BOL is normally available within 5 to 10 minutes after shipment booking. If it is not received, the distributor should contact support@cattleguardforms.com for help.";
 }
 
 function formatShipTo(payload: Pick<OrderWorkflowPayload, "shipToName" | "shipToAddress" | "shipToAddress2" | "shipToCity" | "shipToState" | "shipToZip">) {
@@ -80,7 +83,7 @@ export function buildManufacturerFulfillmentTemplate(payload: OrderWorkflowPaylo
       payload.customerEmail ? `Customer Email: ${payload.customerEmail}` : null,
       `Order Quantity: ${payload.quantity} CowStop form(s)`,
       `Order Date: ${valueOrNotProvided(payload.orderDate)}`,
-      `Shipping Method: ${formatShippingMethod(payload)}`,
+      `Shipping Method: ${formatShippingMethodForManufacturer(payload)}`,
       payload.stripeSessionId ? `Stripe Session ID: ${payload.stripeSessionId}` : null,
       "", "Ship-To Information:", formatShipTo(payload), "", "Order Notes:", valueOrNotProvided(payload.orderNotes), "",
       "Please prepare this order for fulfillment and upload or reply with the BOL when the order has shipped.", "",
@@ -97,17 +100,17 @@ export function buildDistributorOrderConfirmationTemplate(payload: OrderWorkflow
     subject: `Your CowStop order has been placed - ${orderId}`,
     text: [
       `Hello ${recipientName},`, "",
-      "Your Cattle Guard Forms order has been placed.", "",
+      `Your CowStop order has been placed in care of ${payload.distributorAccountName}.`, "",
       `Order ID: ${orderId}`,
       `Quantity: ${payload.quantity} CowStop form(s)`,
-      `Shipping Method: ${formatShippingMethod(payload)}`, "",
-      "Customer paperwork and documents:",
-      `Customer Warranty Paperwork: ${warrantyUrl(orderId)}`,
-      `Customer Installation Guide: ${installationGuideUrl()}`,
-      `Engineering Certificate: ${engineeringCertificateUrl()}`, "",
+      `Shipping Method: ${formatShippingMethodForCustomer(payload)}`, "",
+      "Please find your customer paperwork and installation documents below:",
+      `Customer Warranty Paperwork / Print Here: ${warrantyUrl(orderId)}`,
+      `Customer Installation Guide / Print Here: ${installationGuideUrl()}`,
+      `Engineering Certificate / Print Here: ${engineeringCertificateUrl()}`, "",
       bolTimingCopy(payload), "",
       "Ship-To Information:", formatShipTo(payload), "",
-      "You will receive another email from orders@cattleguardforms.com when the BOL or shipment details are available.", "",
+      "You will receive shipment details from your distributor when the BOL or tracking information is available.", "",
       "Thank you,", "", "Cattle Guard Forms",
     ].join("\n"),
   };
@@ -115,8 +118,9 @@ export function buildDistributorOrderConfirmationTemplate(payload: OrderWorkflow
 
 export function buildSupportOrderCopyTemplate(payload: OrderWorkflowPayload): EmailTemplate {
   const manufacturerTemplate = buildManufacturerFulfillmentTemplate(payload);
+  const customerTemplate = buildDistributorOrderConfirmationTemplate(payload);
   const orderId = formatOrderId(payload.orderId);
-  return { subject: `Support Copy - CowStop Distributor Order - ${orderId}`, text: ["Support copy of CowStop distributor order workflow email.", "", manufacturerTemplate.text].join("\n") };
+  return { subject: `Support Copy - CowStop Distributor Order - ${orderId}`, text: ["Support copy of CowStop order workflow emails.", "", "CUSTOMER/DISTRIBUTOR CONFIRMATION COPY", "", customerTemplate.text, "", "---", "", "MANUFACTURER FULFILLMENT COPY", "", manufacturerTemplate.text].join("\n") };
 }
 
 export function buildDistributorShipmentNotificationTemplate(payload: ShipmentUpdatePayload): EmailTemplate {
