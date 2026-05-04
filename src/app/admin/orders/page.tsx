@@ -16,6 +16,7 @@ const FILE_TYPE_OPTIONS = [
 
 type AdminOrder = {
   id: string;
+  order_type?: string;
   customer_display_name?: string;
   customer_email?: string;
   customer_phone?: string;
@@ -61,6 +62,8 @@ function dateText(value: unknown) { const raw = text(value); if (raw === "-") re
 function qty(order: AdminOrder) { return order.quantity_display ?? order.cowstop_quantity ?? order.quantity ?? 0; }
 function fileLabel(file: OrderFile) { return (file.file_type || "order_file").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function isBolFile(file: OrderFile) { const name = (file.file_name || "").toLowerCase(); const type = (file.file_type || "").toLowerCase(); return name.includes("bol") || type.includes("bol") || (type === "shipping_document" && name.includes("echo")); }
+function warrantyHref(order: AdminOrder) { return (order.order_type || "").toLowerCase() === "distributor" ? `/distributor/orders/${order.id}/warranty` : `/warranty/${order.id}`; }
+function warrantyLabel(order: AdminOrder) { return (order.order_type || "").toLowerCase() === "distributor" ? "Open Distributor Warranty" : "Open Customer Warranty"; }
 
 export default function AdminOrdersPage() {
   const supabase = useMemo(() => (supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null), []);
@@ -282,13 +285,13 @@ export default function AdminOrdersPage() {
             {!selectedOrder ? <div className="p-6 text-sm text-neutral-600">Select an order from the left.</div> : (
               <div className="p-5">
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Detail label="Order" value={selectedOrder.id} /><Detail label="Customer / Distributor" value={text(selectedOrder.customer_display_name)} /><Detail label="Email" value={text(selectedOrder.customer_email)} /><Detail label="Phone" value={text(selectedOrder.customer_phone)} /><Detail label="Quantity" value={String(qty(selectedOrder))} /><Detail label="Amount" value={money(selectedOrder.amount_display ?? selectedOrder.amount_paid ?? selectedOrder.total, selectedOrder.currency ?? "USD")} /><Detail label="Payment" value={text(selectedOrder.payment_status)} /><Detail label="Shipment" value={text(selectedOrder.shipment_status)} /><Detail label="Carrier" value={text(selectedOrder.carrier)} /><Detail label="BOL Number" value={text(selectedOrder.bol_number)} /><Detail label="Created" value={dateText(selectedOrder.created_at)} /><Detail label="Estimated Delivery" value={dateText(selectedOrder.estimated_delivery_date)} />
+                  <Detail label="Order" value={selectedOrder.id} /><Detail label="Order Type" value={text(selectedOrder.order_type)} /><Detail label="Customer / Distributor" value={text(selectedOrder.customer_display_name)} /><Detail label="Email" value={text(selectedOrder.customer_email)} /><Detail label="Phone" value={text(selectedOrder.customer_phone)} /><Detail label="Quantity" value={String(qty(selectedOrder))} /><Detail label="Amount" value={money(selectedOrder.amount_display ?? selectedOrder.amount_paid ?? selectedOrder.total, selectedOrder.currency ?? "USD")} /><Detail label="Payment" value={text(selectedOrder.payment_status)} /><Detail label="Shipment" value={text(selectedOrder.shipment_status)} /><Detail label="Carrier" value={text(selectedOrder.carrier)} /><Detail label="BOL Number" value={text(selectedOrder.bol_number)} /><Detail label="Created" value={dateText(selectedOrder.created_at)} /><Detail label="Estimated Delivery" value={dateText(selectedOrder.estimated_delivery_date)} />
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button type="button" onClick={() => void fetchBol(selectedOrder.id)} disabled={Boolean(busy)} className="rounded bg-blue-800 px-4 py-3 text-sm font-black text-white hover:bg-blue-900 disabled:opacity-60">{busy === selectedOrder.id ? "Fetching BOL..." : "Fetch BOL"}</button>
                   <Link href={`/admin/shipping-execution?order=${encodeURIComponent(selectedOrder.id)}`} className="rounded bg-green-800 px-4 py-3 text-sm font-black text-white hover:bg-green-900">Book / Manage Shipment</Link>
-                  <Link href={`/distributor/orders/${selectedOrder.id}/warranty`} className="rounded border border-green-800 bg-white px-4 py-3 text-sm font-black text-green-900 hover:bg-green-50">Open Warranty Paperwork</Link>
+                  <Link href={warrantyHref(selectedOrder)} className="rounded border border-green-800 bg-white px-4 py-3 text-sm font-black text-green-900 hover:bg-green-50">{warrantyLabel(selectedOrder)}</Link>
                   {selectedOrder.tracking_link ? <Link href={selectedOrder.tracking_link} className="rounded border border-neutral-300 bg-white px-4 py-3 text-sm font-black text-neutral-800 hover:bg-neutral-50">Open Tracking</Link> : null}
                   <button type="button" onClick={() => void loadFiles(selectedOrder.id)} className="rounded border border-neutral-300 bg-white px-4 py-3 text-sm font-black text-neutral-800 hover:bg-neutral-50">Refresh Files</button>
                 </div>
