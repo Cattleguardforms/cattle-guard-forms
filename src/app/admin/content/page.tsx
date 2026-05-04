@@ -18,6 +18,7 @@ type ContentBlock = {
 };
 
 type ContentPayload = { ok?: boolean; error?: string; blocks?: ContentBlock[]; block?: ContentBlock };
+type SuggestPayload = { ok?: boolean; error?: string; suggestion?: string; source?: string };
 
 const starterBlocks: ContentBlock[] = [
   { page_key: "home", section_key: "hero_eyebrow", label: "Home hero eyebrow", content_type: "text", content: "CowStop Reusable Concrete Cattle Guard Forms" },
@@ -34,6 +35,7 @@ export default function AdminContentPage() {
   const [editing, setEditing] = useState<ContentBlock>(starterBlocks[0]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -89,6 +91,28 @@ export default function AdminContentPage() {
     }
   }
 
+  async function generateSuggestion() {
+    setSuggesting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch("/api/admin/site-content/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(editing),
+      });
+      const payload = (await response.json()) as SuggestPayload;
+      if (!response.ok || !payload.ok || !payload.suggestion) throw new Error(payload.error ?? "Unable to generate text.");
+      setEditing((current) => ({ ...current, content: payload.suggestion ?? current.content }));
+      setNotice(payload.source === "ai" ? "AI-generated draft inserted. Review it, then click Save to publish." : "Suggested draft inserted. Review it, then click Save to publish.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to generate text.");
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function seedStarterBlocks() {
     for (const block of starterBlocks) await saveBlock(block);
   }
@@ -112,7 +136,7 @@ export default function AdminContentPage() {
       <section className="mx-auto max-w-7xl px-6 py-12">
         <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Admin / Site Content</p>
         <h1 className="mt-3 text-4xl font-bold tracking-tight">Site Content Editor</h1>
-        <p className="mt-4 max-w-3xl leading-8 text-neutral-700">Edit approved content blocks for live pages. Public pages keep safe fallback copy until each page is wired to these blocks.</p>
+        <p className="mt-4 max-w-3xl leading-8 text-neutral-700">Edit approved content blocks for live pages. Use AI-generated drafts as suggestions only; nothing changes live until you click Save.</p>
 
         {error ? <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
         {notice ? <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">{notice}</div> : null}
@@ -143,13 +167,19 @@ export default function AdminContentPage() {
           </div>
 
           <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-bold">Edit Block</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold">Edit Block</h2>
+              <button onClick={() => void generateSuggestion()} disabled={suggesting || saving} className="rounded bg-amber-500 px-4 py-2 text-sm font-bold text-amber-950 hover:bg-amber-400 disabled:opacity-50">
+                {suggesting ? "Generating..." : "AI-generate text"}
+              </button>
+            </div>
             <div className="mt-5 grid gap-4">
               <label className="grid gap-2 text-sm font-bold text-neutral-700">Page key<input value={editing.page_key} onChange={(event) => setEditing((current) => ({ ...current, page_key: event.target.value }))} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="home" /></label>
               <label className="grid gap-2 text-sm font-bold text-neutral-700">Section key<input value={editing.section_key} onChange={(event) => setEditing((current) => ({ ...current, section_key: event.target.value }))} className="rounded border border-neutral-300 px-3 py-2 font-normal" placeholder="hero_headline" /></label>
               <label className="grid gap-2 text-sm font-bold text-neutral-700">Label<input value={editing.label} onChange={(event) => setEditing((current) => ({ ...current, label: event.target.value }))} className="rounded border border-neutral-300 px-3 py-2 font-normal" /></label>
               <label className="grid gap-2 text-sm font-bold text-neutral-700">Content type<select value={editing.content_type} onChange={(event) => setEditing((current) => ({ ...current, content_type: event.target.value }))} className="rounded border border-neutral-300 px-3 py-2 font-normal"><option value="text">Text</option><option value="textarea">Long text</option><option value="meta_title">SEO title</option><option value="meta_description">SEO description</option><option value="cta">CTA</option></select></label>
               <label className="grid gap-2 text-sm font-bold text-neutral-700">Content<textarea value={editing.content} onChange={(event) => setEditing((current) => ({ ...current, content: event.target.value }))} rows={8} className="rounded border border-neutral-300 px-3 py-2 font-normal" /></label>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">AI-generated text is a draft only. Review the wording, confirm it is accurate for Cattle Guard Forms, then click Save Content Block to publish the block.</div>
               <button onClick={() => void saveBlock()} disabled={saving} className="rounded bg-green-800 px-5 py-3 font-bold text-white hover:bg-green-900 disabled:opacity-50">{saving ? "Saving..." : "Save Content Block"}</button>
             </div>
           </div>
