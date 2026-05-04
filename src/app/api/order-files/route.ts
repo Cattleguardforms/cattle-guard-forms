@@ -19,6 +19,13 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function manufacturerEmails() {
+  return clean(process.env.MANUFACTURER_EMAILS)
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization") || "";
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
@@ -51,15 +58,16 @@ async function requireOrderFileActor(request: NextRequest): Promise<{ supabase: 
   const isApprovedAdmin = APPROVED_ADMIN_EMAILS.has(email);
   const isAdmin = (role === "admin" && status === "active") || isApprovedAdmin;
   const isDistributor = role === "distributor" && status === "active";
+  const isManufacturer = manufacturerEmails().includes(email);
 
-  if (!isAdmin && !isDistributor) throw new Error("Authorized admin or distributor role is required.");
+  if (!isAdmin && !isDistributor && !isManufacturer) throw new Error("Authorized admin, distributor, or manufacturer role is required.");
 
   return {
     supabase,
     actor: {
       userId: userData.user.id,
       email,
-      role: isAdmin ? "admin" : "distributor",
+      role: isAdmin ? "admin" : isDistributor ? "distributor" : "manufacturer",
     },
   };
 }
@@ -78,7 +86,7 @@ async function assertOrderVisible(
   if (error) throw new Error(`Order lookup failed: ${error.message}`);
   if (!order) throw new Error("Order not found.");
 
-  if (actor.role === "admin") return;
+  if (actor.role === "admin" || actor.role === "manufacturer") return;
 
   const orderRecord = order as Record<string, unknown>;
   const visibleEmails = [
