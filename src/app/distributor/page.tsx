@@ -48,6 +48,9 @@ export default function DistributorPage() {
             <Link href="/distributor/home" className="inline-flex justify-center rounded bg-green-800 px-6 py-3 font-semibold text-white hover:bg-green-900">
               Distributor Portal
             </Link>
+            <Link href="/distributor/forgot-password" className="inline-flex justify-center rounded border border-green-800 bg-white px-6 py-3 font-semibold text-green-900 hover:bg-green-50">
+              Forgot Password?
+            </Link>
             <Link href="/contact?topic=Distributor%20Access" className="inline-flex justify-center rounded border border-green-800 bg-white px-6 py-3 font-semibold text-green-900 hover:bg-green-50">
               Request Distributor Access
             </Link>
@@ -63,9 +66,14 @@ export default function DistributorPage() {
             <p className="mt-3 text-sm leading-6 text-neutral-700">
               Approved accounts land in the Distributor Portal Home, then use Shop to place CowStop orders with CGF freight or distributor-arranged freight and BOL upload.
             </p>
-            <Link href="/distributor/home" className="mt-4 inline-flex font-semibold text-green-800 hover:text-green-900">
-              Open distributor portal →
-            </Link>
+            <div className="mt-4 flex flex-col gap-2">
+              <Link href="/distributor/home" className="inline-flex font-semibold text-green-800 hover:text-green-900">
+                Open distributor portal →
+              </Link>
+              <Link href="/distributor/forgot-password" className="inline-flex font-semibold text-green-800 hover:text-green-900">
+                Forgot password? Reset distributor access →
+              </Link>
+            </div>
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
