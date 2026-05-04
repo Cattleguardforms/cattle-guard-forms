@@ -30,7 +30,6 @@ const modules = [
   ["Manufacturer Portal", "/manufacturer"],
   ["Marketing Portal", "/marketing"],
   ["Public Site", "/"],
-  ["Stripe Sandbox Test", "/admin/stripe-test"],
   ["Abandoned Checkouts", "/admin/abandoned-checkouts"],
   ["Site Analytics", "/admin/analytics"],
   ["CRM Activity", "/admin/crm-activity"],
