@@ -23,39 +23,28 @@ type OrderFormData = {
 };
 
 type CheckoutResponse = { url?: string; error?: string };
+type PricingResponse = { ok?: boolean; price_per_unit?: number };
 
 const PRODUCT_NAME = "Cattle Guard Forms CowStop Reusable Form";
-const UNIT_PRICE = 1499;
+const DEFAULT_UNIT_PRICE = 1499;
 const PRODUCT_IMAGE_SRC = "https://www.farmandranchexperts.com/wp-content/uploads/2024/11/Cattle-Guard-Reusable-Cow-Stop-cement-form.jpg";
 const COWSTOP_SPECS = { length: "72 in / 6 ft", width: "21.5 in", height: "16 in", grooveDepth: "9 in", formWeight: "80 lb" };
-const palletRows = [
-  { count: 1, dimensions: "72 x 48 x 20 in", weight: "105 lb" },
-  { count: 2, dimensions: "72 x 48 x 20 in", weight: "190 lb" },
-  { count: 3, dimensions: "72 x 48 x 36 in", weight: "270 lb" },
-  { count: 4, dimensions: "72 x 48 x 36 in", weight: "355 lb" },
-  { count: 5, dimensions: "72 x 48 x 52 in", weight: "440 lb" },
-  { count: 6, dimensions: "72 x 48 x 52 in", weight: "525 lb" },
-];
 const navItems = [["Home", "/"], ["Shop", "/quote"], ["Installations", "/installations"], ["FAQ", "/faq"], ["Blog", "/blog"], ["Contact", "/contact"]];
-const states = [
-  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"], ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"], ["FL", "Florida"], ["GA", "Georgia"],
-  ["HI", "Hawaii"], ["ID", "Idaho"], ["IL", "Illinois"], ["IN", "Indiana"], ["IA", "Iowa"], ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"], ["ME", "Maine"], ["MD", "Maryland"],
-  ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"], ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"], ["NV", "Nevada"], ["NH", "New Hampshire"], ["NJ", "New Jersey"],
-  ["NM", "New Mexico"], ["NY", "New York"], ["NC", "North Carolina"], ["ND", "North Dakota"], ["OH", "Ohio"], ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"], ["RI", "Rhode Island"], ["SC", "South Carolina"],
-  ["SD", "South Dakota"], ["TN", "Tennessee"], ["TX", "Texas"], ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"], ["WA", "Washington"], ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"],
-] as const;
+const states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"];
 const initialFormData: OrderFormData = { email: "", firstName: "", lastName: "", phone: "", company: "", quantity: 1, shipToName: "", shipToAddress: "", shipToAddress2: "", shipToCity: "", shipToState: "", shipToZip: "", deliveryType: "", liftgateRequired: "", notes: "" };
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function getDiscountRate(quantity: number) { if (quantity >= 20) return 0.25; if (quantity >= 5) return 0.1; return 0; }
 function clampQuantity(quantity: number) { return Math.min(30, Math.max(1, quantity)); }
-function getPalletCount(quantity: number) { return Math.ceil(quantity / 6); }
-function getPalletPlan(quantity: number) { const plan: Array<{ pallet: number; cowStops: number; dimensions: string; weight: string }> = []; let remaining = quantity; let palletNumber = 1; while (remaining > 0) { const cowStops = Math.min(6, remaining); const row = palletRows.find((item) => item.count === cowStops) ?? palletRows[palletRows.length - 1]; plan.push({ pallet: palletNumber, cowStops, dimensions: row.dimensions, weight: row.weight }); remaining -= cowStops; palletNumber += 1; } return plan; }
 function normalizePhone(value: string) { return value.replace(/[^0-9]/g, ""); }
 function formatPhone(value: string) { const digits = normalizePhone(value).slice(0, 10); if (digits.length <= 3) return digits; if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`; return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`; }
+function palletCount(quantity: number) { return Math.ceil(quantity / 6); }
+function palletSummary(quantity: number) { const count = palletCount(quantity); return `${count} pallet${count === 1 ? "" : "s"}, up to 6 CowStops per pallet`; }
 
 export default function QuotePage() {
   const [formData, setFormData] = useState<OrderFormData>(initialFormData);
+  const [unitPrice, setUnitPrice] = useState(DEFAULT_UNIT_PRICE);
   const [hasFreightQuote, setHasFreightQuote] = useState(false);
   const [selectedFreightRate, setSelectedFreightRate] = useState("");
   const [selectedFreightCharge, setSelectedFreightCharge] = useState(0);
@@ -63,29 +52,117 @@ export default function QuotePage() {
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
   const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pricing = useMemo(() => { const subtotal = formData.quantity * UNIT_PRICE; const discountAmount = subtotal * getDiscountRate(formData.quantity); const productTotal = subtotal - discountAmount; const totalDueToday = productTotal + selectedFreightCharge; return { subtotal, productTotal, totalDueToday }; }, [formData.quantity, selectedFreightCharge]);
-  const palletPlan = useMemo(() => getPalletPlan(formData.quantity), [formData.quantity]);
-  const palletCount = getPalletCount(formData.quantity);
-  useEffect(() => { if (typeof window === "undefined") return; const params = new URLSearchParams(window.location.search); setCheckoutStatus(params.get("checkout")); setReturnedOrderId(params.get("order")); }, []);
+
+  const pricing = useMemo(() => {
+    const subtotal = formData.quantity * unitPrice;
+    const discountAmount = subtotal * getDiscountRate(formData.quantity);
+    const productTotal = subtotal - discountAmount;
+    const totalDueToday = productTotal + selectedFreightCharge;
+    return { subtotal, productTotal, totalDueToday };
+  }, [formData.quantity, selectedFreightCharge, unitPrice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setCheckoutStatus(params.get("checkout"));
+    setReturnedOrderId(params.get("order"));
+  }, []);
+
+  useEffect(() => {
+    async function loadCustomerPrice() {
+      try {
+        const response = await fetch("/api/customer-pricing", { cache: "no-store" });
+        const payload = (await response.json()) as PricingResponse;
+        const nextPrice = Number(payload.price_per_unit ?? 0);
+        if (response.ok && payload.ok && Number.isFinite(nextPrice) && nextPrice > 0) setUnitPrice(nextPrice);
+      } catch {
+        setUnitPrice(DEFAULT_UNIT_PRICE);
+      }
+    }
+    void loadCustomerPrice();
+  }, []);
+
   function resetFreightSelection() { setHasFreightQuote(false); setSelectedFreightRate(""); setSelectedFreightCharge(0); }
-  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const { name, value } = event.target; setFormData((previous) => ({ ...previous, [name]: value })); };
-  const handleQuantityChange = (event: ChangeEvent<HTMLSelectElement>) => { setFormData((previous) => ({ ...previous, quantity: clampQuantity(Number.parseInt(event.target.value, 10)) })); resetFreightSelection(); };
-  const handleDeliverySelectChange = (event: ChangeEvent<HTMLSelectElement>) => { const { name, value } = event.target; setFormData((previous) => ({ ...previous, [name]: value })); resetFreightSelection(); };
+  function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) { const { name, value } = event.target; setFormData((previous) => ({ ...previous, [name]: value })); }
+  function handleQuantityChange(event: ChangeEvent<HTMLSelectElement>) { setFormData((previous) => ({ ...previous, quantity: clampQuantity(Number.parseInt(event.target.value, 10)) })); resetFreightSelection(); }
+  function handleSelectChange(event: ChangeEvent<HTMLSelectElement>) { const { name, value } = event.target; setFormData((previous) => ({ ...previous, [name]: value })); resetFreightSelection(); }
   function handlePhoneChange(value: string) { setFormData((previous) => ({ ...previous, phone: formatPhone(value) })); resetFreightSelection(); }
-  function handleStateChange(value: string) { setFormData((previous) => ({ ...previous, shipToState: value })); resetFreightSelection(); }
-  function validate() { if (!emailPattern.test(formData.email)) return "Please enter a valid email address."; if (normalizePhone(formData.phone).length < 10) return "Please enter a valid delivery contact phone number."; if (!formData.shipToName || !formData.shipToAddress || !formData.shipToCity || !formData.shipToState || !formData.shipToZip) return "Please enter the full delivery address."; if (!formData.deliveryType) return "Please select the delivery location type."; if (!formData.liftgateRequired) return "Please select whether liftgate service is required."; if (!hasFreightQuote || !selectedFreightRate || selectedFreightCharge <= 0) return "Select a freight option before payment."; return null; }
-  async function handleCheckout(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setError(null); const validationError = validate(); if (validationError) { setError(validationError); return; } setCheckoutLoading(true); try { const response = await fetch("/api/customer-checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quantity: formData.quantity, email: formData.email, firstName: formData.firstName, lastName: formData.lastName, phone: formData.phone, company: formData.company, shipToName: formData.shipToName, shipToAddress: formData.shipToAddress, shipToAddress2: formData.shipToAddress2, shipToCity: formData.shipToCity, shipToState: formData.shipToState, shipToZip: formData.shipToZip, deliveryType: formData.deliveryType, liftgateRequired: formData.liftgateRequired, selectedRate: selectedFreightRate, freightCharge: selectedFreightCharge, notes: formData.notes }) }); const payload = (await response.json()) as CheckoutResponse; if (!response.ok || !payload.url) { setError(payload.error ?? "Unable to start checkout."); return; } window.location.href = payload.url; } catch { setError("Unable to start checkout."); } finally { setCheckoutLoading(false); } }
+
+  function validate() {
+    if (!emailPattern.test(formData.email)) return "Please enter a valid email address.";
+    if (normalizePhone(formData.phone).length < 10) return "Please enter a valid delivery contact phone number.";
+    if (!formData.shipToName || !formData.shipToAddress || !formData.shipToCity || !formData.shipToState || !formData.shipToZip) return "Please enter the full delivery address.";
+    if (!formData.deliveryType) return "Please select the delivery location type.";
+    if (!formData.liftgateRequired) return "Please select whether liftgate service is required.";
+    if (!hasFreightQuote || !selectedFreightRate || selectedFreightCharge <= 0) return "Select a freight option before payment.";
+    return null;
+  }
+
+  async function handleCheckout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
+    setCheckoutLoading(true);
+    try {
+      const response = await fetch("/api/customer-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, selectedRate: selectedFreightRate, freightCharge: selectedFreightCharge }),
+      });
+      const payload = (await response.json()) as CheckoutResponse;
+      if (!response.ok || !payload.url) { setError(payload.error ?? "Unable to start checkout."); return; }
+      window.location.href = payload.url;
+    } catch {
+      setError("Unable to start checkout.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
 
   return (
-    <main className="min-h-screen bg-white text-neutral-950"><header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4"><Link href="/" className="flex items-center gap-3"><img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-14 w-auto object-contain" /><span className="hidden text-xl font-black uppercase leading-5 tracking-wide text-green-900 sm:block">Cattle Guard<br />Forms</span></Link><nav className="hidden items-center gap-7 text-sm font-semibold text-neutral-700 md:flex">{navItems.map(([label, href]) => (<Link key={href} href={href} className={href === "/quote" ? "text-green-900 underline decoration-green-800 decoration-2 underline-offset-8" : "hover:text-green-800"}>{label}</Link>))}</nav><Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-900">Contact Us</Link></div></header>
-      <section className="relative overflow-hidden bg-green-950 text-white"><div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-20"><div><p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Shop Cattle Guard Forms</p><h1 className="mt-5 text-5xl font-black leading-tight tracking-tight md:text-6xl">Buy the reusable form. Pour strong cattle guards on-site.</h1><p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Enter delivery details, select freight, and checkout securely.</p></div><div className="rounded-[2rem] border border-white/20 bg-white/10 p-3 shadow-2xl backdrop-blur"><img src={PRODUCT_IMAGE_SRC} alt="Cattle Guard Forms CowStop reusable plastic form" className="h-full max-h-[420px] w-full rounded-[1.35rem] bg-white object-contain p-5" /></div></div></section>
-      <form className="mx-auto max-w-7xl px-6 py-14" onSubmit={handleCheckout}>{checkoutStatus === "success" ? <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-950"><p className="font-black">Payment successful. Your CowStop order was submitted.</p><p className="mt-1 text-sm leading-6">We received your order and payment. Freight and fulfillment details are saved with the order.{returnedOrderId ? ` Order ID: ${returnedOrderId}` : ""}</p></div> : null}{checkoutStatus === "cancelled" ? <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950"><p className="font-black">Checkout was cancelled.</p><p className="mt-1 text-sm leading-6">No payment was completed. You can review the order and try again.</p></div> : null}{error ? <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div> : null}
-        <section className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]"><aside className="space-y-6"><div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"><p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Product</p><h2 className="mt-2 text-3xl font-black tracking-tight text-neutral-950">{PRODUCT_NAME}</h2><p className="mt-4 leading-7 text-neutral-600">You are purchasing the reusable CowStop plastic form. The finished concrete cattle guard section is what this form helps you make with concrete and rebar.</p><div className="mt-7 flex items-end gap-3"><p className="text-5xl font-black text-green-950">{currencyFormatter.format(UNIT_PRICE)}</p><p className="pb-2 text-sm font-semibold text-neutral-500">per form</p></div></div><div className="rounded-3xl border border-green-100 bg-green-50 p-6 shadow-sm"><h2 className="text-xl font-black text-green-950">Product Specs</h2><div className="mt-4 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Length</p><p>{COWSTOP_SPECS.length}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Width</p><p>{COWSTOP_SPECS.width}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Height</p><p>{COWSTOP_SPECS.height}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Weight</p><p>{COWSTOP_SPECS.formWeight}</p></div></div><p className="mt-4 text-sm leading-6 text-neutral-700">Grooves are {COWSTOP_SPECS.grooveDepth} deep.</p></div><div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-black text-neutral-950">Pallet Plan</h2><p className="mt-2 text-sm leading-6 text-neutral-600">One pallet holds up to 6 CowStops. Your current quantity requires <strong>{palletCount}</strong> pallet{palletCount === 1 ? "" : "s"}.</p><div className="mt-4 space-y-2">{palletPlan.map((item) => (<div key={item.pallet} className="rounded-xl bg-neutral-50 p-3 text-sm"><p className="font-bold text-green-900">Pallet {item.pallet}: {item.cowStops} CowStop{item.cowStops === 1 ? "" : "s"}</p><p className="text-neutral-600">{item.dimensions} • {item.weight}</p></div>))}</div></div></aside>
-          <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-xl"><div className="rounded-2xl bg-neutral-50 p-5"><div className="flex flex-wrap items-center justify-between gap-4"><p className="text-base font-black">Quantity</p><select name="quantity" value={formData.quantity} onChange={handleQuantityChange} className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-center font-bold outline-none">{Array.from({ length: 30 }, (_, index) => index + 1).map((quantity) => <option key={quantity} value={quantity}>{quantity}</option>)}</select></div><dl className="mt-6 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-neutral-500">Product subtotal</dt><dd className="font-bold">{currencyFormatter.format(pricing.subtotal)}</dd></div><div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Product total</dt><dd className="text-2xl font-black text-green-950">{currencyFormatter.format(pricing.productTotal)}</dd></div></div>{selectedFreightCharge > 0 ? <div className="flex justify-between"><dt className="text-neutral-500">Freight & handling</dt><dd className="font-bold">{currencyFormatter.format(selectedFreightCharge)}</dd></div> : null}<div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Total due today</dt><dd className="text-3xl font-black text-green-950">{currencyFormatter.format(pricing.totalDueToday)}</dd></div></div></dl></div>
-            <div className="mt-6 grid gap-6"><section><h2 className="text-xl font-black">Contact Information</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><input required name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Order contact email *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input name="firstName" value={formData.firstName} onChange={handleChange} placeholder="First name" className="rounded-xl border border-neutral-300 px-3 py-3" /><input name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Last name" className="rounded-xl border border-neutral-300 px-3 py-3" /><input required name="phone" type="tel" value={formData.phone} onChange={(event) => handlePhoneChange(event.target.value)} placeholder="Delivery contact phone * (321-555-5555)" className="rounded-xl border border-neutral-300 px-3 py-3" /><input name="company" value={formData.company} onChange={handleChange} placeholder="Company" className="rounded-xl border border-neutral-300 px-3 py-3" /></div></section>
-              <section><h2 className="text-xl font-black">Shipping Information</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><input required name="shipToName" value={formData.shipToName} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Ship-to name / company *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input required name="shipToAddress" value={formData.shipToAddress} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Delivery address line 1 *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input name="shipToAddress2" value={formData.shipToAddress2} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Delivery address line 2" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input required name="shipToCity" value={formData.shipToCity} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="City *" className="rounded-xl border border-neutral-300 px-3 py-3" /><select required name="shipToState" value={formData.shipToState} onChange={(event) => handleStateChange(event.target.value)} className="rounded-xl border border-neutral-300 bg-white px-3 py-3"><option value="">Select state *</option>{states.map(([abbr, name]) => <option key={abbr} value={abbr}>{name}</option>)}</select><input required name="shipToZip" value={formData.shipToZip} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="ZIP *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /></div></section>
-              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><h2 className="text-xl font-black text-amber-950">Delivery Details</h2><p className="mt-1 text-sm leading-6 text-amber-900">These details affect the freight quote. Incorrect delivery information may cause carrier back charges.</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-sm font-bold text-amber-950">Delivery location type<select required name="deliveryType" value={formData.deliveryType} onChange={handleDeliverySelectChange} className="rounded-xl border border-amber-200 bg-white px-3 py-3 font-normal text-neutral-950"><option value="">Select delivery location type *</option><option value="commercial">Commercial / business with dock or forklift</option><option value="residential">Residential / farm / home</option><option value="limited_access">Limited access location</option><option value="construction_site">Construction site / jobsite</option></select></label><label className="grid gap-2 text-sm font-bold text-amber-950">Liftgate required?<select required name="liftgateRequired" value={formData.liftgateRequired} onChange={handleDeliverySelectChange} className="rounded-xl border border-amber-200 bg-white px-3 py-3 font-normal text-neutral-950"><option value="">Select liftgate requirement *</option><option value="yes">Yes - liftgate required</option><option value="no">No - forklift/dock/unloading equipment available</option></select></label></div></section>
+    <main className="min-h-screen bg-white text-neutral-950">
+      <header className="sticky top-0 z-30 border-b border-neutral-200/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center gap-3"><img src="/brand/cgf-logo.png" alt="Cattle Guard Forms" className="h-14 w-auto object-contain" /><span className="hidden text-xl font-black uppercase leading-5 tracking-wide text-green-900 sm:block">Cattle Guard<br />Forms</span></Link>
+          <nav className="hidden items-center gap-7 text-sm font-semibold text-neutral-700 md:flex">{navItems.map(([label, href]) => <Link key={href} href={href} className={href === "/quote" ? "text-green-900 underline decoration-green-800 decoration-2 underline-offset-8" : "hover:text-green-800"}>{label}</Link>)}</nav>
+          <Link href="/contact" className="rounded-lg bg-green-800 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-900">Contact Us</Link>
+        </div>
+      </header>
+
+      <section className="relative overflow-hidden bg-green-950 text-white">
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-20">
+          <div><p className="text-sm font-bold uppercase tracking-[0.26em] text-green-200">Shop Cattle Guard Forms</p><h1 className="mt-5 text-5xl font-black leading-tight tracking-tight md:text-6xl">Buy the reusable form. Pour strong cattle guards on-site.</h1><p className="mt-6 max-w-2xl text-lg leading-8 text-green-50">Enter delivery details, select freight, and checkout securely.</p></div>
+          <div className="rounded-[2rem] border border-white/20 bg-white/10 p-3 shadow-2xl backdrop-blur"><img src={PRODUCT_IMAGE_SRC} alt="Cattle Guard Forms CowStop reusable plastic form" className="h-full max-h-[420px] w-full rounded-[1.35rem] bg-white object-contain p-5" /></div>
+        </div>
+      </section>
+
+      <form className="mx-auto max-w-7xl px-6 py-14" onSubmit={handleCheckout}>
+        {checkoutStatus === "success" ? <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-950"><p className="font-black">Payment successful. Your CowStop order was submitted.</p><p className="mt-1 text-sm leading-6">We received your order and payment.{returnedOrderId ? ` Order ID: ${returnedOrderId}` : ""}</p></div> : null}
+        {checkoutStatus === "cancelled" ? <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950"><p className="font-black">Checkout was cancelled.</p><p className="mt-1 text-sm leading-6">No payment was completed. You can review the order and try again.</p></div> : null}
+        {error ? <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div> : null}
+
+        <section className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <aside className="space-y-6">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"><p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Product</p><h2 className="mt-2 text-3xl font-black tracking-tight text-neutral-950">{PRODUCT_NAME}</h2><p className="mt-4 leading-7 text-neutral-600">You are purchasing the reusable CowStop plastic form. The finished concrete cattle guard section is what this form helps you make with concrete and rebar.</p><div className="mt-7 flex items-end gap-3"><p className="text-5xl font-black text-green-950">{currencyFormatter.format(unitPrice)}</p><p className="pb-2 text-sm font-semibold text-neutral-500">per form</p></div></div>
+            <div className="rounded-3xl border border-green-100 bg-green-50 p-6 shadow-sm"><h2 className="text-xl font-black text-green-950">Product Specs</h2><div className="mt-4 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Length</p><p>{COWSTOP_SPECS.length}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Width</p><p>{COWSTOP_SPECS.width}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Height</p><p>{COWSTOP_SPECS.height}</p></div><div className="rounded-xl bg-white p-3"><p className="font-bold text-green-900">Weight</p><p>{COWSTOP_SPECS.formWeight}</p></div></div><p className="mt-4 text-sm leading-6 text-neutral-700">Grooves are {COWSTOP_SPECS.grooveDepth} deep.</p></div>
+            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-black text-neutral-950">Pallet Plan</h2><p className="mt-2 text-sm leading-6 text-neutral-600">{palletSummary(formData.quantity)}</p></div>
+          </aside>
+
+          <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-xl">
+            <div className="rounded-2xl bg-neutral-50 p-5"><div className="flex flex-wrap items-center justify-between gap-4"><p className="text-base font-black">Quantity</p><select name="quantity" value={formData.quantity} onChange={handleQuantityChange} className="rounded-xl border border-neutral-300 bg-white px-6 py-3 text-center font-bold outline-none">{Array.from({ length: 30 }, (_, index) => index + 1).map((quantity) => <option key={quantity} value={quantity}>{quantity}</option>)}</select></div><dl className="mt-6 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-neutral-500">Product subtotal</dt><dd className="font-bold">{currencyFormatter.format(pricing.subtotal)}</dd></div><div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Product total</dt><dd className="text-2xl font-black text-green-950">{currencyFormatter.format(pricing.productTotal)}</dd></div></div>{selectedFreightCharge > 0 ? <div className="flex justify-between"><dt className="text-neutral-500">Freight & handling</dt><dd className="font-bold">{currencyFormatter.format(selectedFreightCharge)}</dd></div> : null}<div className="border-t border-neutral-200 pt-3"><div className="flex justify-between"><dt className="text-base font-black">Total due today</dt><dd className="text-3xl font-black text-green-950">{currencyFormatter.format(pricing.totalDueToday)}</dd></div></div></dl></div>
+
+            <div className="mt-6 grid gap-6">
+              <section><h2 className="text-xl font-black">Contact Information</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><input required name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Order contact email *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input name="firstName" value={formData.firstName} onChange={handleChange} placeholder="First name" className="rounded-xl border border-neutral-300 px-3 py-3" /><input name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Last name" className="rounded-xl border border-neutral-300 px-3 py-3" /><input required name="phone" type="tel" value={formData.phone} onChange={(event) => handlePhoneChange(event.target.value)} placeholder="Delivery contact phone * (321-555-5555)" className="rounded-xl border border-neutral-300 px-3 py-3" /><input name="company" value={formData.company} onChange={handleChange} placeholder="Company" className="rounded-xl border border-neutral-300 px-3 py-3" /></div></section>
+              <section><h2 className="text-xl font-black">Shipping Information</h2><div className="mt-5 grid gap-4 sm:grid-cols-2"><input required name="shipToName" value={formData.shipToName} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Ship-to name / company *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input required name="shipToAddress" value={formData.shipToAddress} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Delivery address line 1 *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input name="shipToAddress2" value={formData.shipToAddress2} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="Delivery address line 2" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /><input required name="shipToCity" value={formData.shipToCity} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="City *" className="rounded-xl border border-neutral-300 px-3 py-3" /><select required name="shipToState" value={formData.shipToState} onChange={(event) => { setFormData((previous) => ({ ...previous, shipToState: event.target.value })); resetFreightSelection(); }} className="rounded-xl border border-neutral-300 bg-white px-3 py-3"><option value="">Select state *</option>{states.map((state) => <option key={state} value={state}>{state}</option>)}</select><input required name="shipToZip" value={formData.shipToZip} onChange={(event) => { handleChange(event); resetFreightSelection(); }} placeholder="ZIP *" className="rounded-xl border border-neutral-300 px-3 py-3 sm:col-span-2" /></div></section>
+              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><h2 className="text-xl font-black text-amber-950">Delivery Details</h2><p className="mt-1 text-sm leading-6 text-amber-900">These details affect the freight quote. Incorrect delivery information may cause carrier back charges.</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-sm font-bold text-amber-950">Delivery location type<select required name="deliveryType" value={formData.deliveryType} onChange={handleSelectChange} className="rounded-xl border border-amber-200 bg-white px-3 py-3 font-normal text-neutral-950"><option value="">Select delivery location type *</option><option value="commercial">Commercial / business with dock or forklift</option><option value="residential">Residential / farm / home</option><option value="limited_access">Limited access location</option><option value="construction_site">Construction site / jobsite</option></select></label><label className="grid gap-2 text-sm font-bold text-amber-950">Liftgate required?<select required name="liftgateRequired" value={formData.liftgateRequired} onChange={handleSelectChange} className="rounded-xl border border-amber-200 bg-white px-3 py-3 font-normal text-neutral-950"><option value="">Select liftgate requirement *</option><option value="yes">Yes - liftgate required</option><option value="no">No - forklift/dock/unloading equipment available</option></select></label></div></section>
               <CustomerFreightQuotePanel quantity={formData.quantity} email={formData.email} phone={formData.phone} shipToName={formData.shipToName} shipToAddress={formData.shipToAddress} shipToAddress2={formData.shipToAddress2} shipToCity={formData.shipToCity} shipToState={formData.shipToState} shipToZip={formData.shipToZip} deliveryType={formData.deliveryType} liftgateRequired={formData.liftgateRequired} onQuoteStatusChange={setHasFreightQuote} onFreightOptionSelect={(rate, charge) => { setSelectedFreightRate(rate); setSelectedFreightCharge(charge); }} />
-              <section><h2 className="text-xl font-black">Notes</h2><textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Order notes, delivery notes, access details, preferred carrier notes, etc." rows={4} className="mt-5 w-full rounded-xl border border-neutral-300 px-3 py-3" /></section></div><button type="submit" disabled={checkoutLoading || !hasFreightQuote} className="mt-8 w-full rounded-xl bg-green-800 px-5 py-4 font-black text-white shadow-lg shadow-green-950/20 hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50">{checkoutLoading ? "Starting checkout..." : hasFreightQuote ? "Continue to Stripe Checkout" : "Select Freight Option Before Payment"}</button></section></section></form></main>
+              <section><h2 className="text-xl font-black">Notes</h2><textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Order notes, delivery notes, access details, preferred carrier notes, etc." rows={4} className="mt-5 w-full rounded-xl border border-neutral-300 px-3 py-3" /></section>
+            </div>
+            <button type="submit" disabled={checkoutLoading || !hasFreightQuote} className="mt-8 w-full rounded-xl bg-green-800 px-5 py-4 font-black text-white shadow-lg shadow-green-950/20 hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50">{checkoutLoading ? "Starting checkout..." : hasFreightQuote ? "Continue to Stripe Checkout" : "Select Freight Option Before Payment"}</button>
+          </section>
+        </section>
+      </form>
+    </main>
   );
 }
