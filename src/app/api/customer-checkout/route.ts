@@ -27,7 +27,13 @@ type CustomerCheckoutBody = {
 };
 
 function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
-function getBaseUrl(request: NextRequest) { return request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"; }
+function getBaseUrl(request: NextRequest) {
+  const configured = clean(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "");
+  if (configured) return configured;
+  const origin = clean(request.headers.get("origin")).replace(/\/$/, "");
+  if (process.env.NODE_ENV !== "production" && origin) return origin;
+  return "https://cattleguardforms.com";
+}
 function getSupabaseAdminClient() { const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL; const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; if (!supabaseUrl || !key) throw new Error("Missing Supabase server environment variables."); return createClient(supabaseUrl, key, { auth: { persistSession: false, autoRefreshToken: false } }); }
 function getQuantity(body: CustomerCheckoutBody) { const quantity = Number(body.quantity); if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) throw new Error(`Quantity must be between 1 and ${MAX_QUANTITY}.`); return quantity; }
 function getDiscountRate(quantity: number) { if (quantity >= 20) return 0.25; if (quantity >= 5) return 0.1; return 0; }
