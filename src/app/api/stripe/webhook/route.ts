@@ -305,14 +305,14 @@ async function triggerAutoFulfillment(orderId: string, order: LooseRecord) {
   const emailResponse = await fetch(`${baseUrl}/api/admin/send-manufacturer-order`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-cgf-automation-secret": secret },
-    body: JSON.stringify({ orderId, internalDryRun: true }),
+    body: JSON.stringify({ orderId, internalDryRun: false }),
   });
   const emailPayload = await readAutomationResponse(emailResponse);
-  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto internal BOL email failed at ${baseUrl}/api/admin/send-manufacturer-order: ${JSON.stringify(emailPayload).slice(0, 1600)}`);
+  if (!emailResponse.ok || !emailPayload.ok) throw new Error(`Auto live BOL email failed at ${baseUrl}/api/admin/send-manufacturer-order: ${JSON.stringify(emailPayload).slice(0, 1600)}`);
 
   await createCrmActivity({
     title: `Auto fulfillment completed for order ${orderId}`,
-    description: `Echo booking and internal BOL emails completed after Stripe payment. Echo BOL: ${bookPayload.bolNumber || "not provided"}. Internal BOL file: ${emailPayload.bolFileName || "not provided"}.`,
+    description: `Echo booking and live BOL emails completed after Stripe payment. Echo BOL: ${bookPayload.bolNumber || "not provided"}. BOL file: ${emailPayload.bolFileName || "not provided"}. Manufacturer recipients: ${JSON.stringify((emailPayload.recipients as Record<string, unknown> | undefined)?.manufacturerPreview || [])}. Customer recipients: ${JSON.stringify((emailPayload.recipients as Record<string, unknown> | undefined)?.customerBol || [])}.`,
     orderId,
     customerId: clean(order.customer_id) || null,
     distributorProfileId: clean(order.distributor_profile_id) || null,
