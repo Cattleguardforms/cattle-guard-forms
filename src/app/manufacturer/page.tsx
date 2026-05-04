@@ -318,6 +318,7 @@ export default function ManufacturerPortalPage() {
             Cattle Guard Forms
           </Link>
           <nav className="flex items-center gap-5 text-sm font-semibold text-neutral-700">
+            <Link href="/manufacturer/forgot-password" className="hover:text-green-800">Forgot Password</Link>
             <Link href="/admin" className="hover:text-green-800">Admin</Link>
             <Link href="/admin/orders" className="hover:text-green-800">Orders</Link>
             <Link href="/admin/distributors" className="hover:text-green-800">Distributors</Link>
