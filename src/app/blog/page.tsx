@@ -23,13 +23,12 @@ const blogTopics = [
 
 export default async function BlogPage() {
   let featuredPosts = starterBlogPosts;
-  let blogError = "";
 
   try {
     const posts = await getMarketingBlogPosts({ publishedOnly: true });
     if (posts.length > 0) featuredPosts = posts;
   } catch (error) {
-    blogError = error instanceof Error ? error.message : "Unable to load Supabase blog posts.";
+    console.warn("Public blog using starter posts", error);
   }
 
   return (
@@ -96,16 +95,7 @@ export default async function BlogPage() {
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-green-800">Featured articles</p>
             <h2 className="mt-2 text-4xl font-black tracking-tight">Latest blog posts.</h2>
           </div>
-          <Link href="/marketing/blog" className="rounded-lg border border-neutral-300 px-5 py-3 text-sm font-bold text-neutral-900 hover:border-green-800 hover:bg-green-50">
-            Manage Blog
-          </Link>
         </div>
-
-        {blogError ? (
-          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Supabase blog posts are not available yet, so starter articles are shown. {blogError}
-          </div>
-        ) : null}
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {featuredPosts.map((post) => (
