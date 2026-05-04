@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/admin/fetch-bol-documents?limit=10",
-      "schedule": "0 9 * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }
