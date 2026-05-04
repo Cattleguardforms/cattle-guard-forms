@@ -169,35 +169,22 @@ function normalizeInput(input: MarketingBlogInput) {
 
 export async function getMarketingBlogPosts({ publishedOnly = false } = {}) {
   const supabase = createSupabaseAdminClient();
-  let query = supabase
-    .from("marketing_blog_posts")
-    .select("*")
+  const baseQuery = supabase.from("marketing_blog_posts").select("*");
+  const filteredQuery = publishedOnly ? baseQuery.eq("status", "published") : baseQuery;
+  const { data, error } = await filteredQuery
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
-  if (publishedOnly) {
-    query = query.eq("status", "published");
-  }
-
-  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as RawRecord[]).map(normalizeRecord);
 }
 
 export async function getMarketingBlogPostBySlug(slug: string, { publishedOnly = true } = {}) {
   const supabase = createSupabaseAdminClient();
-  let query = supabase
-    .from("marketing_blog_posts")
-    .select("*")
-    .eq("slug", slug)
-    .limit(1)
-    .maybeSingle();
+  const baseQuery = supabase.from("marketing_blog_posts").select("*").eq("slug", slug);
+  const filteredQuery = publishedOnly ? baseQuery.eq("status", "published") : baseQuery;
+  const { data, error } = await filteredQuery.limit(1).maybeSingle();
 
-  if (publishedOnly) {
-    query = query.eq("status", "published");
-  }
-
-  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ? normalizeRecord(data as RawRecord) : null;
 }
