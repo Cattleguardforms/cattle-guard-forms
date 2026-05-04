@@ -54,10 +54,10 @@ export default function AdminLiveReadinessPage() {
       const accessToken = await token();
       const response = await fetch("/api/admin/live-readiness", { headers: { Authorization: `Bearer ${accessToken}` } });
       const data = (await response.json()) as ReadinessPayload;
-      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to run live readiness checks.");
+      if (!response.ok || !data.ok) throw new Error(data.error || "Unable to run site health checks.");
       setPayload(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to run live readiness checks.");
+      setError(err instanceof Error ? err.message : "Unable to run site health checks.");
     } finally {
       setLoading(false);
     }
@@ -83,17 +83,17 @@ export default function AdminLiveReadinessPage() {
       <section className="mx-auto max-w-7xl px-6 py-10">
         <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200">
           <p className="text-sm font-bold uppercase tracking-wide text-green-800">Admin / Production Hardening</p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight">Live Readiness Checklist</h1>
+          <h1 className="mt-2 text-4xl font-black tracking-tight">Site Health</h1>
           <p className="mt-4 max-w-4xl leading-7 text-neutral-700">
             One place to check production-critical configuration, database access, pricing, fake/test cleanup, live paid orders, and BOL risk before relying on the site for live orders.
           </p>
-          <button onClick={() => void runChecks()} disabled={loading} className="mt-6 rounded bg-green-800 px-5 py-3 text-sm font-black text-white hover:bg-green-900 disabled:opacity-60">{loading ? "Running checks..." : "Run Checks"}</button>
+          <button onClick={() => void runChecks()} disabled={loading} className="mt-6 rounded bg-green-800 px-5 py-3 text-sm font-black text-white hover:bg-green-900 disabled:opacity-60">{loading ? "Running checks..." : "Run Site Health Checks"}</button>
         </div>
 
         {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
 
         <div className="mt-8 grid gap-4 sm:grid-cols-4">
-          <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm text-neutral-500">Readiness Score</p><p className="mt-2 text-3xl font-black">{payload?.score ?? "-"}%</p></div>
+          <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm text-neutral-500">Site Health Score</p><p className="mt-2 text-3xl font-black">{payload?.score ?? "-"}%</p></div>
           <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm text-neutral-500">Pass</p><p className="mt-2 text-3xl font-black text-green-800">{payload?.totals?.pass ?? 0}</p></div>
           <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm text-neutral-500">Warnings</p><p className="mt-2 text-3xl font-black text-amber-700">{payload?.totals?.warn ?? 0}</p></div>
           <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-neutral-200"><p className="text-sm text-neutral-500">Failures</p><p className="mt-2 text-3xl font-black text-red-700">{payload?.totals?.fail ?? 0}</p></div>
@@ -102,7 +102,7 @@ export default function AdminLiveReadinessPage() {
         <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-black">Production Checks</h2>
+              <h2 className="text-2xl font-black">Site Health Checks</h2>
               {payload?.checked_at ? <p className="mt-1 text-sm text-neutral-500">Last checked: {new Date(payload.checked_at).toLocaleString()}</p> : null}
             </div>
           </div>
