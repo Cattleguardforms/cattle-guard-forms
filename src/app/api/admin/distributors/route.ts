@@ -67,6 +67,13 @@ function orderAmount(order: Record<string, unknown>) {
   return Number(order.amount_display ?? order.amount_paid ?? order.total ?? 0);
 }
 
+function normalizePrice(value: unknown) {
+  const price = Number(value);
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Unit price must be greater than 0.");
+  if (price > 10000) throw new Error("Unit price looks too high. Enter a dollar amount such as 600 or 750.");
+  return Math.round(price * 100) / 100;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
@@ -117,5 +124,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, summary, distributors });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to load distributors." }, { status: 401 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await requireAdmin(request);
+    const body = (await request.json()) as { id?: unknown; price_per_unit?: unknown };
+    const id = clean(body.id);
+    if (!id) throw new Error("Distributor id is required.");
+    const price = normalizePrice(body.price_per_unit);
+
+    const { data, error } = await supabase
+      .from("distributor_profiles")
+      .update({ price_per_unit: price, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, company_name, contact_email, price_per_unit")
+      .single();
+
+    if (error) throw new Error(`Distributor price update failed: ${error.message}`);
+    return NextResponse.json({ ok: true, distributor: data });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to update distributor price." }, { status: 400 });
   }
 }
