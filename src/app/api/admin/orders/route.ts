@@ -73,18 +73,38 @@ function isArchived(order: LooseRecord) {
   return clean(order.shipment_status) === "archived" || clean(order.checkout_status) === "archived";
 }
 
+function isFakeOrTestOrder(order: LooseRecord) {
+  const orderType = clean(order.order_type).toLowerCase();
+  const customerEmail = clean(order.customer_email || order.contact_email || order.email || order.order_contact_email).toLowerCase();
+  const customerName = clean(order.customer_name || order.contact_name).toLowerCase();
+  const sessionId = clean(order.stripe_checkout_session_id).toLowerCase();
+  const source = clean(order.source || order.checkout_source || order.lead_source).toLowerCase();
+
+  return (
+    orderType.includes("sandbox") ||
+    orderType.includes("test") ||
+    source.includes("sandbox") ||
+    source.includes("test") ||
+    sessionId.startsWith("cs_test_") ||
+    customerEmail.includes("neroa.io") ||
+    customerName.includes("thomas farrell")
+  );
+}
+
 function isPaidOrReady(order: LooseRecord) {
+  if (isFakeOrTestOrder(order)) return false;
   const paymentStatus = clean(order.payment_status).toLowerCase();
   const checkoutStatus = clean(order.checkout_status).toLowerCase();
   const status = clean(order.status).toLowerCase();
-  const amountPaid = Number(order.amount_paid ?? 0);
+  const sessionId = clean(order.stripe_checkout_session_id).toLowerCase();
 
   return (
     paymentStatus === "paid" ||
     checkoutStatus === "paid" ||
     checkoutStatus === "complete" ||
+    checkoutStatus === "succeeded" ||
     status === "ready_for_fulfillment" ||
-    amountPaid > 0
+    sessionId.startsWith("cs_live_")
   );
 }
 
