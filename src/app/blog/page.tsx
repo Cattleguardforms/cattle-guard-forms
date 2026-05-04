@@ -109,10 +109,10 @@ export default async function BlogPage() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {featuredPosts.map((post) => (
-            <article key={post.id} id={post.slug} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-              <div className="h-56 w-full bg-green-950/10">
+            <article key={post.id} className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+              <Link href={`/blog/${post.slug}`} className="block h-56 w-full bg-green-950/10">
                 <img src="/products/cattle-guard-hero.png" alt={post.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-              </div>
+              </Link>
               <div className="p-6">
                 <div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wide text-green-800">
                   <span>{post.category}</span>
@@ -123,10 +123,10 @@ export default async function BlogPage() {
                     </>
                   ) : null}
                 </div>
-                <h3 className="mt-3 text-xl font-black leading-7 text-green-950">{post.title}</h3>
+                <h3 className="mt-3 text-xl font-black leading-7 text-green-950"><Link href={`/blog/${post.slug}`} className="hover:text-green-800">{post.title}</Link></h3>
                 <p className="mt-3 leading-7 text-neutral-700">{post.excerpt || post.meta_description || "Read the latest Cattle Guard Forms article."}</p>
                 {post.body ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600">{post.body}</p> : null}
-                <Link href={`/blog#${post.slug}`} className="mt-5 inline-flex rounded-lg bg-green-800 px-4 py-3 text-sm font-bold text-white hover:bg-green-900">Read article →</Link>
+                <Link href={`/blog/${post.slug}`} className="mt-5 inline-flex rounded-lg bg-green-800 px-4 py-3 text-sm font-bold text-white hover:bg-green-900">Read article →</Link>
               </div>
             </article>
           ))}
