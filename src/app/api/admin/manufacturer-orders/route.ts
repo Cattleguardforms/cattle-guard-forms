@@ -12,23 +12,33 @@ function getBearerToken(request: NextRequest) {
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 }
 
-async function requireAdmin(request: NextRequest) {
+function allowedManufacturerEmails() {
+  return clean(process.env.MANUFACTURER_EMAILS)
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function requireManufacturerPortalAccess(request: NextRequest) {
   const token = getBearerToken(request);
-  if (!token) throw new Error("Missing admin session token.");
+  if (!token) throw new Error("Missing manufacturer session token.");
 
   const supabase = createSupabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
+  if (userError || !userData.user?.email) throw new Error("Invalid manufacturer session.");
 
   const email = userData.user.email.toLowerCase();
-  const { data: profile, error: profileError } = await supabase
-    .from("app_profiles")
-    .select("role, status")
-    .eq("email", email)
-    .maybeSingle();
+  const allowedEmails = allowedManufacturerEmails();
+  if (!allowedEmails.includes(email)) {
+    const { data: profile, error: profileError } = await supabase
+      .from("app_profiles")
+      .select("role, status")
+      .eq("email", email)
+      .maybeSingle();
 
-  if (profileError) throw new Error(`Admin role lookup failed: ${profileError.message}`);
-  if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Admin role is required.");
+    if (profileError) throw new Error(`Manufacturer role lookup failed: ${profileError.message}`);
+    if (!profile || profile.role !== "admin" || profile.status !== "active") throw new Error("Approved manufacturer access is required.");
+  }
 
   return supabase;
 }
@@ -61,7 +71,7 @@ function shipToDisplay(order: Record<string, unknown>) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await requireAdmin(request);
+    const supabase = await requireManufacturerPortalAccess(request);
 
     const { data: rows, error } = await supabase
       .from("orders")
