@@ -24,6 +24,7 @@ const portalLinks = [
 const modules = [
   ["Orders", "/admin/orders"],
   ["Ship / Execute", "/admin/shipping-execution"],
+  ["BOL Retry Queue", "/admin/bol-retry"],
   ["Customer Pricing", "/admin/pricing"],
   ["Site Content", "/admin/content"],
   ["SEO Audit", "/admin/seo"],
