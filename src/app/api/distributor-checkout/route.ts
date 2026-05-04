@@ -23,13 +23,14 @@ const PALLET_SPECS_BY_UNIT_COUNT: Record<1 | 2 | 3 | 4 | 5 | 6, PalletSpec> = {
   6: { length: 72, width: 48, height: 52, weight: 525 },
 };
 
-function getBaseUrl(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (origin) return origin;
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
 function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function getBaseUrl(request: NextRequest) {
+  const configured = clean(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "");
+  if (configured) return configured;
+  const origin = clean(request.headers.get("origin")).replace(/\/$/, "");
+  if (process.env.NODE_ENV !== "production" && origin) return origin;
+  return "https://cattleguardforms.com";
+}
 function getBearerToken(request: NextRequest) { const authHeader = request.headers.get("authorization") || ""; return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""; }
 function safeFilename(name: string) { const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120); return cleaned || "bol-file"; }
 
