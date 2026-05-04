@@ -22,7 +22,7 @@ const portalLinks = [
 ];
 
 const modules = [
-  ["Live Readiness", "/admin/live-readiness"],
+  ["Site Health", "/admin/live-readiness"],
   ["Orders", "/admin/orders"],
   ["Ship / Execute", "/admin/shipping-execution"],
   ["BOL Retry Queue", "/admin/bol-retry"],
