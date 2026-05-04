@@ -10,6 +10,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEX
 export default function ManufacturerLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,7 +29,7 @@ export default function ManufacturerLoginPage() {
         email: email.trim().toLowerCase(),
         password,
       });
-      if (signInError) throw new Error("Invalid manufacturer credentials.");
+      if (signInError) throw new Error("Invalid manufacturer credentials. Check the email/password in Supabase Auth or use Forgot password.");
       window.location.href = "/manufacturer";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
@@ -49,15 +50,19 @@ export default function ManufacturerLoginPage() {
         {error ? <div className="mt-5 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
         <form onSubmit={signIn} className="mt-6 grid gap-4">
           <label className="grid gap-2 text-sm font-semibold">
-            Email
+            Manufacturer email
             <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded border px-3 py-2 font-normal" placeholder="customerservice@meeseinc.com" />
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             Password
-            <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="rounded border px-3 py-2 font-normal" />
+            <input required type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} className="rounded border px-3 py-2 font-normal" />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+            <input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} />
+            Show password
           </label>
           <button disabled={loading} className="rounded bg-green-800 px-5 py-3 font-bold text-white disabled:opacity-50">
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "Signing in..." : "Sign In to Manufacturer Portal"}
           </button>
           <Link href="/manufacturer/forgot-password" className="text-sm font-bold text-green-800 hover:text-green-900">Forgot password?</Link>
         </form>
