@@ -54,6 +54,7 @@ type OrdersPayload = { ok?: boolean; error?: string; summary?: { paidOrders: num
 type FilesPayload = { ok?: boolean; error?: string; files?: OrderFile[]; file?: OrderFile };
 type DownloadPayload = { ok?: boolean; error?: string; url?: string; fileName?: string };
 type BolPayload = { ok?: boolean; error?: string; checked?: number; results?: { ok?: boolean; skipped?: boolean; reason?: string; filename?: string; orderId?: string }[] };
+type ResendBolPayload = { ok?: boolean; error?: string; fileName?: string; target?: string; recipients?: { customer?: string[]; manufacturer?: string[]; support?: string[] } };
 
 function shortId(id: string) { return id ? id.slice(0, 8) : "-"; }
 function text(value: unknown) { return typeof value === "string" && value.trim() ? value : "-"; }
@@ -64,6 +65,7 @@ function fileLabel(file: OrderFile) { return (file.file_type || "order_file").re
 function isBolFile(file: OrderFile) { const name = (file.file_name || "").toLowerCase(); const type = (file.file_type || "").toLowerCase(); return name.includes("bol") || type.includes("bol") || (type === "shipping_document" && name.includes("echo")); }
 function warrantyHref(order: AdminOrder) { return (order.order_type || "").toLowerCase() === "distributor" ? `/distributor/orders/${order.id}/warranty` : `/warranty/${order.id}`; }
 function warrantyLabel(order: AdminOrder) { return (order.order_type || "").toLowerCase() === "distributor" ? "Open Distributor Warranty" : "Open Customer Warranty"; }
+function targetLabel(target: string) { if (target === "customer") return "customer"; if (target === "manufacturer") return "manufacturer"; return "customer, manufacturer, and support"; }
 
 export default function AdminOrdersPage() {
   const supabase = useMemo(() => (supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null), []);
@@ -75,6 +77,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(false);
   const [busy, setBusy] = useState("");
+  const [resendingTarget, setResendingTarget] = useState("");
   const [downloadingFileId, setDownloadingFileId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadFileValue, setUploadFileValue] = useState<File | null>(null);
@@ -165,6 +168,27 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function resendBol(orderId: string, target: "customer" | "manufacturer" | "all") {
+    setResendingTarget(target);
+    setError("");
+    setNotice("");
+    try {
+      const accessToken = await token();
+      const response = await fetch("/api/admin/resend-bol-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ orderId, target }),
+      });
+      const payload = (await response.json()) as ResendBolPayload;
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Unable to resend stored BOL email.");
+      setNotice(`Stored BOL ${payload.fileName || "file"} resent to ${targetLabel(target)}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to resend stored BOL email.");
+    } finally {
+      setResendingTarget("");
+    }
+  }
+
   async function uploadOrderFile(orderId: string) {
     setUploading(true);
     setError("");
@@ -247,7 +271,7 @@ export default function AdminOrdersPage() {
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-green-800">Admin / Orders</p>
             <h1 className="mt-2 text-3xl font-black">Orders Board</h1>
-            <p className="mt-2 text-sm text-neutral-600">Open an order to fetch, upload, or download BOLs and order documents.</p>
+            <p className="mt-2 text-sm text-neutral-600">Open an order to fetch, upload, download, or resend BOLs and order documents.</p>
           </div>
           <button onClick={() => void loadOrders()} className="rounded border border-green-800 bg-white px-5 py-3 text-sm font-black text-green-900 hover:bg-green-50">Refresh Orders</button>
         </div>
@@ -306,7 +330,7 @@ export default function AdminOrdersPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4"><h3 className="text-lg font-black">BOL Downloads</h3>{filesLoading ? <p className="mt-2 text-sm text-neutral-600">Loading files...</p> : null}{!filesLoading && bolFiles.length === 0 ? <p className="mt-2 text-sm text-neutral-600">No BOL file is stored yet. Click Fetch BOL or upload a BOL above.</p> : null}<div className="mt-3 grid gap-2">{bolFiles.map((file) => <FileRow key={file.id} file={file} downloadingFileId={downloadingFileId} onDownload={downloadFile} primary />)}</div></div>
+                <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4"><h3 className="text-lg font-black">BOL Downloads & Resend</h3>{filesLoading ? <p className="mt-2 text-sm text-neutral-600">Loading files...</p> : null}{!filesLoading && bolFiles.length === 0 ? <p className="mt-2 text-sm text-neutral-600">No BOL file is stored yet. Click Fetch BOL or upload a BOL above before resending BOL emails.</p> : null}{bolFiles.length > 0 ? <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void resendBol(selectedOrder.id, "customer")} disabled={Boolean(resendingTarget)} className="rounded bg-emerald-800 px-3 py-2 text-xs font-black text-white hover:bg-emerald-900 disabled:opacity-60">{resendingTarget === "customer" ? "Sending..." : "Resend BOL to Customer"}</button><button type="button" onClick={() => void resendBol(selectedOrder.id, "manufacturer")} disabled={Boolean(resendingTarget)} className="rounded bg-emerald-800 px-3 py-2 text-xs font-black text-white hover:bg-emerald-900 disabled:opacity-60">{resendingTarget === "manufacturer" ? "Sending..." : "Resend BOL to Manufacturer"}</button><button type="button" onClick={() => void resendBol(selectedOrder.id, "all")} disabled={Boolean(resendingTarget)} className="rounded bg-emerald-950 px-3 py-2 text-xs font-black text-white hover:bg-black disabled:opacity-60">{resendingTarget === "all" ? "Sending..." : "Resend BOL to All"}</button></div> : null}<div className="mt-3 grid gap-2">{bolFiles.map((file) => <FileRow key={file.id} file={file} downloadingFileId={downloadingFileId} onDownload={downloadFile} primary />)}</div></div>
 
                 <div className="mt-5 rounded-xl border border-neutral-200 bg-white p-4"><h3 className="text-lg font-black">All Order Files</h3>{!filesLoading && files.length === 0 ? <p className="mt-2 text-sm text-neutral-600">No stored order files yet.</p> : null}<div className="mt-3 grid gap-2">{otherFiles.map((file) => <FileRow key={file.id} file={file} downloadingFileId={downloadingFileId} onDownload={downloadFile} />)}</div></div>
               </div>
