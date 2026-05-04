@@ -13,12 +13,12 @@ const navItems = [
 ];
 
 const blogTopics = [
-  "CowStop installation tips",
-  "Concrete cattle guard planning",
-  "Ranch driveway access",
-  "Distributor education",
-  "Steel vs concrete cattle guards",
-  "Livestock control and drainage",
+  ["CowStop installation tips", "/education/installation-planning"],
+  ["Concrete cattle guard planning", "/education/customer-education"],
+  ["Ranch driveway access", "/education/ranch-driveway-access"],
+  ["Distributor education", "/education/distributor-education"],
+  ["Steel vs concrete cattle guards", "/education/steel-vs-concrete-cattle-guards"],
+  ["Livestock control and drainage", "/education/livestock-control-drainage"],
 ];
 
 export default async function BlogPage() {
@@ -82,8 +82,8 @@ export default async function BlogPage() {
               <h2 className="mt-2 text-2xl font-black tracking-tight">Quick education for customers and distributors.</h2>
             </div>
             <div className="flex max-w-3xl flex-wrap gap-2">
-              {blogTopics.map((topic) => (
-                <span key={topic} className="rounded-full bg-green-50 px-3 py-2 text-sm font-semibold text-green-900 ring-1 ring-green-200">{topic}</span>
+              {blogTopics.map(([topic, href]) => (
+                <Link key={topic} href={href} className="rounded-full bg-green-50 px-3 py-2 text-sm font-semibold text-green-900 ring-1 ring-green-200 hover:bg-green-100 hover:ring-green-700">{topic}</Link>
               ))}
             </div>
           </div>
