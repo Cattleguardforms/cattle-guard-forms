@@ -49,7 +49,7 @@ function envCheck(name: string, label: string, options?: { secret?: boolean; war
 }
 
 async function countRows(supabase: ReturnType<typeof createSupabaseAdminClient>, table: string) {
-  const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true });
+  const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
   if (error) throw new Error(`${table}: ${error.message}`);
   return count ?? 0;
 }
@@ -136,8 +136,8 @@ export async function GET(request: NextRequest) {
       envCheck("STRIPE_WEBHOOK_SECRET", "Stripe webhook secret", { secret: true }),
       envCheck("RESEND_API_KEY", "Resend email key", { secret: true }),
       envCheck("MANUFACTURER_EMAILS", "Manufacturer recipient emails", { secret: true }),
-      envCheck("ECHO_CLIENT_ID", "Echo client id", { secret: true, warnOnly: true }),
-      envCheck("ECHO_CLIENT_SECRET", "Echo client secret", { secret: true, warnOnly: true }),
+      envCheck("ECHO_ACCOUNT_NUMBER", "Echo account number", { secret: true, warnOnly: true }),
+      envCheck("ECHO_API_KEY", "Echo API key", { secret: true, warnOnly: true }),
       envCheck("OPENAI_API_KEY", "OpenAI key for admin content drafts", { secret: true, warnOnly: true }),
       await pricingCheck(supabase),
       ...(await tableChecks(supabase)),
@@ -153,6 +153,6 @@ export async function GET(request: NextRequest) {
     const score = Math.round(((totals.pass + totals.warn * 0.5) / Math.max(totals.total, 1)) * 100);
     return NextResponse.json({ ok: true, score, totals, checks, checked_at: new Date().toISOString() });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to run live readiness checks." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Unable to run site health checks." }, { status: 400 });
   }
 }
