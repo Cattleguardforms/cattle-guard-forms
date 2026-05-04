@@ -4,20 +4,15 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const DISTRIBUTOR_UNIT_AMOUNT = 75000;
-const DISTRIBUTOR_UNIT_PRICE = 750;
+const DEFAULT_DISTRIBUTOR_UNIT_PRICE = 750;
 const MAX_QUANTITY = 50;
 const MAX_COWSTOPS_PER_PALLET = 6;
 const ORDER_FILES_BUCKET = "order-files";
 const MAX_BOL_SIZE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_BOL_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
-type PalletSpec = {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-};
+type PalletSpec = { length: number; width: number; height: number; weight: number };
+type DbRecord = Record<string, unknown>;
 
 const PALLET_SPECS_BY_UNIT_COUNT: Record<1 | 2 | 3 | 4 | 5 | 6, PalletSpec> = {
   1: { length: 72, width: 48, height: 20, weight: 105 },
@@ -34,19 +29,9 @@ function getBaseUrl(request: NextRequest) {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
-function clean(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getBearerToken(request: NextRequest) {
-  const authHeader = request.headers.get("authorization") || "";
-  return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-}
-
-function safeFilename(name: string) {
-  const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120);
-  return cleaned || "bol-file";
-}
+function clean(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
+function getBearerToken(request: NextRequest) { const authHeader = request.headers.get("authorization") || ""; return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""; }
+function safeFilename(name: string) { const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120); return cleaned || "bol-file"; }
 
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -70,6 +55,14 @@ function getPalletPlan(quantity: number) {
     weight: fullPallets * PALLET_SPECS_BY_UNIT_COUNT[6].weight + (remainder === 0 ? 0 : lastPallet.weight),
   };
 }
+
+function distributorUnitPrice(distributor: DbRecord) {
+  const savedPrice = Number(distributor.price_per_unit ?? 0);
+  if (Number.isFinite(savedPrice) && savedPrice > 0 && savedPrice <= 10000) return Math.round(savedPrice * 100) / 100;
+  return DEFAULT_DISTRIBUTOR_UNIT_PRICE;
+}
+
+function unitAmountFromPrice(price: number) { return Math.round(price * 100); }
 
 type CheckoutBody = {
   quantity?: number;
@@ -143,9 +136,7 @@ async function requireDistributor(request: NextRequest) {
     .maybeSingle();
 
   if (profileError) throw new Error(`Distributor role lookup failed: ${profileError.message}`);
-  if (!profile || profile.role !== "distributor" || profile.status !== "active") {
-    throw new Error("Approved distributor role is required before checkout.");
-  }
+  if (!profile || profile.role !== "distributor" || profile.status !== "active") throw new Error("Approved distributor role is required before checkout.");
 
   const { data: distributor, error: distributorError } = await supabase
     .from("distributor_profiles")
@@ -158,7 +149,7 @@ async function requireDistributor(request: NextRequest) {
   if (distributorError) throw new Error(`Distributor profile lookup failed: ${distributorError.message}`);
   if (!distributor) throw new Error("Active distributor profile is required before checkout.");
 
-  return { supabase, distributor };
+  return { supabase, distributor: distributor as DbRecord };
 }
 
 function getFreightCharge(body: CheckoutBody) {
@@ -176,10 +167,7 @@ function validateBolFile(file: File | null) {
 
 function validateBody(body: CheckoutBody, bolFile: File | null) {
   const quantity = Number(body.quantity);
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
-    throw new Error(`Quantity must be between 1 and ${MAX_QUANTITY}.`);
-  }
-
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) throw new Error(`Quantity must be between 1 and ${MAX_QUANTITY}.`);
   if (!body.email || !body.email.includes("@")) throw new Error("A valid receipt email is required.");
   if (!clean(body.warrantyCustomerName)) throw new Error("Customer name is required for warranty records.");
   if (!clean(body.warrantyCustomerPhone)) throw new Error("Customer phone is required for warranty records.");
@@ -201,7 +189,7 @@ function validateBody(body: CheckoutBody, bolFile: File | null) {
   return quantity;
 }
 
-function warrantyNote(body: CheckoutBody) {
+function warrantyNote(body: CheckoutBody, unitPrice: number) {
   return [
     "Warranty customer information:",
     `Name: ${clean(body.warrantyCustomerName) || "Not set"}`,
@@ -210,15 +198,12 @@ function warrantyNote(body: CheckoutBody) {
     `Delivery type: ${clean(body.deliveryType) || "Not set"}`,
     `Liftgate required: ${clean(body.liftgateRequired) || "Not set"}`,
     `Shipping method: ${body.shippingMethod === "own" ? "Distributor-arranged freight" : "Cattle Guard Forms freight quote"}`,
+    `Distributor unit price: $${unitPrice.toFixed(2)}`,
     body.shippingMethod === "own" ? `BOL file: ${clean(body.bolFileName) || "Attached after payment"}` : "",
   ].filter(Boolean).join("\n");
 }
 
-async function upsertWarrantyCustomer(input: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
-  body: CheckoutBody;
-  distributorName: string;
-}) {
+async function upsertWarrantyCustomer(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; body: CheckoutBody; distributorName: string }) {
   const email = clean(input.body.warrantyCustomerEmail).toLowerCase();
   const name = clean(input.body.warrantyCustomerName);
   const { firstName, lastName } = splitName(name);
@@ -235,12 +220,7 @@ async function upsertWarrantyCustomer(input: {
     postal_code: clean(input.body.shipToZip) || null,
   };
 
-  const { data: existing, error: lookupError } = await input.supabase
-    .from("customers")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-
+  const { data: existing, error: lookupError } = await input.supabase.from("customers").select("id").eq("email", email).maybeSingle();
   if (lookupError) throw new Error(`Warranty customer lookup failed: ${lookupError.message}`);
 
   if (existing?.id) {
@@ -262,9 +242,10 @@ async function createPendingOrder(input: {
   customerId: string;
   body: CheckoutBody;
   quantity: number;
+  unitPrice: number;
 }) {
   const freightCharge = getFreightCharge(input.body);
-  const total = input.quantity * DISTRIBUTOR_UNIT_PRICE + freightCharge;
+  const total = input.quantity * input.unitPrice + freightCharge;
   const now = new Date().toISOString();
   const shippingMethod = input.body.shippingMethod ?? "echo";
   const palletPlan = getPalletPlan(input.quantity);
@@ -284,7 +265,7 @@ async function createPendingOrder(input: {
       product_status: "active",
       cowstop_quantity: input.quantity,
       quantity: input.quantity,
-      unit_price: DISTRIBUTOR_UNIT_PRICE,
+      unit_price: input.unitPrice,
       total,
       payment_status: "pending",
       checkout_status: "created",
@@ -324,7 +305,7 @@ async function createPendingOrder(input: {
       pallet_height_in: palletPlan.height,
       pallet_weight_lbs: palletPlan.weight,
       bol_file: clean(input.body.bolFileName) || null,
-      manufacturer_notes: warrantyNote(input.body),
+      manufacturer_notes: warrantyNote(input.body, input.unitPrice),
       created_at: now,
       updated_at: now,
     })
@@ -338,58 +319,29 @@ async function createPendingOrder(input: {
   const { error: activityError } = await input.supabase.from("crm_activity").insert({
     activity_type: "distributor_checkout_started",
     title: `Distributor checkout started for warranty customer ${customerName}`,
-    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s). Warranty customer: ${customerName}, ${customerEmail}, ${customerPhone}.`,
+    description: `${input.distributorName} started checkout for ${input.quantity} CowStop form(s) at $${input.unitPrice.toFixed(2)} each. Warranty customer: ${customerName}, ${customerEmail}, ${customerPhone}.`,
     order_id: orderId,
     source: "distributor_checkout",
     status: "open",
   });
 
-  if (activityError) {
-    console.warn("Unable to create distributor warranty customer CRM activity", activityError.message);
-  }
-
+  if (activityError) console.warn("Unable to create distributor warranty customer CRM activity", activityError.message);
   return orderId;
 }
 
-async function saveBolFile(input: {
-  supabase: ReturnType<typeof createSupabaseAdminClient>;
-  orderId: string;
-  file: File;
-}) {
+async function saveBolFile(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; orderId: string; file: File }) {
   const filename = safeFilename(input.file.name);
   const storagePath = `${input.orderId}/original_bol/${Date.now()}-${filename}`;
-  const arrayBuffer = await input.file.arrayBuffer();
-  const content = Buffer.from(arrayBuffer);
-
-  const { error: uploadError } = await input.supabase.storage
-    .from(ORDER_FILES_BUCKET)
-    .upload(storagePath, content, {
-      contentType: input.file.type || "application/octet-stream",
-      upsert: false,
-    });
-
+  const content = Buffer.from(await input.file.arrayBuffer());
+  const { error: uploadError } = await input.supabase.storage.from(ORDER_FILES_BUCKET).upload(storagePath, content, { contentType: input.file.type || "application/octet-stream", upsert: false });
   if (uploadError) throw new Error(`BOL file upload failed: ${uploadError.message}`);
-
-  const { error: insertError } = await input.supabase.from("order_files").insert({
-    order_id: input.orderId,
-    file_type: "original_bol",
-    file_name: filename,
-    storage_path: storagePath,
-    content_type: input.file.type || null,
-    size_bytes: input.file.size,
-    uploaded_by_role: "distributor",
-  });
-
+  const { error: insertError } = await input.supabase.from("order_files").insert({ order_id: input.orderId, file_type: "original_bol", file_name: filename, storage_path: storagePath, content_type: input.file.type || null, size_bytes: input.file.size, uploaded_by_role: "distributor" });
   if (insertError) throw new Error(`BOL file metadata insert failed: ${insertError.message}`);
   return { filename, contentType: input.file.type || undefined };
 }
 
 async function attachStripeSession(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; orderId: string; sessionId: string }) {
-  const now = new Date().toISOString();
-  const { error } = await input.supabase
-    .from("orders")
-    .update({ stripe_checkout_session_id: input.sessionId, checkout_status: "created", updated_at: now })
-    .eq("id", input.orderId);
+  const { error } = await input.supabase.from("orders").update({ stripe_checkout_session_id: input.sessionId, checkout_status: "created", updated_at: new Date().toISOString() }).eq("id", input.orderId);
   if (error) throw new Error(`Unable to attach Stripe session to order: ${error.message}`);
 }
 
@@ -400,6 +352,7 @@ export async function POST(request: NextRequest) {
     const { body, bolFile } = await readCheckoutInput(request);
     const quantity = validateBody(body, bolFile);
     const { supabase, distributor } = await requireDistributor(request);
+    const unitPrice = distributorUnitPrice(distributor);
     const distributorName = clean(distributor.company_name) || clean(body.distributorAccountName) || "Approved Distributor";
     const orderContactEmail = clean(body.email).toLowerCase();
     const distributorEmail = clean(distributor.contact_email) || orderContactEmail;
@@ -407,15 +360,7 @@ export async function POST(request: NextRequest) {
     const palletPlan = getPalletPlan(quantity);
     const customerId = await upsertWarrantyCustomer({ supabase, body, distributorName });
 
-    const orderId = await createPendingOrder({
-      supabase,
-      distributorId: clean(distributor.id),
-      distributorName,
-      distributorEmail,
-      customerId,
-      body,
-      quantity,
-    });
+    const orderId = await createPendingOrder({ supabase, distributorId: clean(distributor.id), distributorName, distributorEmail, customerId, body, quantity, unitPrice });
 
     let bolFileName = clean(body.bolFileName);
     if (shippingMethod === "own" && bolFile) {
@@ -435,25 +380,11 @@ export async function POST(request: NextRequest) {
           quantity,
           price_data: {
             currency: "usd",
-            unit_amount: DISTRIBUTOR_UNIT_AMOUNT,
-            product_data: {
-              name: "CowStop Reusable Form - Distributor Rate",
-              description: "Distributor online order for CowStop reusable cattle guard forms.",
-            },
+            unit_amount: unitAmountFromPrice(unitPrice),
+            product_data: { name: "CowStop Reusable Form - Distributor Rate", description: `Distributor online order for CowStop reusable cattle guard forms at $${unitPrice.toFixed(2)} each.` },
           },
         },
-        ...(freightCharge > 0
-          ? [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: "usd",
-                  unit_amount: Math.round(freightCharge * 100),
-                  product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." },
-                },
-              },
-            ]
-          : []),
+        ...(freightCharge > 0 ? [{ quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(freightCharge * 100), product_data: { name: "Freight & Handling", description: clean(body.selectedRate) || "Selected freight option." } } }] : []),
       ],
       metadata: {
         orderId,
@@ -474,7 +405,7 @@ export async function POST(request: NextRequest) {
         pallet_height_in: String(palletPlan.height),
         pallet_weight_lbs: String(palletPlan.weight),
         quantity: String(quantity),
-        unit_price: "750.00",
+        unit_price: unitPrice.toFixed(2),
         shipping_method: shippingMethod,
         ship_to_name: body.shipToName ?? "",
         ship_to_address: body.shipToAddress ?? "",
