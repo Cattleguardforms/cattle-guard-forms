@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const FROM_EMAIL = "orders@cattleguardforms.com";
 const REPLY_TO_EMAIL = "support@cattleguardforms.com";
 const SUPPORT_EMAIL = "support@cattleguardforms.com";
+const ECHO_TRACKING_URL = "https://www.echo.com/shippers/track-a-shipment/";
 
 type DbRecord = Record<string, unknown>;
 type Body = { orderId?: unknown };
@@ -119,6 +120,10 @@ async function sendShipmentEmails(input: { order: DbRecord; customer: DbRecord |
     `BOL Number: ${bol}`,
     tracking ? `Tracking: ${tracking}` : "Tracking: Not provided",
     eta ? `Estimated delivery: ${eta}` : "Estimated delivery: Not provided",
+    "",
+    "Echo shipment tracking:",
+    ECHO_TRACKING_URL,
+    "You can track this shipment any time by entering the PRO number listed on the BOL.",
     "",
     "Ship-To:",
     shipTo(input.order) || "Not provided",
