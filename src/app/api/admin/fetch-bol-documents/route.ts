@@ -37,16 +37,24 @@ function isValidEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
 function parseEmails(value: unknown) { return clean(value).split(",").map((email) => email.trim().toLowerCase()).filter(isValidEmail); }
 function uniqueEmails(values: string[]) { return values.filter((value, index, list) => list.indexOf(value) === index); }
 function orderLabel(order: DbRecord, orderId: string) { return clean(order.bol_number) || clean(order.order_number) || orderId.slice(0, 8); }
-function customerName(order: DbRecord) { return clean(order.customer_name) || clean(order.warranty_customer_name) || clean(order.ship_to_name) || "Customer"; }
+function customerName(order: DbRecord, customer: DbRecord | null) { return clean(order.customer_name) || clean(order.warranty_customer_name) || clean(order.ship_to_name) || clean(customer?.customer_name) || [clean(customer?.first_name), clean(customer?.last_name)].filter(Boolean).join(" ") || "Customer"; }
 function quantity(order: DbRecord) { const value = Number(order.cowstop_quantity ?? order.quantity ?? 1); return Number.isFinite(value) && value > 0 ? value : 1; }
 function manufacturerEmails() { return parseEmails(process.env.MANUFACTURER_EMAILS); }
-function customerEmails(order: DbRecord) { return uniqueEmails(parseEmails(order.customer_email).concat(parseEmails(order.warranty_customer_email), parseEmails(order.order_contact_email))); }
+function customerEmails(order: DbRecord, customer: DbRecord | null) { return uniqueEmails(parseEmails(order.customer_email).concat(parseEmails(order.warranty_customer_email), parseEmails(order.order_contact_email), parseEmails(customer?.email))); }
 function supportEmails() { return uniqueEmails(parseEmails(SUPPORT_EMAIL)); }
 
-async function notifyBolStored(input: { order: DbRecord; orderId: string; filename: string; content: Buffer; contentType: string }) {
+async function getLinkedCustomer(supabase: ReturnType<typeof createSupabaseAdminClient>, order: DbRecord) {
+  const customerId = clean(order.customer_id);
+  if (!customerId) return null;
+  const { data, error } = await supabase.from("customers").select("*").eq("id", customerId).maybeSingle();
+  if (error) throw new Error(`Linked customer lookup failed: ${error.message}`);
+  return (data ?? null) as DbRecord | null;
+}
+
+async function notifyBolStored(input: { order: DbRecord; customer: DbRecord | null; orderId: string; filename: string; content: Buffer; contentType: string }) {
   const resendApiKey = clean(process.env.RESEND_API_KEY);
   const manufacturer = manufacturerEmails();
-  const customer = customerEmails(input.order);
+  const customer = customerEmails(input.order, input.customer);
   const support = supportEmails();
   const recipients = { manufacturer, customer, support };
   if (!resendApiKey) return { ok: false, recipients, error: "RESEND_API_KEY is not configured." };
@@ -62,7 +70,7 @@ async function notifyBolStored(input: { order: DbRecord; orderId: string; filena
     `Order ID: ${input.orderId}`,
     `BOL Number: ${clean(input.order.bol_number) || "Not provided"}`,
     `Carrier: ${clean(input.order.carrier) || clean(input.order.carrier_name) || "Not provided"}`,
-    `Customer: ${customerName(input.order)}`,
+    `Customer: ${customerName(input.order, input.customer)}`,
     `Quantity: ${quantity(input.order)} CowStop form(s)`,
     "",
     "Ship-To:",
@@ -74,7 +82,7 @@ async function notifyBolStored(input: { order: DbRecord; orderId: string; filena
     "Cattle Guard Forms",
   ].join("\n");
   const customerText = [
-    `Hello ${customerName(input.order)},`,
+    `Hello ${customerName(input.order, input.customer)},`,
     "",
     "Your CowStop BOL / freight document is now available.",
     "",
@@ -92,6 +100,7 @@ async function notifyBolStored(input: { order: DbRecord; orderId: string; filena
     if (manufacturer.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: manufacturer, replyTo: REPLY_TO_EMAIL, subject: `Echo BOL Ready - ${orderText}`, text: manufacturerText, attachments: [attachment] }));
     if (customer.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: customer, replyTo: REPLY_TO_EMAIL, subject: `Your CowStop BOL is ready - ${orderText}`, text: customerText, attachments: [attachment] }));
     if (support.length) sends.push(resend.emails.send({ from: FROM_EMAIL, to: support, replyTo: REPLY_TO_EMAIL, subject: `Support Copy - Echo BOL Ready - ${orderText}`, text: ["Support copy of the fetched Echo BOL email.", "", manufacturerText].join("\n"), attachments: [attachment] }));
+    if (sends.length === 0) return { ok: false, recipients, error: "No valid email recipients found." };
     await Promise.all(sends);
     return { ok: true, recipients };
   } catch (error) {
@@ -141,6 +150,7 @@ async function getCandidateOrders(supabase: ReturnType<typeof createSupabaseAdmi
 async function downloadEchoHref(href: string, config: ReturnType<typeof getEchoConfig>) { return fetch(normalizeEchoHref(href, config.baseUrl), { headers: { Authorization: getEchoAuthorizationHeader(config), Accept: "application/pdf,image/jpeg,image/png,application/json,*/*" }, cache: "no-store" }); }
 
 async function storeBolContent(input: { supabase: ReturnType<typeof createSupabaseAdminClient>; order: DbRecord; orderId: string; shipmentId: string; content: Buffer; contentType: string; sourcePath: string }): Promise<StoredBolResult> {
+  const customer = await getLinkedCustomer(input.supabase, input.order);
   const bolNumber = clean(input.order.bol_number) || `Echo-BOL-${input.shipmentId}`;
   const filename = `${bolNumber}.${extensionFromContentType(input.contentType)}`;
   const storagePath = `${input.orderId}/echo_bol/${Date.now()}-${filename}`;
@@ -148,7 +158,7 @@ async function storeBolContent(input: { supabase: ReturnType<typeof createSupaba
   if (uploadError) throw new Error(`BOL upload failed: ${uploadError.message}`);
   const { error: insertError } = await input.supabase.from("order_files").insert({ order_id: input.orderId, file_type: BOL_FILE_TYPE, file_name: filename, storage_path: storagePath, content_type: input.contentType, size_bytes: input.content.byteLength, uploaded_by_role: "system" });
   if (insertError) throw new Error(`BOL file metadata insert failed: ${insertError.message}`);
-  const emailNotification = await notifyBolStored({ order: input.order, orderId: input.orderId, filename, content: input.content, contentType: input.contentType });
+  const emailNotification = await notifyBolStored({ order: input.order, customer, orderId: input.orderId, filename, content: input.content, contentType: input.contentType });
   await input.supabase.from("orders").update({ bol_file: `Echo BOL stored from ${input.sourcePath}`, updated_at: new Date().toISOString() }).eq("id", input.orderId);
   await input.supabase.from("crm_activity").insert({ activity_type: "bol_document", title: `BOL document stored for order ${input.orderId}`, description: `Fetched Echo BOL document ${filename} for Echo shipment/load ${input.shipmentId}. Source: ${input.sourcePath}. Email notification: ${emailNotification.ok ? "sent" : `failed - ${emailNotification.error}`}`, order_id: input.orderId, customer_id: clean(input.order.customer_id) || null, distributor_profile_id: clean(input.order.distributor_profile_id) || null, source: "echo_bol_fetch", status: "closed" });
   return { ok: true, orderId: input.orderId, shipmentId: input.shipmentId, filename, fileType: BOL_FILE_TYPE, storagePath, sizeBytes: input.content.byteLength, sourcePath: input.sourcePath, emailNotification };
