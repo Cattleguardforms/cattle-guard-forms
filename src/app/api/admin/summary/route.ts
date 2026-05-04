@@ -58,8 +58,8 @@ async function countOpenOrders(supabase: ReturnType<typeof createSupabaseAdminCl
   const { count, error } = await supabase
     .from("orders")
     .select("id", { count: "exact", head: true })
-    .not("payment_status", "eq", "paid")
-    .not("shipment_status", "eq", "delivered");
+    .eq("payment_status", "paid")
+    .not("shipment_status", "in", "(delivered,cancelled,archived)");
 
   if (error) throw new Error(`Unable to count open orders: ${error.message}`);
   return count ?? 0;
