@@ -50,6 +50,14 @@ async function requireAdmin(request: NextRequest) {
   return supabase;
 }
 
+async function findCustomerForOrder(supabase: ReturnType<typeof createSupabaseAdminClient>, order: DbRecord) {
+  const customerId = clean(order.customer_id);
+  if (!customerId) return null;
+  const { data, error } = await supabase.from("customers").select("*").eq("id", customerId).maybeSingle();
+  if (error) throw new Error(`Customer lookup failed: ${error.message}`);
+  return (data ?? null) as DbRecord | null;
+}
+
 function extractEchoLoadId(order: DbRecord) {
   const direct = clean(order.echo_load_id) || clean(order.echo_shipment_id) || clean(order.shipment_id);
   if (direct) return direct;
@@ -95,14 +103,14 @@ async function fetchEchoBolAttachment(shipmentId: string, bolNumber: string) {
   return { filename: `${bolNumber || `Echo-BOL-${shipmentId}`}.${extension}`, content: Buffer.from(await documentResponse.arrayBuffer()), contentType };
 }
 
-function buildOrderPayload(order: DbRecord, attachmentName: string): OrderWorkflowPayload {
+function buildOrderPayload(order: DbRecord, customer: DbRecord | null, attachmentName: string): OrderWorkflowPayload {
   const notes = clean(order.manufacturer_notes);
   return {
     orderId: clean(order.id),
-    distributorAccountName: clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_display_name) || "Cattle Guard Forms Customer",
-    distributorEmail: clean(order.order_contact_email) || clean(order.customer_email) || clean(order.distributor_email) || TRANSACTIONAL_ORDERS_EMAIL,
-    customerName: noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name),
-    customerEmail: noteValue(notes, "Email") || clean(order.customer_email),
+    distributorAccountName: clean(order.normalized_vendor_name) || clean(order.raw_vendor_name) || clean(order.customer_display_name) || clean(customer?.company_name) || clean(customer?.company) || "Cattle Guard Forms Customer",
+    distributorEmail: clean(order.order_contact_email) || clean(order.customer_email) || clean(customer?.email) || clean(order.distributor_email) || TRANSACTIONAL_ORDERS_EMAIL,
+    customerName: noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name) || clean(customer?.customer_name) || [clean(customer?.first_name), clean(customer?.last_name)].filter(Boolean).join(" "),
+    customerEmail: noteValue(notes, "Email") || clean(order.customer_email) || clean(customer?.email),
     quantity: num(order.cowstop_quantity ?? order.quantity ?? order.quantity_display, 1),
     orderDate: new Date().toLocaleDateString("en-US"),
     shippingMethod: "echo",
@@ -119,28 +127,29 @@ function buildOrderPayload(order: DbRecord, attachmentName: string): OrderWorkfl
   };
 }
 
-function customerEmailFromOrder(order: DbRecord) {
+function customerEmailFromOrder(order: DbRecord, customer: DbRecord | null) {
   const notes = clean(order.manufacturer_notes);
   const candidates = [
     noteValue(notes, "Email"),
     clean(order.warranty_customer_email),
     clean(order.customer_email),
     clean(order.order_contact_email),
+    clean(customer?.email),
   ];
   return candidates.find(isValidEmail) || "";
 }
 
-function customerNameFromOrder(order: DbRecord) {
+function customerNameFromOrder(order: DbRecord, customer: DbRecord | null) {
   const notes = clean(order.manufacturer_notes);
-  return noteValue(notes, "Name") || clean(order.warranty_customer_name) || clean(order.ship_to_name) || clean(order.customer_display_name) || "there";
+  return noteValue(notes, "Name") || clean(order.warranty_customer_name) || clean(order.ship_to_name) || clean(order.customer_display_name) || clean(customer?.customer_name) || [clean(customer?.first_name), clean(customer?.last_name)].filter(Boolean).join(" ") || "there";
 }
 
-function buildCustomerBolEmailText(order: DbRecord, bolFileName: string) {
+function buildCustomerBolEmailText(order: DbRecord, customer: DbRecord | null, bolFileName: string) {
   const orderId = clean(order.id);
   const notes = clean(order.manufacturer_notes);
   const bolNumber = clean(order.bol_number) || noteValue(notes, "BOL Number") || "Attached";
   return [
-    `Hello ${customerNameFromOrder(order)},`,
+    `Hello ${customerNameFromOrder(order, customer)},`,
     "",
     "Your CowStop order freight paperwork is ready.",
     "",
@@ -161,12 +170,12 @@ function buildCustomerBolEmailText(order: DbRecord, bolFileName: string) {
   ].join("\n");
 }
 
-function buildInternalOrderPaperworkText(order: DbRecord) {
+function buildInternalOrderPaperworkText(order: DbRecord, customer: DbRecord | null) {
   const notes = clean(order.manufacturer_notes);
   const orderId = clean(order.id);
-  const customerName = noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name) || "Customer";
-  const customerEmail = noteValue(notes, "Email") || clean(order.customer_email) || "Not provided";
-  const customerPhone = noteValue(notes, "Phone") || clean(order.contact_phone) || "Not provided";
+  const customerName = noteValue(notes, "Name") || clean(order.ship_to_name) || clean(order.customer_display_name) || clean(customer?.customer_name) || "Customer";
+  const customerEmail = noteValue(notes, "Email") || clean(order.customer_email) || clean(customer?.email) || "Not provided";
+  const customerPhone = noteValue(notes, "Phone") || clean(order.contact_phone) || clean(customer?.phone) || "Not provided";
   const bolNumber = clean(order.bol_number) || "Not assigned yet";
 
   return [
@@ -216,12 +225,13 @@ export async function POST(request: NextRequest) {
     if (orderError) throw new Error(`Order lookup failed: ${orderError.message}`);
     if (!order) throw new Error("Order not found.");
     const orderRecord = order as DbRecord;
+    const customerRecord = await findCustomerForOrder(supabase, orderRecord);
     const shipmentId = extractEchoLoadId(orderRecord);
     if (!shipmentId) throw new Error("Echo shipment/load ID was not found on this order. Book the shipment before emailing.");
 
     const uploadUrl = buildManufacturerUploadUrl(orderId);
     const bolAttachment = await fetchEchoBolAttachment(shipmentId, clean(orderRecord.bol_number));
-    const manufacturerTemplate = buildManufacturerFulfillmentTemplate(buildOrderPayload(orderRecord, bolAttachment.filename));
+    const manufacturerTemplate = buildManufacturerFulfillmentTemplate(buildOrderPayload(orderRecord, customerRecord, bolAttachment.filename));
     const resendApiKey = clean(process.env.RESEND_API_KEY);
     if (!resendApiKey) throw new Error("RESEND_API_KEY is required to send email.");
     const resend = new Resend(resendApiKey);
@@ -244,7 +254,7 @@ export async function POST(request: NextRequest) {
 
     let internalPaperworkResult: unknown = null;
     let customerBolResult: unknown = null;
-    const customerEmail = customerEmailFromOrder(orderRecord);
+    const customerEmail = customerEmailFromOrder(orderRecord, customerRecord);
 
     if (body.internalDryRun) {
       internalPaperworkResult = await resend.emails.send({
@@ -252,7 +262,7 @@ export async function POST(request: NextRequest) {
         to: ordersEmail,
         replyTo,
         subject: `[INTERNAL TEST] CowStop order paperwork ready - ${orderId}`,
-        text: buildInternalOrderPaperworkText(orderRecord),
+        text: buildInternalOrderPaperworkText(orderRecord, customerRecord),
       });
 
       if (customerEmail) {
@@ -261,14 +271,14 @@ export async function POST(request: NextRequest) {
           to: customerEmail,
           replyTo,
           subject: `Your CowStop BOL and warranty paperwork - ${orderId}`,
-          text: buildCustomerBolEmailText(orderRecord, bolAttachment.filename),
+          text: buildCustomerBolEmailText(orderRecord, customerRecord, bolAttachment.filename),
           attachments: [{ filename: bolAttachment.filename, content: bolAttachment.content, contentType: bolAttachment.contentType }],
         });
       }
     }
 
     const previousNotes = clean(orderRecord.manufacturer_notes);
-    const customerNote = customerEmail ? `Customer BOL email sent to ${customerEmail}` : "Customer BOL email skipped: no customer email found";
+    const customerNote = customerEmail ? `Customer BOL email sent to ${customerEmail}` : "Customer BOL email skipped: no customer email found on order or linked customer record";
     const note = body.internalDryRun ? `Internal dry run emails sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated; ${customerNote}` : `Manufacturer email sent: ${new Date().toISOString()} with ${bolAttachment.filename}; upload link generated`;
     await supabase.from("orders").update({ manufacturer_notes: [previousNotes, note].filter(Boolean).join("\n"), updated_at: new Date().toISOString() }).eq("id", orderId);
     return NextResponse.json({ ok: true, internalDryRun: Boolean(body.internalDryRun), orderId, shipmentId, bolFileName: bolAttachment.filename, manufacturerUploadUrl: uploadUrl, recipients: { manufacturerPreview: manufacturerRecipients, paperwork: body.internalDryRun ? [ordersEmail] : [], customerBol: customerEmail ? [customerEmail] : [] }, manufacturerResult, internalPaperworkResult, customerBolResult });
