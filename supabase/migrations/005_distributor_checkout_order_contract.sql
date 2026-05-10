@@ -22,6 +22,7 @@ alter table public.orders add column if not exists selected_freight_carrier text
 alter table public.orders add column if not exists selected_freight_service text;
 alter table public.orders add column if not exists selected_freight_transit_days integer;
 alter table public.orders add column if not exists freight_charge numeric;
+alter table public.orders add column if not exists actual_shipping_cost numeric;
 
 alter table public.orders add column if not exists pallet_count integer;
 alter table public.orders add column if not exists pallet_length_in integer;
