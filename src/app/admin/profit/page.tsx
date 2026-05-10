@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,26 @@ async function loadOrders(period: string) {
   return ((data ?? []) as Row[]).filter(isPaid).filter((order) => inPeriod(order, period));
 }
 
+async function updateActualShippingCost(formData: FormData) {
+  "use server";
+  const orderId = clean(formData.get("orderId"));
+  const period = clean(formData.get("period")) || "month";
+  const rawCost = clean(formData.get("actualShippingCost"));
+  const actualShippingCost = rawCost ? Number(rawCost) : null;
+
+  if (!orderId) throw new Error("Missing order id.");
+  if (actualShippingCost !== null && (!Number.isFinite(actualShippingCost) || actualShippingCost < 0)) throw new Error("Actual shipping cost must be a valid positive number.");
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({ actual_shipping_cost: actualShippingCost, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+
+  if (error) throw new Error(`Actual shipping update failed: ${error.message}`);
+  redirect(`/admin/profit?period=${encodeURIComponent(period)}`);
+}
+
 function groupByMonth(orders: Row[]) {
   const map = new Map<string, { label: string; orders: number; units: number; revenue: number; reserve: number; actualShipping: number; cogs: number; profit: number }>();
   for (const order of orders) {
@@ -132,6 +153,28 @@ function groupByMonth(orders: Row[]) {
     map.set(label, existing);
   }
   return Array.from(map.values()).sort((a, b) => b.label.localeCompare(a.label));
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function profitCsv(orders: Row[]) {
+  const rows = [
+    ["date", "customer", "order_id", "units", "revenue", "shipping_reserve", "actual_shipping", "shipping_used_for_profit", "cowstop_cogs", "total_cogs", "profit"],
+    ...orders.map((order) => {
+      const revenue = orderAmount(order);
+      const units = orderQuantity(order);
+      const reserve = shippingReserve(order);
+      const actualShip = actualShippingCost(order);
+      const shipUsed = shippingCostForProfit(order);
+      const productCogs = units * COWSTOP_UNIT_COST;
+      const totalCogs = productCogs + shipUsed;
+      return [orderDate(order).slice(0, 10), customerName(order), clean(order.id), units, revenue.toFixed(2), reserve.toFixed(2), actualShip.toFixed(2), shipUsed.toFixed(2), productCogs.toFixed(2), totalCogs.toFixed(2), (revenue - totalCogs).toFixed(2)];
+    }),
+  ];
+  return rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
 export default async function AdminProfitPage({ searchParams }: { searchParams?: SearchParams }) {
@@ -156,6 +199,7 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
   const profit = revenue - totalCogs;
   const margin = revenue ? (profit / revenue) * 100 : 0;
   const monthly = groupByMonth(orders);
+  const csvHref = `data:text/csv;charset=utf-8,${encodeURIComponent(profitCsv(orders))}`;
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -181,14 +225,17 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
 
         {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Profit dashboard failed to load: {error}</div> : null}
 
-        <form action="/admin/profit" className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200">
-          <label className="grid gap-2 text-sm font-bold text-neutral-700">Period
-            <select name="period" defaultValue={selectedPeriod} className="rounded border border-neutral-300 px-3 py-2 font-normal">
-              {PERIODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <button className="rounded bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Apply</button>
-        </form>
+        <div className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-neutral-200">
+          <form action="/admin/profit" className="flex flex-wrap items-end gap-3">
+            <label className="grid gap-2 text-sm font-bold text-neutral-700">Period
+              <select name="period" defaultValue={selectedPeriod} className="rounded border border-neutral-300 px-3 py-2 font-normal">
+                {PERIODS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <button className="rounded bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Apply</button>
+          </form>
+          <a href={csvHref} download={`cattle-guard-profit-${selectedPeriod}.csv`} className="rounded border border-green-800 bg-white px-5 py-3 text-sm font-bold text-green-900 hover:bg-green-50">Export CSV</a>
+        </div>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
           <Metric label="Revenue" value={money(revenue)} />
@@ -225,10 +272,11 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
 
         <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
           <h2 className="text-2xl font-black">Recent Paid Orders</h2>
+          <p className="mt-2 text-sm text-neutral-600">Edit actual shipping here when the carrier bill changes. Leave it blank to use the 15% reserve.</p>
           <div className="mt-5 overflow-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">Reserve</th><th className="px-4 py-3">Actual Ship</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
-              <tbody>{orders.slice(0, 50).map((order) => { const rowRevenue = orderAmount(order); const rowUnits = orderQuantity(order); const rowReserve = shippingReserve(order); const rowActualShipping = actualShippingCost(order); const rowShippingUsed = shippingCostForProfit(order); const rowCogs = rowUnits * COWSTOP_UNIT_COST + rowShippingUsed; return <tr key={clean(order.id) || `${customerName(order)}-${orderDate(order)}`} className="border-t border-neutral-200"><td className="px-4 py-3">{orderDate(order).slice(0, 10)}</td><td className="px-4 py-3 font-semibold">{customerName(order)}</td><td className="px-4 py-3">{rowUnits}</td><td className="px-4 py-3">{money(rowRevenue)}</td><td className="px-4 py-3">{money(rowReserve)}</td><td className="px-4 py-3">{rowActualShipping > 0 ? money(rowActualShipping) : "-"}</td><td className="px-4 py-3">{money(rowCogs)}</td><td className="px-4 py-3 font-bold">{money(rowRevenue - rowCogs)}</td></tr>; })}</tbody>
+            <table className="w-full min-w-[1120px] text-left text-sm">
+              <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">Reserve</th><th className="px-4 py-3">Actual Ship</th><th className="px-4 py-3">Update Actual</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
+              <tbody>{orders.slice(0, 50).map((order) => { const rowRevenue = orderAmount(order); const rowUnits = orderQuantity(order); const rowReserve = shippingReserve(order); const rowActualShipping = actualShippingCost(order); const rowShippingUsed = shippingCostForProfit(order); const rowCogs = rowUnits * COWSTOP_UNIT_COST + rowShippingUsed; return <tr key={clean(order.id) || `${customerName(order)}-${orderDate(order)}`} className="border-t border-neutral-200"><td className="px-4 py-3">{orderDate(order).slice(0, 10)}</td><td className="px-4 py-3 font-semibold">{customerName(order)}</td><td className="px-4 py-3">{rowUnits}</td><td className="px-4 py-3">{money(rowRevenue)}</td><td className="px-4 py-3">{money(rowReserve)}</td><td className="px-4 py-3">{rowActualShipping > 0 ? money(rowActualShipping) : "-"}</td><td className="px-4 py-3"><form action={updateActualShippingCost} className="flex items-center gap-2"><input type="hidden" name="orderId" value={clean(order.id)} /><input type="hidden" name="period" value={selectedPeriod} /><input name="actualShippingCost" type="number" min="0" step="0.01" defaultValue={rowActualShipping > 0 ? rowActualShipping.toFixed(2) : ""} placeholder="0.00" className="w-28 rounded border border-neutral-300 px-2 py-1" /><button className="rounded bg-green-800 px-3 py-1 text-xs font-bold text-white hover:bg-green-900">Save</button></form></td><td className="px-4 py-3">{money(rowCogs)}</td><td className="px-4 py-3 font-bold">{money(rowRevenue - rowCogs)}</td></tr>; })}</tbody>
             </table>
           </div>
         </section>

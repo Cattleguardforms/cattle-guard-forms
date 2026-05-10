@@ -16,6 +16,7 @@ type FulfillmentUpdate = {
   freight_class?: unknown;
   manufacturer_notes?: unknown;
   status?: unknown;
+  actual_shipping_cost?: unknown;
 };
 
 const SHIPMENT_STATUSES = new Set(["pending", "ready_for_fulfillment", "preparing", "ready_to_ship", "shipped", "delivered", "delayed", "cancelled"]);
@@ -209,6 +210,7 @@ function sanitizeFulfillmentUpdates(input: FulfillmentUpdate) {
   if (Object.prototype.hasOwnProperty.call(input, "estimated_delivery_date")) updates.estimated_delivery_date = nullableDate(input.estimated_delivery_date);
   if (Object.prototype.hasOwnProperty.call(input, "number_of_pallets")) updates.number_of_pallets = nullableNumber(input.number_of_pallets);
   if (Object.prototype.hasOwnProperty.call(input, "freight_class")) updates.freight_class = nullableNumber(input.freight_class);
+  if (Object.prototype.hasOwnProperty.call(input, "actual_shipping_cost")) updates.actual_shipping_cost = nullableNumber(input.actual_shipping_cost);
   if (Object.prototype.hasOwnProperty.call(input, "manufacturer_notes")) updates.manufacturer_notes = nullableText(input.manufacturer_notes);
 
   if (!Object.keys(updates).length) throw new Error("No fulfillment fields were provided.");
