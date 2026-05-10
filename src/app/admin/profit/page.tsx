@@ -44,6 +44,29 @@ function orderQuantity(order: Row) {
   return numberValue(order.quantity_display ?? order.cowstop_quantity ?? order.quantity ?? order.forms_quantity ?? 0);
 }
 
+function shippingReserve(order: Row) {
+  return orderAmount(order) * SHIPPING_COGS_RATE;
+}
+
+function actualShippingCost(order: Row) {
+  return numberValue(
+    order.actual_shipping_cost ??
+    order.shipping_cost_actual ??
+    order.shipping_actual_cost ??
+    order.freight_charge ??
+    order.shipping_cost ??
+    order.freight_cost ??
+    order.ltl_cost ??
+    order.echo_cost ??
+    0,
+  );
+}
+
+function shippingCostForProfit(order: Row) {
+  const actual = actualShippingCost(order);
+  return actual > 0 ? actual : shippingReserve(order);
+}
+
 function isFakeOrTestOrder(order: Row) {
   const orderType = clean(order.order_type).toLowerCase();
   const customerEmail = clean(order.customer_email || order.contact_email || order.email || order.order_contact_email).toLowerCase();
@@ -89,17 +112,21 @@ async function loadOrders(period: string) {
 }
 
 function groupByMonth(orders: Row[]) {
-  const map = new Map<string, { label: string; orders: number; units: number; revenue: number; cogs: number; profit: number }>();
+  const map = new Map<string, { label: string; orders: number; units: number; revenue: number; reserve: number; actualShipping: number; cogs: number; profit: number }>();
   for (const order of orders) {
     const date = new Date(orderDate(order));
     const label = Number.isNaN(date.getTime()) ? "Unknown" : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     const revenue = orderAmount(order);
     const units = orderQuantity(order);
-    const cogs = units * COWSTOP_UNIT_COST + revenue * SHIPPING_COGS_RATE;
-    const existing = map.get(label) ?? { label, orders: 0, units: 0, revenue: 0, cogs: 0, profit: 0 };
+    const reserve = shippingReserve(order);
+    const actualShipping = actualShippingCost(order);
+    const cogs = units * COWSTOP_UNIT_COST + shippingCostForProfit(order);
+    const existing = map.get(label) ?? { label, orders: 0, units: 0, revenue: 0, reserve: 0, actualShipping: 0, cogs: 0, profit: 0 };
     existing.orders += 1;
     existing.units += units;
     existing.revenue += revenue;
+    existing.reserve += reserve;
+    existing.actualShipping += actualShipping;
     existing.cogs += cogs;
     existing.profit += revenue - cogs;
     map.set(label, existing);
@@ -121,8 +148,11 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
   const revenue = orders.reduce((sum, order) => sum + orderAmount(order), 0);
   const units = orders.reduce((sum, order) => sum + orderQuantity(order), 0);
   const productCogs = units * COWSTOP_UNIT_COST;
-  const shippingReserve = revenue * SHIPPING_COGS_RATE;
-  const totalCogs = productCogs + shippingReserve;
+  const shippingReserveTotal = orders.reduce((sum, order) => sum + shippingReserve(order), 0);
+  const actualShippingTotal = orders.reduce((sum, order) => sum + actualShippingCost(order), 0);
+  const shippingUsedForProfit = orders.reduce((sum, order) => sum + shippingCostForProfit(order), 0);
+  const ordersWithActualShipping = orders.filter((order) => actualShippingCost(order) > 0).length;
+  const totalCogs = productCogs + shippingUsedForProfit;
   const profit = revenue - totalCogs;
   const margin = revenue ? (profit / revenue) * 100 : 0;
   const monthly = groupByMonth(orders);
@@ -143,9 +173,9 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
       <section className="mx-auto max-w-7xl px-6 py-10">
         <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-neutral-200">
           <p className="text-sm font-semibold uppercase tracking-wide text-green-800">Admin / Profitability</p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight">Revenue, COGS, and Actual Profit</h1>
+          <h1 className="mt-2 text-4xl font-black tracking-tight">Revenue, COGS, Shipping, and Actual Profit</h1>
           <p className="mt-4 max-w-4xl leading-7 text-neutral-700">
-            Pulls from real paid live orders. COGS uses {money(COWSTOP_UNIT_COST)} per CowStop form plus a {(SHIPPING_COGS_RATE * 100).toFixed(0)}% shipping reserve. Test, sandbox, fake, unpaid, and pending orders are excluded.
+            Pulls from real paid live orders. COGS uses {money(COWSTOP_UNIT_COST)} per CowStop form, shows the 15% shipping reserve, and uses the actual freight charge when one is stored on the order. Test, sandbox, fake, unpaid, and pending orders are excluded.
           </p>
         </div>
 
@@ -160,12 +190,13 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
           <button className="rounded bg-green-800 px-5 py-3 text-sm font-bold text-white hover:bg-green-900">Apply</button>
         </form>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
           <Metric label="Revenue" value={money(revenue)} />
           <Metric label="Orders" value={String(orders.length)} />
           <Metric label="Units" value={String(units)} />
           <Metric label="CowStop COGS" value={money(productCogs)} note={`${money(COWSTOP_UNIT_COST)} x ${units} unit(s)`} />
-          <Metric label="Shipping Reserve" value={money(shippingReserve)} note="15% of revenue" />
+          <Metric label="Shipping Reserve" value={money(shippingReserveTotal)} note="15% of revenue" />
+          <Metric label="Actual Shipping" value={money(actualShippingTotal)} note={`${ordersWithActualShipping} order(s) with freight charge`} />
           <Metric label="Actual Profit" value={money(profit)} note={`${percent(margin)} margin`} />
         </section>
 
@@ -174,17 +205,19 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
             <h2 className="text-2xl font-black">Profit Formula</h2>
             <div className="mt-4 space-y-3 text-sm leading-6 text-neutral-700">
               <p className="rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200">Revenue: {money(revenue)}</p>
-              <p className="rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200">COGS: {money(productCogs)} CowStop cost + {money(shippingReserve)} shipping reserve = {money(totalCogs)}</p>
-              <p className="rounded-lg bg-green-50 p-3 font-bold text-green-950 ring-1 ring-green-200">Profit: {money(revenue)} - {money(totalCogs)} = {money(profit)}</p>
+              <p className="rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200">CowStop COGS: {money(COWSTOP_UNIT_COST)} x {units} unit(s) = {money(productCogs)}</p>
+              <p className="rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200">Shipping reserve: {money(shippingReserveTotal)} at 15% of revenue</p>
+              <p className="rounded-lg bg-neutral-50 p-3 ring-1 ring-neutral-200">Actual shipping: {money(actualShippingTotal)} across {ordersWithActualShipping} order(s). Profit uses actual shipping when stored, otherwise the 15% reserve.</p>
+              <p className="rounded-lg bg-green-50 p-3 font-bold text-green-950 ring-1 ring-green-200">Profit: {money(revenue)} - {money(productCogs)} product COGS - {money(shippingUsedForProfit)} shipping = {money(profit)}</p>
             </div>
           </div>
 
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
             <h2 className="text-2xl font-black">Monthly Rollup</h2>
             <div className="mt-5 overflow-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Month</th><th className="px-4 py-3">Orders</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
-                <tbody>{monthly.length ? monthly.map((row) => <tr key={row.label} className="border-t border-neutral-200"><td className="px-4 py-3 font-bold">{row.label}</td><td className="px-4 py-3">{row.orders}</td><td className="px-4 py-3">{row.units}</td><td className="px-4 py-3">{money(row.revenue)}</td><td className="px-4 py-3">{money(row.cogs)}</td><td className="px-4 py-3 font-bold">{money(row.profit)}</td></tr>) : <tr><td className="px-4 py-5 text-neutral-500" colSpan={6}>No paid orders found for this period.</td></tr>}</tbody>
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Month</th><th className="px-4 py-3">Orders</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">Reserve</th><th className="px-4 py-3">Actual Ship</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
+                <tbody>{monthly.length ? monthly.map((row) => <tr key={row.label} className="border-t border-neutral-200"><td className="px-4 py-3 font-bold">{row.label}</td><td className="px-4 py-3">{row.orders}</td><td className="px-4 py-3">{row.units}</td><td className="px-4 py-3">{money(row.revenue)}</td><td className="px-4 py-3">{money(row.reserve)}</td><td className="px-4 py-3">{money(row.actualShipping)}</td><td className="px-4 py-3">{money(row.cogs)}</td><td className="px-4 py-3 font-bold">{money(row.profit)}</td></tr>) : <tr><td className="px-4 py-5 text-neutral-500" colSpan={8}>No paid orders found for this period.</td></tr>}</tbody>
               </table>
             </div>
           </div>
@@ -193,9 +226,9 @@ export default async function AdminProfitPage({ searchParams }: { searchParams?:
         <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200">
           <h2 className="text-2xl font-black">Recent Paid Orders</h2>
           <div className="mt-5 overflow-auto">
-            <table className="w-full min-w-[820px] text-left text-sm">
-              <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
-              <tbody>{orders.slice(0, 50).map((order) => { const rowRevenue = orderAmount(order); const rowUnits = orderQuantity(order); const rowCogs = rowUnits * COWSTOP_UNIT_COST + rowRevenue * SHIPPING_COGS_RATE; return <tr key={clean(order.id) || `${customerName(order)}-${orderDate(order)}`} className="border-t border-neutral-200"><td className="px-4 py-3">{orderDate(order).slice(0, 10)}</td><td className="px-4 py-3 font-semibold">{customerName(order)}</td><td className="px-4 py-3">{rowUnits}</td><td className="px-4 py-3">{money(rowRevenue)}</td><td className="px-4 py-3">{money(rowCogs)}</td><td className="px-4 py-3 font-bold">{money(rowRevenue - rowCogs)}</td></tr>; })}</tbody>
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Units</th><th className="px-4 py-3">Revenue</th><th className="px-4 py-3">Reserve</th><th className="px-4 py-3">Actual Ship</th><th className="px-4 py-3">COGS</th><th className="px-4 py-3">Profit</th></tr></thead>
+              <tbody>{orders.slice(0, 50).map((order) => { const rowRevenue = orderAmount(order); const rowUnits = orderQuantity(order); const rowReserve = shippingReserve(order); const rowActualShipping = actualShippingCost(order); const rowShippingUsed = shippingCostForProfit(order); const rowCogs = rowUnits * COWSTOP_UNIT_COST + rowShippingUsed; return <tr key={clean(order.id) || `${customerName(order)}-${orderDate(order)}`} className="border-t border-neutral-200"><td className="px-4 py-3">{orderDate(order).slice(0, 10)}</td><td className="px-4 py-3 font-semibold">{customerName(order)}</td><td className="px-4 py-3">{rowUnits}</td><td className="px-4 py-3">{money(rowRevenue)}</td><td className="px-4 py-3">{money(rowReserve)}</td><td className="px-4 py-3">{rowActualShipping > 0 ? money(rowActualShipping) : "-"}</td><td className="px-4 py-3">{money(rowCogs)}</td><td className="px-4 py-3 font-bold">{money(rowRevenue - rowCogs)}</td></tr>; })}</tbody>
             </table>
           </div>
         </section>
