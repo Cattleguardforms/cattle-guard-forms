@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:trustnet-vault": "node --test tests/catguard-trustnet-vault.test.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^3.1.1",
