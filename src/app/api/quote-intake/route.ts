@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { emitCatGuardFormActionWithReceiptAndLineage } from "@/lib/catguard-trustnet-vault/index.mjs";
+import { persistCatGuardReceiptAndLineage } from "@/lib/catguard-trustnet-vault/persistence.mjs";
 import type { CatGuardActionContext } from "@/lib/catguard-trustnet-vault/types";
 
 type IntakeBody = Record<string, unknown>;
@@ -289,6 +290,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const persistence = await persistCatGuardReceiptAndLineage(supabase, trustnetVault);
+    if (!persistence.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          errors: [persistence.error],
+          trustnet_receipt: {
+            receipt_id: trustnetVault.receipt.receipt_id,
+            event_id: trustnetVault.receipt.event_id,
+            policy_result: trustnetVault.receipt.policy_result,
+          },
+          vault_lineage: {
+            lineage_id: trustnetVault.lineage.lineage_id,
+            receipt_id: trustnetVault.lineage.receipt_id,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -311,6 +332,10 @@ export async function POST(request: NextRequest) {
           trustnet_receipt_refs: trustnetVault.lineage.trustnet_receipt_refs,
           redaction_class: trustnetVault.lineage.redaction_class,
           retention_class: trustnetVault.lineage.retention_class,
+        },
+        persistence: {
+          receipt_id: persistence.receipt_id,
+          lineage_id: persistence.lineage_id,
         },
         errors: [],
       },
