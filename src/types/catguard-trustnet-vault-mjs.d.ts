@@ -14,6 +14,13 @@ declare module '@/lib/catguard-trustnet-vault/index.mjs' {
 }
 
 declare module '@/lib/catguard-trustnet-vault/persistence.mjs' {
+  type CatGuardInsertResult = PromiseLike<{ error?: unknown }>;
+  type CatGuardPersistenceClient = {
+    from: (table: string) => {
+      insert: (row: Record<string, unknown>) => CatGuardInsertResult;
+    };
+  };
+
   export function toReceiptInsert(
     receipt: import('@/lib/catguard-trustnet-vault/types').CatGuardReceipt
   ): Record<string, unknown>;
@@ -24,7 +31,7 @@ declare module '@/lib/catguard-trustnet-vault/persistence.mjs' {
     result: import('@/lib/catguard-trustnet-vault/types').CatGuardIntegrationResult
   ): { ok: true } | { ok: false; error: string };
   export function persistCatGuardReceiptAndLineage(
-    supabase: { from: (table: string) => { insert: (row: Record<string, unknown>) => Promise<{ error?: unknown }> } },
+    supabase: CatGuardPersistenceClient,
     result: import('@/lib/catguard-trustnet-vault/types').CatGuardIntegrationResult
   ): Promise<{ ok: true; receipt_id: string; lineage_id: string } | { ok: false; error: string }>;
 }
