@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { emitCatGuardFormActionWithReceiptAndLineage } from "@/lib/catguard-trustnet-vault/index.mjs";
+import type { CatGuardActionContext } from "@/lib/catguard-trustnet-vault/types";
 
 type IntakeBody = Record<string, unknown>;
 
@@ -7,6 +9,8 @@ type ValidationResult = {
   payload: IntakeBody;
   errors: string[];
 };
+
+const QUOTE_INTAKE_FORM_ID = "catguard-quote-intake";
 
 const customerFields = [
   "first_name",
@@ -130,6 +134,50 @@ function buildOrderData(payload: IntakeBody, customerId: string) {
   return data;
 }
 
+function buildReceiptSafePayload(payload: IntakeBody, orderId: string) {
+  return {
+    workflow: "quote_intake",
+    form_id: QUOTE_INTAKE_FORM_ID,
+    order_id: orderId,
+    field_keys: Object.keys(payload).sort(),
+    product_type: getString(payload, "product_type") || undefined,
+    quantity: getQuantity(payload) || undefined,
+    installation_needed: getBoolean(payload, "installation_needed"),
+    delivery_needed: getBoolean(payload, "delivery_needed"),
+    redaction_note: "Receipt payload intentionally excludes raw customer contact, address, notes, specifications, and attachment contents.",
+  };
+}
+
+function buildQuoteIntakeReceiptContext(payload: IntakeBody, customerId: string, orderId: string): CatGuardActionContext {
+  const requestRef = `quote_intake_${crypto.randomUUID()}`;
+  return {
+    event_type: "catguard.submission.completed",
+    from_address: { type: "actor_address", id: "public_quote_intake_submitter" },
+    to_address: { type: "submission_address", id: orderId },
+    actor_type: "customer",
+    actor_id: customerId,
+    form_id: QUOTE_INTAKE_FORM_ID,
+    submission_id: orderId,
+    customer_id: customerId,
+    business_id: getString(payload, "company") ? "customer_business_from_intake" : undefined,
+    workspace_id: "catguard_forms_public_intake",
+    project_id: "quote_intake",
+    payload: buildReceiptSafePayload(payload, orderId),
+    payload_redaction_class: "metadata_only",
+    security_class: "internal",
+    retention_class: "business_record",
+    source_refs: [{ id: requestRef, type: "api_request", customer_id: customerId, workspace_id: "catguard_forms_public_intake" }],
+    evidence_refs: [{ id: orderId, type: "orders_table_row", customer_id: customerId, workspace_id: "catguard_forms_public_intake" }],
+    customer_refs: [{ id: customerId, type: "customer", customer_id: customerId, workspace_id: "catguard_forms_public_intake" }],
+    form_refs: [{ id: QUOTE_INTAKE_FORM_ID, type: "form", workspace_id: "catguard_forms_public_intake" }],
+    submission_refs: [{ id: orderId, type: "order_submission", customer_id: customerId, workspace_id: "catguard_forms_public_intake" }],
+    validation_refs: [{ id: "quote_intake_payload_validation", type: "server_validation" }],
+    module_name: "api.quote-intake",
+    summary: "Quote intake submission completed and persisted with redacted receipt metadata.",
+    requires_source_ref: true,
+  };
+}
+
 function getSupabaseAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -230,12 +278,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const trustnetVault = emitCatGuardFormActionWithReceiptAndLineage(
+      buildQuoteIntakeReceiptContext(payload, customerId, createdOrder.id as string)
+    );
+
+    if (!trustnetVault.ok) {
+      return NextResponse.json(
+        { ok: false, errors: [trustnetVault.blocked_reason], trustnet_vault: trustnetVault },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: true,
         customer_id: customerId,
         order_id: createdOrder.id,
         status: createdOrder.status || "pending",
+        trustnet_receipt: {
+          receipt_id: trustnetVault.receipt.receipt_id,
+          event_id: trustnetVault.receipt.event_id,
+          event_type: trustnetVault.receipt.event_type,
+          payload_hash: trustnetVault.receipt.payload_hash,
+          receipt_hash: trustnetVault.receipt.receipt_hash,
+          policy_result: trustnetVault.receipt.policy_result,
+          vault_lineage_refs: trustnetVault.receipt.vault_lineage_refs,
+        },
+        vault_lineage: {
+          lineage_id: trustnetVault.lineage.lineage_id,
+          action_id: trustnetVault.lineage.action_id,
+          receipt_id: trustnetVault.lineage.receipt_id,
+          trustnet_receipt_refs: trustnetVault.lineage.trustnet_receipt_refs,
+          redaction_class: trustnetVault.lineage.redaction_class,
+          retention_class: trustnetVault.lineage.retention_class,
+        },
         errors: [],
       },
       { status: 201 }
