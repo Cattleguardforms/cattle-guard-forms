@@ -6,6 +6,12 @@ import {
   emitCatGuardFormActionWithReceiptAndLineage,
   hashPayload,
 } from '../src/lib/catguard-trustnet-vault/index.mjs';
+import {
+  assertPersistableIntegratedResult,
+  persistCatGuardReceiptAndLineage,
+  toLineageInsert,
+  toReceiptInsert,
+} from '../src/lib/catguard-trustnet-vault/persistence.mjs';
 
 const baseContext = {
   event_type: 'catguard.form.created',
@@ -27,6 +33,21 @@ const baseContext = {
 
 function validContext(overrides = {}) {
   return { ...baseContext, ...overrides };
+}
+
+function fakeSupabase(errorsByTable = {}) {
+  const calls = [];
+  return {
+    calls,
+    from(table) {
+      return {
+        async insert(row) {
+          calls.push({ table, row });
+          return { error: errorsByTable[table] || null };
+        },
+      };
+    },
+  };
 }
 
 test('valid TrustNet receipt creation', () => {
@@ -164,4 +185,54 @@ test('forbidden wallet/token/mainnet/gas/custody/bridge behavior blocked', () =>
 
 test('hashPayload produces deterministic hashes', () => {
   assert.equal(hashPayload({ b: 2, a: 1 }), hashPayload({ a: 1, b: 2 }));
+});
+
+test('receipt and lineage map to persistence rows', () => {
+  const result = emitCatGuardFormActionWithReceiptAndLineage(validContext());
+  const receiptRow = toReceiptInsert(result.receipt);
+  const lineageRow = toLineageInsert(result.lineage);
+  assert.equal(receiptRow.receipt_id, result.receipt.receipt_id);
+  assert.equal(lineageRow.receipt_id, result.receipt.receipt_id);
+  assert.equal(receiptRow.payload_hash.startsWith('sha256:'), true);
+  assert.equal(lineageRow.payload_hash, receiptRow.payload_hash);
+});
+
+test('persistable integrated result requires receipt-lineage link', () => {
+  const result = emitCatGuardFormActionWithReceiptAndLineage(validContext());
+  const broken = {
+    ...result,
+    lineage: { ...result.lineage, trustnet_receipt_refs: [] },
+  };
+  const check = assertPersistableIntegratedResult(broken);
+  assert.equal(check.ok, false);
+  assert.match(check.error, /trustnet_receipt_refs/);
+});
+
+test('persisting receipt and lineage inserts both rows in order', async () => {
+  const result = emitCatGuardFormActionWithReceiptAndLineage(validContext());
+  const supabase = fakeSupabase();
+  const persisted = await persistCatGuardReceiptAndLineage(supabase, result);
+  assert.equal(persisted.ok, true);
+  assert.deepEqual(supabase.calls.map((call) => call.table), [
+    'catguard_trustnet_receipts',
+    'catguard_vault_lineage_records',
+  ]);
+  assert.equal(supabase.calls[1].row.receipt_id, supabase.calls[0].row.receipt_id);
+});
+
+test('receipt persistence failure fails closed before lineage insert', async () => {
+  const result = emitCatGuardFormActionWithReceiptAndLineage(validContext());
+  const supabase = fakeSupabase({ catguard_trustnet_receipts: { message: 'missing receipt table' } });
+  const persisted = await persistCatGuardReceiptAndLineage(supabase, result);
+  assert.equal(persisted.ok, false);
+  assert.match(persisted.error, /receipt persistence failed/i);
+  assert.deepEqual(supabase.calls.map((call) => call.table), ['catguard_trustnet_receipts']);
+});
+
+test('lineage persistence failure fails closed', async () => {
+  const result = emitCatGuardFormActionWithReceiptAndLineage(validContext());
+  const supabase = fakeSupabase({ catguard_vault_lineage_records: { message: 'missing lineage table' } });
+  const persisted = await persistCatGuardReceiptAndLineage(supabase, result);
+  assert.equal(persisted.ok, false);
+  assert.match(persisted.error, /lineage persistence failed/i);
 });
