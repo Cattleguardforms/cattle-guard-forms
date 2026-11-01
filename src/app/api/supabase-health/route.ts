@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  getNeroaDatabasePublicKey,
+  getNeroaDatabaseServiceRoleKey,
+  getNeroaDatabaseUrl,
+} from "@/lib/neroa-db/env";
 
 type Blocker =
   | "missing_env"
@@ -44,25 +49,15 @@ function classifyError(error: unknown): Blocker {
   return "unknown_error";
 }
 
-async function countTable(supabase: SupabaseClient, table: "customers" | "orders") {
+async function countTable(database: SupabaseClient, table: "customers" | "orders") {
   try {
-    const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
+    const { count, error } = await database.from(table).select("*", { count: "exact", head: true });
 
     if (error) {
-      return {
-        ok: false,
-        count: null,
-        blocker: classifyError(error),
-        error: error.message,
-      };
+      return { ok: false, count: null, blocker: classifyError(error), error: error.message };
     }
 
-    return {
-      ok: true,
-      count: count ?? 0,
-      blocker: null,
-      error: null,
-    };
+    return { ok: true, count: count ?? 0, blocker: null, error: null };
   } catch (error) {
     return {
       ok: false,
@@ -74,45 +69,45 @@ async function countTable(supabase: SupabaseClient, table: "customers" | "orders
 }
 
 function chooseBlocker(blockers: Blocker[]): Blocker {
-  const first = blockers.find(Boolean);
-  return first ?? null;
+  return blockers.find(Boolean) ?? null;
 }
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseKey = publishableKey || anonKey;
+  const databaseUrl = getNeroaDatabaseUrl();
+  const databaseKey = getNeroaDatabasePublicKey();
+  const serviceRoleKey = getNeroaDatabaseServiceRoleKey();
 
   const env = {
-    hasSupabaseUrl: Boolean(supabaseUrl),
-    hasPublishableKey: Boolean(publishableKey),
-    hasAnonKey: Boolean(anonKey),
+    backend: "neroa",
+    hasDatabaseUrl: Boolean(databaseUrl),
+    hasPublicKey: Boolean(databaseKey),
     hasServiceRoleKey: Boolean(serviceRoleKey),
+    usingLegacySupabaseNames: Boolean(
+      !process.env.NEXT_PUBLIC_NEROA_DATABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_URL
+    ),
   };
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!databaseUrl || !databaseKey) {
     return NextResponse.json(
       {
         ok: false,
         blocker: "missing_env",
         env,
-        customers: { ok: false, count: null, blocker: "missing_env", error: "Missing Supabase URL or public key." },
-        orders: { ok: false, count: null, blocker: "missing_env", error: "Missing Supabase URL or public key." },
-        errors: ["Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."],
+        customers: { ok: false, count: null, blocker: "missing_env", error: "Missing Neroa database URL or public key." },
+        orders: { ok: false, count: null, blocker: "missing_env", error: "Missing Neroa database URL or public key." },
+        errors: ["Missing Neroa database configuration."],
       },
       { status: 500 }
     );
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  const database = createClient(databaseUrl, databaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   const [customers, orders] = await Promise.all([
-    countTable(supabase, "customers"),
-    countTable(supabase, "orders"),
+    countTable(database, "customers"),
+    countTable(database, "orders"),
   ]);
 
   const ok = customers.ok && orders.ok;
@@ -125,6 +120,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
+      backend: "neroa",
       blocker,
       env,
       customers,
