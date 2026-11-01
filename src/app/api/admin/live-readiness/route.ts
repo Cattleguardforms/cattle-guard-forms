@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createNeroaDatabaseAdminClient } from "@/lib/neroa-db/server";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ function getBearerToken(request: NextRequest) {
 async function requireAdmin(request: NextRequest) {
   const token = getBearerToken(request);
   if (!token) throw new Error("Missing admin session token.");
-  const supabase = createSupabaseAdminClient();
+  const supabase = createNeroaDatabaseAdminClient();
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user?.email) throw new Error("Invalid admin session.");
   const { data: profile, error: profileError } = await supabase
@@ -48,7 +48,20 @@ function envCheck(name: string, label: string, options?: { secret?: boolean; war
   };
 }
 
-async function countRows(supabase: ReturnType<typeof createSupabaseAdminClient>, table: string) {
+function envAnyCheck(names: string[], label: string, options?: { secret?: boolean; warnOnly?: boolean }): Check {
+  const configuredName = names.find((name) => Boolean(clean(process.env[name])));
+  const present = Boolean(configuredName);
+  return {
+    key: names[0],
+    label,
+    status: present ? "pass" : options?.warnOnly ? "warn" : "fail",
+    detail: present
+      ? `${configuredName} is configured${options?.secret ? "." : `: ${clean(process.env[configuredName!])}`}`
+      : `Missing database configuration. Expected one of: ${names.join(", ")}.`,
+  };
+}
+
+async function countRows(supabase: ReturnType<typeof createNeroaDatabaseAdminClient>, table: string) {
   const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
   if (error) throw new Error(`${table}: ${error.message}`);
   return count ?? 0;
@@ -82,7 +95,7 @@ function isActive(order: Row) {
   return !["delivered", "cancelled", "archived"].includes(shipment) && checkout !== "archived";
 }
 
-async function orderHealthChecks(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<Check[]> {
+async function orderHealthChecks(supabase: ReturnType<typeof createNeroaDatabaseAdminClient>): Promise<Check[]> {
   const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
   if (error) return [{ key: "orders_lookup", label: "Orders table", status: "fail", detail: error.message }];
   const orders = (data ?? []) as Row[];
@@ -98,7 +111,7 @@ async function orderHealthChecks(supabase: ReturnType<typeof createSupabaseAdmin
   ];
 }
 
-async function tableChecks(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<Check[]> {
+async function tableChecks(supabase: ReturnType<typeof createNeroaDatabaseAdminClient>): Promise<Check[]> {
   const tables = ["orders", "customers", "order_files", "crm_activity", "distributor_profiles", "pricing_settings"];
   const checks: Check[] = [];
   for (const table of tables) {
@@ -112,7 +125,7 @@ async function tableChecks(supabase: ReturnType<typeof createSupabaseAdminClient
   return checks;
 }
 
-async function pricingCheck(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<Check> {
+async function pricingCheck(supabase: ReturnType<typeof createNeroaDatabaseAdminClient>): Promise<Check> {
   const { data, error } = await supabase
     .from("pricing_settings")
     .select("setting_value")
@@ -128,10 +141,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await requireAdmin(request);
     const checks: Check[] = [
-      envCheck("NEXT_PUBLIC_SUPABASE_URL", "Supabase URL"),
-      envCheck("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "Supabase publishable key", { secret: true, warnOnly: true }),
-      envCheck("NEXT_PUBLIC_SUPABASE_ANON_KEY", "Supabase anon key", { secret: true, warnOnly: true }),
-      envCheck("SUPABASE_SERVICE_ROLE_KEY", "Supabase service role key", { secret: true }),
+      envAnyCheck(["NEXT_PUBLIC_NEROA_DATABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"], "Neroa database URL"),
+      envAnyCheck(["NEXT_PUBLIC_NEROA_DATABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"], "Neroa database publishable key", { secret: true, warnOnly: true }),
+      envAnyCheck(["NEXT_PUBLIC_NEROA_DATABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"], "Neroa database anon key", { secret: true, warnOnly: true }),
+      envAnyCheck(["NEROA_DATABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"], "Neroa database service role key", { secret: true }),
       envCheck("STRIPE_SECRET_KEY", "Stripe secret key", { secret: true }),
       envCheck("STRIPE_WEBHOOK_SECRET", "Stripe webhook secret", { secret: true }),
       envCheck("RESEND_API_KEY", "Resend email key", { secret: true }),
