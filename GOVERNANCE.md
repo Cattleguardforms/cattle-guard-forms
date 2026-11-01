@@ -16,7 +16,8 @@ Cattle Guard Forms is maintained as a secure, auditable, and user-focused SaaS c
 
 ## Security and Compliance
 - Secrets must remain in environment variables.
-- Use least-privilege API keys for Supabase and Stripe.
+- Use least-privilege credentials for Neroa, Stripe, and other service integrations.
+- Treat legacy Supabase-named environment variables as compatibility aliases only; Neroa is the canonical database name.
 - Rotate leaked credentials immediately and document incident response actions.
 
 ## Ownership
