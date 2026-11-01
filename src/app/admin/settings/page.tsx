@@ -5,7 +5,7 @@ const settings = [
   ["Distributor Roles", "Approve distributor accounts and control portal permissions.", "/admin/settings/distributor-roles"],
   ["Email Settings", "Manage support, order, manufacturer, and Resend sender settings.", "/admin/settings/email"],
   ["Stripe Settings", "Connect checkout, webhook, abandoned checkout tracking, and payment status.", "/admin/settings/stripe"],
-  ["Supabase Settings", "Manage database tables, storage buckets, auth roles, and policies.", "/admin/settings/supabase"],
+  ["Neroa Database", "Manage Neroa database tables, storage, auth roles, policies, and compatibility settings.", "/admin/settings/supabase"],
   ["Echo Shipping", "Connect Echo freight API credentials and rate display rules.", "/admin/settings/echo-shipping"],
   ["Analytics", "Configure site visit tracking, conversion events, and dashboard metrics.", "/admin/settings/analytics"],
   ["CRM Configuration", "Manage custom fields, pipelines, statuses, saved views, and automation rules.", "/admin/settings/crm"],
